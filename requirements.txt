@@ -5,8 +5,8 @@ uvicorn==0.24.0.post1
 typing-extensions==4.5.0
 pydantic==1.10.13
 pdf2image==1.16.3
-llama_index==0.9.8
-deeplake==3.8.12
+llama_index>=0.9.8
+deeplake>=3.8.12
 langchain==0.0.350
 cohere==4.37
 openai>=0.27.0
