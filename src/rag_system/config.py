@@ -37,7 +37,7 @@ class PDFParsingConfig(BaseModel):
 class VectorStoreConfig(BaseModel):
     """Configuration for vector store (DeepLake)."""
 
-    dataset_path: str = Field(..., description="DeepLake dataset path (hub://org/dataset)")
+    dataset_path: Optional[str] = Field(default=None, description="DeepLake dataset path (hub://org/dataset)")
     runtime_type: str = Field(default="tensor_db", description="DeepLake runtime type")
     read_only: bool = Field(default=False, description="Read-only mode")
     overwrite: bool = Field(default=False, description="Overwrite existing dataset")
@@ -82,8 +82,8 @@ class Config(BaseSettings):
     """Main configuration for the RAG system."""
 
     # API Keys (required)
-    openai_api_key: SecretStr = Field(
-        ..., description="OpenAI API key", alias="OPENAI_API_KEY"
+    openai_api_key: Optional[SecretStr] = Field(
+        None, description="OpenAI API key", alias="OPENAI_API_KEY"
     )
     activeloop_token: Optional[SecretStr] = Field(
         None, description="Activeloop token", alias="ACTIVELOOP_TOKEN"
