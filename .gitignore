@@ -1,158 +1,55 @@
-# Byte-compiled / optimized / DLL files
+# ─────────────────────────────────────────────────────────────────────────────
+# RAG Financial Multimodal — .gitignore
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
 *.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+MANIFEST
+pip-log.txt
 
-# Ignore Python virtual environments
-venv311/
-.venv311/
+# ── Virtual environments ──────────────────────────────────────────────────────
+.venv/
+.venv*/
+venv/
 env/
 ENV/
-..pytest_cache/
 
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
+# ── Testing & Coverage ────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
 htmlcov/
 .tox/
 .nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
 .hypothesis/
-.pytest_cache/
-.pytest/
 
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Flask stuff:
-instance/
-.webassets-cache
-
-# Scrapy stuff:
-.scrapy
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-target/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-*.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
-
-# pyenv
-.python-version
-
-# pipenv
-Pipfile.lock
-
-# PEP 582
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
-.env
-.env.local
-.env.*.local
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-.venv*/
-.venv311/
-.venv312/
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
+# ── Type checking ─────────────────────────────────────────────────────────────
 .mypy_cache/
 .dmypy.json
-dmypy.json
-
-# Pyre type checker
 .pyre/
 
-# IDE / Editor files
+# ── IDEs ──────────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-.DS_Store
 .project
 .pydevproject
 .settings/
 *.sublime-project
 *.sublime-workspace
-.vscode-settings/
-.editorconfig
-Thumbs.db
 
-# OS
+# ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 .AppleDouble
@@ -163,117 +60,76 @@ Thumbs.db
 ehthumbs.db
 desktop.ini
 
-# Machine Learning & Data Science
-*.pt
-*.pth
+# ── Secrets & credentials — NEVER COMMIT ─────────────────────────────────────
+.env
+.env.local
+.env.*.local
+.env.secret
+*.key
+*.pem
+secrets/
+.secrets/
+credentials.json
+auth.json
+token
+tokens
+service_account.json
+
+# ── Data & model artifacts ────────────────────────────────────────────────────
+data/
 *.pkl
 *.pickle
-*.model
-*.h5
-*.joblib
 *.npy
 *.npz
+*.pt
+*.pth
+*.h5
 *.onnx
-checkpoint/
-checkpoints/
-models/
-weights/
+*.joblib
 *.ckpt
-runs/
-lightning_logs/
-wandb/
-mlruns/
-.wandb/
+*.avif
+*.bin
 
-# Data files
-data/
-datasets/
-*.csv
-*.parquet
-*.feather
-*.tfrecord
-*.hdf5
-*.zarr
-
-# Deep Learning frameworks
-.cache/
-.torch/
-tensorflow/
-*.pb
-
-# Vector DB & Search
+# ── Vector stores ─────────────────────────────────────────────────────────────
 .deeplake/
 chroma_db/
 vectorstore/
 *.index
 *.faiss
 
-# Results & Reports
-results/
-reports/
-eval_report.json
-eval_results/
-metrics/
-output/
-outputs/
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
 
-# Temporary files
+# ── Logs & audit ─────────────────────────────────────────────────────────────
+logs/
+audit_logs/
+*.log
+
+# ── Eval artifacts ────────────────────────────────────────────────────────────
+evals/history.json
+evals/ci_report.json
+evals/eval_results/
+
+# ── Build / packaging ─────────────────────────────────────────────────────────
+*.whl
+*.tar.gz
+site/
+__pypackages__/
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+docker-compose.override.yml
+
+# ── Monitoring ───────────────────────────────────────────────────────────────
+prometheus_data/
+grafana_data/
+
+# ── Temp ─────────────────────────────────────────────────────────────────────
 *.tmp
 *.temp
 *.bak
-*.backup
-.tmp/
 tmp/
 
-# Docker
-.dockerignore
-docker-compose.override.yml
-
-# Local development
-local.py
-config.local.py
-secrets.json
-.secrets/
-credentials.json
-
-# API Keys & Secrets (never commit these!)
-.env.secret
-*.key
-*.pem
-secrets/
-.credentials/
-token
-tokens
-auth.json
-
-# Build artifacts
-*.whl
-*.tar.gz
-*.zip
-
-# Package installer
-.pip-requirements.lock
-
-# Environment-specific files
-.venv.local
-.env.development
-.env.production
-.env.test
-
-# Pre-commit
-.pre-commit-config.yaml.lock
-
-# Node (if using frontend tools)
+# ── Node (frontend tooling) ───────────────────────────────────────────────────
 node_modules/
 package-lock.json
-yarn.lock
-npm-debug.log
-
-# Misc
-*.orig
-.AppleDouble
-.LSOverride
-*.manifest
-*.mo
-*.pot
-*.spec
