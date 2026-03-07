@@ -1,271 +1,102 @@
-"""Evaluation framework for RAG system quality metrics."""
+"""Evaluation runner — RAGAS + LLM-as-judge + CI regression gate.
 
+Usage:
+    python -m evals.run_evals --dataset evals/golden_datasets/financial_qa.jsonl
+    python -m evals.run_evals --fail-on-regression
+
+Exit codes:
+    0  — all evals passed, no regression
+    1  — quality regression detected (fails CI gate)
+    2  — eval run error
+"""
+from __future__ import annotations
+
+import argparse
 import asyncio
 import json
-import time
-from datetime import datetime
-from typing import Dict, List, Any, Optional
+import sys
+from pathlib import Path
 
-from src.rag_system.pipeline import create_pipeline
-from src.rag_system.utils.logger import get_logger, setup_logging
+import structlog
 
-logger = get_logger(__name__)
+logger = structlog.get_logger(__name__)
 
 
-class RAGEvaluator:
-    """Evaluates RAG system performance and quality."""
+async def _run(args):
+    from src.rag_system.pipeline import create_pipeline
+    from src.rag_system.components.evaluator import RagasEvaluator, GoldenDatasetRunner
 
-    def __init__(self):
-        """Initialize evaluator."""
-        self.results: Dict[str, Any] = {
-            "timestamp": datetime.now().isoformat(),
-            "metrics": {},
-            "tests": [],
-        }
+    pipeline = await create_pipeline()
+    evaluator = RagasEvaluator()
+    runner = GoldenDatasetRunner(
+        pipeline=pipeline,
+        evaluator=evaluator,
+        golden_dataset_path=args.dataset,
+        regression_threshold=args.regression_threshold,
+        history_path="evals/history.json",
+    )
 
-    async def evaluate_config_validation(self) -> Dict[str, Any]:
-        """Evaluate configuration validation."""
-        logger.info("Running config validation test")
-        test_result = {
-            "name": "configuration_validation",
-            "status": "pass",
-            "details": {},
-        }
+    report = await runner.run(tenant_id="eval")
 
-        try:
-            from src.rag_system.config import get_config
-
-            config = get_config()
-            test_result["details"]["environment"] = config.environment
-            test_result["details"]["debug_mode"] = config.is_debug
-            test_result["details"]["is_production"] = config.is_production
-
-        except Exception as e:
-            test_result["status"] = "fail"
-            test_result["details"]["error"] = str(e)
-            logger.error(f"Config validation failed: {str(e)}")
-
-        return test_result
-
-    async def evaluate_component_initialization(self) -> Dict[str, Any]:
-        """Evaluate component initialization."""
-        logger.info("Running component initialization test")
-        test_result = {
-            "name": "component_initialization",
-            "status": "pass",
-            "details": {
-                "components": {},
-            },
-        }
-
-        try:
-            from src.rag_system.components import PDFParser, VisionProcessor, VectorIndexer
-
-            # Test PDF Parser
-            try:
-                parser = PDFParser()
-                test_result["details"]["components"]["pdf_parser"] = "initialized"
-            except Exception as e:
-                test_result["status"] = "fail"
-                test_result["details"]["components"]["pdf_parser"] = f"failed: {str(e)}"
-
-            # Test Vision Processor
-            try:
-                processor = VisionProcessor()
-                test_result["details"]["components"]["vision_processor"] = "initialized"
-            except Exception as e:
-                test_result["status"] = "fail"
-                test_result["details"]["components"]["vision_processor"] = f"failed: {str(e)}"
-
-            # Test Vector Indexer
-            try:
-                indexer = VectorIndexer()
-                test_result["details"]["components"]["vector_indexer"] = "initialized"
-            except Exception as e:
-                test_result["status"] = "fail"
-                test_result["details"]["components"]["vector_indexer"] = f"failed: {str(e)}"
-
-        except Exception as e:
-            test_result["status"] = "fail"
-            test_result["details"]["error"] = str(e)
-            logger.error(f"Component initialization test failed: {str(e)}")
-
-        return test_result
-
-    async def evaluate_logging(self) -> Dict[str, Any]:
-        """Evaluate logging infrastructure."""
-        logger.info("Running logging infrastructure test")
-        test_result = {
-            "name": "logging_infrastructure",
-            "status": "pass",
-            "details": {},
-        }
-
-        try:
-            from src.rag_system.utils.logger import get_logger
-
-            test_logger = get_logger("test_logger")
-            test_logger.info("Test log message", test_key="test_value")
-            test_result["details"]["logger_created"] = True
-
-        except Exception as e:
-            test_result["status"] = "fail"
-            test_result["details"]["error"] = str(e)
-
-        return test_result
-
-    async def evaluate_exceptions(self) -> Dict[str, Any]:
-        """Evaluate custom exception handling."""
-        logger.info("Running exception handling test")
-        test_result = {
-            "name": "exception_handling",
-            "status": "pass",
-            "details": {"exceptions_tested": []},
-        }
-
-        try:
-            from src.rag_system.utils.exceptions import (
-                RAGException,
-                PDFParsingError,
-                VisionParsingError,
-                VectorStorageError,
-                APIRateLimitError,
-            )
-
-            exceptions_to_test = [
-                ("RAGException", RAGException("test", code="TEST")),
-                ("PDFParsingError", PDFParsingError("test", file_path="test.pdf")),
-                ("VisionParsingError", VisionParsingError("test", image_path="test.png")),
-                ("VectorStorageError", VectorStorageError("test", dataset_path="hub://test")),
-                ("APIRateLimitError", APIRateLimitError("test", retry_after=60)),
-            ]
-
-            for exc_name, exc_instance in exceptions_to_test:
-                try:
-                    raise exc_instance
-                except RAGException as e:
-                    test_result["details"]["exceptions_tested"].append({
-                        "name": exc_name,
-                        "code": e.code,
-                        "status": "ok",
-                    })
-
-        except Exception as e:
-            test_result["status"] = "fail"
-            test_result["details"]["error"] = str(e)
-
-        return test_result
-
-    async def evaluate_rate_limiting(self) -> Dict[str, Any]:
-        """Evaluate rate limiting functionality."""
-        logger.info("Running rate limiting test")
-        test_result = {
-            "name": "rate_limiting",
-            "status": "pass",
-            "details": {},
-        }
-
-        try:
-            from src.rag_system.utils.rate_limiter import AsyncRateLimiter
-
-            limiter = AsyncRateLimiter(requests_per_second=10.0, burst_size=5)
-
-            # Test acquiring tokens
-            start = time.time()
-            await limiter.acquire()
-            elapsed = time.time() - start
-
-            test_result["details"]["initial_acquisition_time"] = round(elapsed, 3)
-            test_result["details"]["rate_limiter_stats"] = limiter.get_stats()
-
-        except Exception as e:
-            test_result["status"] = "fail"
-            test_result["details"]["error"] = str(e)
-
-        return test_result
-
-    async def evaluate_retry_policy(self) -> Dict[str, Any]:
-        """Evaluate retry policy."""
-        logger.info("Running retry policy test")
-        test_result = {
-            "name": "retry_policy",
-            "status": "pass",
-            "details": {},
-        }
-
-        try:
-            from src.rag_system.utils.retry_policy import RetryPolicy
-
-            policy = RetryPolicy(max_attempts=3, base_delay_seconds=0.1)
-
-            # Test delay calculation
-            delays = [policy.get_delay(i) for i in range(3)]
-            test_result["details"]["calculated_delays"] = [round(d, 3) for d in delays]
-            test_result["details"]["delays_increase"] = delays[0] < delays[1] < delays[2]
-
-        except Exception as e:
-            test_result["status"] = "fail"
-            test_result["details"]["error"] = str(e)
-
-        return test_result
-
-    async def run_all_tests(self) -> Dict[str, Any]:
-        """Run all evaluation tests."""
-        logger.info("Starting comprehensive evaluation suite")
-
-        tests = [
-            self.evaluate_config_validation(),
-            self.evaluate_component_initialization(),
-            self.evaluate_logging(),
-            self.evaluate_exceptions(),
-            self.evaluate_rate_limiting(),
-            self.evaluate_retry_policy(),
-        ]
-
-        results = await asyncio.gather(*tests)
-        self.results["tests"] = results
-
-        # Calculate summary metrics
-        passed = sum(1 for r in results if r["status"] == "pass")
-        failed = sum(1 for r in results if r["status"] == "fail")
-
-        self.results["metrics"]["total_tests"] = len(results)
-        self.results["metrics"]["passed_tests"] = passed
-        self.results["metrics"]["failed_tests"] = failed
-        self.results["metrics"]["pass_rate"] = round(passed / len(results) * 100, 2) if results else 0
-
-        return self.results
-
-    def save_report(self, output_path: str = "eval_report.json") -> None:
-        """Save evaluation report to file."""
-        try:
-            with open(output_path, "w") as f:
-                json.dump(self.results, f, indent=2)
-            logger.info(f"Evaluation report saved to {output_path}")
-        except Exception as e:
-            logger.error(f"Failed to save evaluation report: {str(e)}")
-
-
-async def main():
-    """Run evaluation suite."""
-    setup_logging(level="INFO", format_type="json")
-
-    evaluator = RAGEvaluator()
-    results = await evaluator.run_all_tests()
-
-    # Print summary
+    # Console output
     print("\n" + "=" * 60)
     print("EVALUATION REPORT")
     print("=" * 60)
-    print(f"Total Tests: {results['metrics']['total_tests']}")
-    print(f"Passed: {results['metrics']['passed_tests']}")
-    print(f"Failed: {results['metrics']['failed_tests']}")
-    print(f"Pass Rate: {results['metrics']['pass_rate']}%")
-    print("=" * 60 + "\n")
+    print(f"Run ID:              {report.run_id}")
+    print(f"Timestamp:           {report.timestamp}")
+    print(f"Samples:             {report.num_samples}")
+    print(f"Pass Rate:           {report.pass_rate:.1%}")
+    print(f"Avg Faithfulness:    {report.avg_faithfulness:.3f}")
+    print(f"Avg Answer Relevancy:{report.avg_answer_relevancy:.3f}")
+    print(f"Avg Numeric Accuracy:{report.avg_numeric_accuracy:.3f}")
+    print(f"Avg Latency:         {report.avg_latency_ms:.0f}ms")
+    print(f"Total Cost:          ${report.total_cost_usd:.4f}")
+    print(f"Regression Detected: {'YES ⚠' if report.regression_detected else 'No ✅'}")
+    print("=" * 60)
 
-    # Save report
-    evaluator.save_report("evals/eval_report.json")
+    # Per-sample failures
+    failures = [r for r in report.results if not r.passed]
+    if failures:
+        print(f"\nFailed samples ({len(failures)}):")
+        for r in failures[:5]:
+            print(f"  Q: {r.question[:80]}")
+            print(f"     faithfulness={r.faithfulness:.2f}, numeric_accuracy={r.numeric_accuracy:.2f}")
+
+    # Save JSON report
+    if args.output:
+        Path(args.output).write_text(json.dumps({
+            "run_id": report.run_id,
+            "pass_rate": report.pass_rate,
+            "avg_faithfulness": report.avg_faithfulness,
+            "avg_numeric_accuracy": report.avg_numeric_accuracy,
+            "regression_detected": report.regression_detected,
+            "num_samples": report.num_samples,
+        }, indent=2))
+        print(f"\nReport written to {args.output}")
+
+    return report
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Run RAG quality evaluations")
+    parser.add_argument("--dataset", default="evals/golden_datasets/financial_qa.jsonl")
+    parser.add_argument("--output", default=None, help="Path to write JSON report")
+    parser.add_argument("--regression-threshold", type=float, default=0.05)
+    parser.add_argument("--fail-on-regression", action="store_true")
+    args = parser.parse_args()
+
+    try:
+        report = asyncio.run(_run(args))
+    except Exception as exc:
+        logger.error("eval_run_failed", error=str(exc))
+        sys.exit(2)
+
+    if args.fail_on_regression and report.regression_detected:
+        print("\n❌ CI GATE FAILED: Quality regression detected")
+        sys.exit(1)
+
+    sys.exit(0)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
