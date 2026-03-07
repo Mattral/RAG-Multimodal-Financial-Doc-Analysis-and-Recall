@@ -1,17 +1,74 @@
-unstructured[all-docs]==0.11.0
-fastapi==0.103.2
-kaleido==0.2.1
-uvicorn==0.24.0.post1
-typing-extensions==4.5.0
-pydantic==1.10.13
-pdf2image==1.16.3
-llama_index>=0.9.8
-deeplake>=3.8.12
-langchain==0.0.350
-cohere==4.37
-openai>=0.27.0
-requests
-tqdm
-Pillow
-numpy
-pandas
+# ─────────────────────────────────────────────────────────────────────────────
+# RAG Financial Multimodal v2.0 — Pinned requirements
+# Generated from pyproject.toml. For development use pyproject.toml directly.
+# For Docker/CI reproducibility use this file.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Core LLM & APIs ──────────────────────────────────────────────────────────
+openai>=1.30.0
+anthropic>=0.25.0
+httpx>=0.27.0
+tiktoken>=0.7.0
+
+# ── Vector Store & Embeddings ─────────────────────────────────────────────────
+deeplake>=3.9.0
+numpy>=1.26.0
+
+# ── PDF & Vision Processing ───────────────────────────────────────────────────
+unstructured[all-docs]>=0.14.0
+pypdf>=4.0.0
+pdf2image>=1.17.0
+Pillow>=10.3.0
+
+# ── Config & Validation ───────────────────────────────────────────────────────
+pydantic>=2.7.0
+pydantic-settings>=2.3.0
+
+# ── Web API ───────────────────────────────────────────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+
+# ── CLI ───────────────────────────────────────────────────────────────────────
+typer[all]>=0.12.0
+rich>=13.7.0
+
+# ── Observability ─────────────────────────────────────────────────────────────
+structlog>=24.1.0
+prometheus-client>=0.20.0
+opentelemetry-api>=1.24.0
+opentelemetry-sdk>=1.24.0
+opentelemetry-exporter-otlp-proto-grpc>=1.24.0
+opentelemetry-instrumentation-fastapi>=0.45b0
+opentelemetry-semantic-conventions>=0.45b0
+
+# ── Caching ───────────────────────────────────────────────────────────────────
+redis[hiredis]>=5.0.0
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+pyyaml>=6.0.1
+psutil>=5.9.0
+tqdm>=4.66.0
+pandas>=2.2.0
+
+# ── Optional: PII Redaction ───────────────────────────────────────────────────
+# presidio-analyzer>=2.2.354
+# presidio-anonymizer>=2.2.354
+
+# ── Optional: Reranking ───────────────────────────────────────────────────────
+# sentence-transformers>=3.0.0
+# cohere>=5.5.0
+
+# ── Optional: Evaluation ─────────────────────────────────────────────────────
+# ragas>=0.1.9
+# datasets>=2.19.0
+
+# ── Dev / Test (not needed in production) ─────────────────────────────────────
+# pytest>=8.2.0
+# pytest-asyncio>=0.23.0
+# pytest-cov>=5.0.0
+# pytest-mock>=3.14.0
+# black>=24.4.0
+# ruff>=0.4.0
+# mypy>=1.10.0
+# locust>=2.28.0
