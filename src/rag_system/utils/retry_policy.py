@@ -1,193 +1,174 @@
-"""Retry logic with exponential backoff and jitter."""
+"""Production retry policy: exponential backoff with full jitter, tenacity integration.
+
+Strategy: Full Jitter (AWS-recommended) — sleep = random(0, min(cap, base * 2^attempt))
+Reference: https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
+"""
+from __future__ import annotations
 
 import asyncio
+import functools
 import random
-from typing import Awaitable, Callable, Optional, TypeVar, Any
 import time
+from typing import Any, Awaitable, Callable, Optional, Sequence, Tuple, Type, TypeVar
 
-from src.rag_system.utils.logger import get_logger
-from src.rag_system.utils.exceptions import RetryableError, APIRateLimitError
+import structlog
 
+from src.rag_system.utils.exceptions import (
+    APIRateLimitError, APITimeoutError, MaxRetriesExceededError,
+    RetryableError, is_retryable,
+)
+
+logger = structlog.get_logger(__name__)
 T = TypeVar("T")
-logger = get_logger(__name__)
+
+_RETRYABLE_HTTP_CODES = {429, 500, 502, 503, 504}
 
 
 class RetryPolicy:
-    """Exponential backoff retry policy with jitter."""
+    """Full-jitter exponential backoff retry policy.
+
+    Args:
+        max_attempts: Total attempts including first try.
+        base_delay: Base delay in seconds.
+        cap_delay: Maximum delay ceiling in seconds.
+        backoff_factor: Multiplier per attempt (default 2 → doubles each time).
+        retryable_exceptions: Exception types that trigger retry.
+        on_retry: Optional async callback(attempt, exception, delay).
+    """
 
     def __init__(
         self,
         max_attempts: int = 3,
-        base_delay_seconds: float = 1.0,
-        max_delay_seconds: float = 60.0,
+        base_delay: float = 1.0,
+        cap_delay: float = 60.0,
         backoff_factor: float = 2.0,
-        jitter_factor: float = 0.1,
-    ):
-        """
-        Initialize retry policy.
-
-        Args:
-            max_attempts: Maximum number of retry attempts.
-            base_delay_seconds: Initial delay between retries.
-            max_delay_seconds: Maximum delay between retries.
-            backoff_factor: Factor to multiply delay by after each retry.
-            jitter_factor: Factor for random jitter (0.0 to 1.0).
-        """
+        retryable_exceptions: Optional[Tuple[Type[Exception], ...]] = None,
+        on_retry: Optional[Callable[..., Awaitable[None]]] = None,
+    ) -> None:
         self.max_attempts = max_attempts
-        self.base_delay_seconds = base_delay_seconds
-        self.max_delay_seconds = max_delay_seconds
+        self.base_delay = base_delay
+        self.cap_delay = cap_delay
         self.backoff_factor = backoff_factor
-        self.jitter_factor = jitter_factor
+        self.retryable_exceptions = retryable_exceptions or (
+            RetryableError, APIRateLimitError, APITimeoutError,
+            asyncio.TimeoutError, ConnectionError, OSError,
+        )
+        self.on_retry = on_retry
 
     def get_delay(self, attempt: int) -> float:
-        """
-        Calculate delay for a given attempt number with exponential backoff and jitter.
+        """Full jitter: sleep = random(0, min(cap, base * factor^attempt))."""
+        ceiling = min(self.cap_delay, self.base_delay * (self.backoff_factor ** attempt))
+        return random.uniform(0, ceiling)
 
-        Args:
-            attempt: The current attempt number (0-indexed).
-
-        Returns:
-            float: Delay in seconds.
-        """
-        delay = self.base_delay_seconds * (self.backoff_factor ** attempt)
-        delay = min(delay, self.max_delay_seconds)
-        jitter = random.uniform(0, delay * self.jitter_factor)
-        return delay + jitter
-
-    async def execute_async(
+    async def execute(
         self,
         coro_func: Callable[..., Awaitable[T]],
         *args: Any,
         **kwargs: Any,
     ) -> T:
-        """
-        Execute an async function with retry logic.
-
-        Args:
-            coro_func: Async function to execute.
-            *args: Positional arguments for the function.
-            **kwargs: Keyword arguments for the function.
-
-        Returns:
-            T: Result from the function.
+        """Execute async callable with retry.
 
         Raises:
-            RetryableError: If all retry attempts are exhausted.
+            MaxRetriesExceededError: After all attempts are exhausted.
+            Original exception: For non-retryable errors.
         """
-        last_exception = None
+        last_exc: Optional[Exception] = None
 
         for attempt in range(self.max_attempts):
             try:
-                logger.debug(
-                    f"Executing {coro_func.__name__}, attempt {attempt + 1}/{self.max_attempts}"
-                )
-                result = await coro_func(*args, **kwargs)
-                return result
+                return await coro_func(*args, **kwargs)
 
-            except APIRateLimitError as e:
-                last_exception = e
-                retry_after = e.details.get("retry_after_seconds", self.get_delay(attempt))
-                if attempt < self.max_attempts - 1:
-                    logger.warning(
-                        f"Rate limited on {coro_func.__name__}, retrying after {retry_after}s",
-                        retry_after=retry_after,
-                        attempt=attempt + 1,
-                    )
-                    await asyncio.sleep(retry_after)
+            except self.retryable_exceptions as exc:
+                last_exc = exc
+                if attempt >= self.max_attempts - 1:
+                    break
+
+                # Honour Retry-After header from rate limit errors
+                if isinstance(exc, APIRateLimitError):
+                    delay = float(exc.details.get("retry_after_seconds", self.get_delay(attempt)))
                 else:
-                    logger.error(
-                        f"Exhausted retries for {coro_func.__name__} due to rate limit"
-                    )
-                    raise
-
-            except (asyncio.TimeoutError, ConnectionError, OSError) as e:
-                last_exception = e
-                if attempt < self.max_attempts - 1:
                     delay = self.get_delay(attempt)
-                    logger.warning(
-                        f"Transient error on {coro_func.__name__}, retrying after {delay}s",
-                        error_type=type(e).__name__,
-                        attempt=attempt + 1,
-                    )
-                    await asyncio.sleep(delay)
-                else:
-                    logger.error(
-                        f"Exhausted retries for {coro_func.__name__} due to transient error",
-                        error_type=type(e).__name__,
-                    )
-                    raise
 
-            except Exception as e:
-                last_exception = e
+                logger.warning(
+                    "retry_triggered",
+                    func=getattr(coro_func, "__name__", "unknown"),
+                    attempt=attempt + 1,
+                    max_attempts=self.max_attempts,
+                    delay_s=round(delay, 2),
+                    error=str(exc)[:120],
+                )
+
+                if self.on_retry:
+                    await self.on_retry(attempt, exc, delay)
+
+                await asyncio.sleep(delay)
+
+            except Exception as exc:
+                # Non-retryable — propagate immediately
                 logger.error(
-                    f"Non-retryable error on {coro_func.__name__}",
-                    error_type=type(e).__name__,
+                    "non_retryable_error",
+                    func=getattr(coro_func, "__name__", "unknown"),
+                    error_type=type(exc).__name__,
+                    error=str(exc)[:200],
                 )
                 raise
 
-        # Should not reach here, but just in case
-        raise RetryableError(
-            f"Failed after {self.max_attempts} attempts",
-            details={"function": coro_func.__name__, "last_error": str(last_exception)},
+        raise MaxRetriesExceededError(
+            f"Exhausted {self.max_attempts} attempts",
+            retry_count=self.max_attempts,
+            details={"last_error": str(last_exc)[:200]},
         )
 
-    def execute(
-        self,
-        func: Callable[..., T],
-        *args: Any,
-        **kwargs: Any,
-    ) -> T:
-        """
-        Execute a sync function with retry logic.
-
-        Args:
-            func: Function to execute.
-            *args: Positional arguments for the function.
-            **kwargs: Keyword arguments for the function.
-
-        Returns:
-            T: Result from the function.
-
-        Raises:
-            RetryableError: If all retry attempts are exhausted.
-        """
-        last_exception = None
+    def execute_sync(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+        """Execute synchronous callable with retry."""
+        last_exc: Optional[Exception] = None
 
         for attempt in range(self.max_attempts):
             try:
-                logger.debug(
-                    f"Executing {func.__name__}, attempt {attempt + 1}/{self.max_attempts}"
-                )
-                result = func(*args, **kwargs)
-                return result
-
-            except (ConnectionError, OSError, TimeoutError) as e:
-                last_exception = e
-                if attempt < self.max_attempts - 1:
-                    delay = self.get_delay(attempt)
-                    logger.warning(
-                        f"Transient error on {func.__name__}, retrying after {delay}s",
-                        error_type=type(e).__name__,
-                        attempt=attempt + 1,
-                    )
-                    time.sleep(delay)
-                else:
-                    logger.error(
-                        f"Exhausted retries for {func.__name__} due to transient error",
-                        error_type=type(e).__name__,
-                    )
-                    raise
-
-            except Exception as e:
-                last_exception = e
-                logger.error(
-                    f"Non-retryable error on {func.__name__}",
-                    error_type=type(e).__name__,
-                )
+                return func(*args, **kwargs)
+            except self.retryable_exceptions as exc:
+                last_exc = exc
+                if attempt >= self.max_attempts - 1:
+                    break
+                delay = self.get_delay(attempt)
+                logger.warning("sync_retry_triggered", attempt=attempt + 1, delay_s=round(delay, 2))
+                time.sleep(delay)
+            except Exception:
                 raise
 
-        # Should not reach here, but just in case
-        raise RetryableError(
-            f"Failed after {self.max_attempts} attempts",
-            details={"function": func.__name__, "last_error": str(last_exception)},
+        raise MaxRetriesExceededError(
+            f"Exhausted {self.max_attempts} attempts",
+            retry_count=self.max_attempts,
+            details={"last_error": str(last_exc)[:200]},
         )
+
+
+def with_retry(
+    max_attempts: int = 3,
+    base_delay: float = 1.0,
+    cap_delay: float = 60.0,
+) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
+    """Decorator that wraps an async function with retry logic.
+
+    Usage::
+
+        @with_retry(max_attempts=3, base_delay=0.5)
+        async def call_openai(...):
+            ...
+    """
+    policy = RetryPolicy(max_attempts=max_attempts, base_delay=base_delay, cap_delay=cap_delay)
+
+    def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
+        @functools.wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> T:
+            return await policy.execute(func, *args, **kwargs)
+        return wrapper
+    return decorator
+
+
+# ── Default policies ──────────────────────────────────────────────────────────
+
+DEFAULT_POLICY = RetryPolicy(max_attempts=3, base_delay=1.0, cap_delay=30.0)
+VISION_POLICY = RetryPolicy(max_attempts=3, base_delay=2.0, cap_delay=60.0)
+EMBEDDING_POLICY = RetryPolicy(max_attempts=5, base_delay=0.5, cap_delay=20.0)
+STRICT_POLICY = RetryPolicy(max_attempts=1)  # No retries for guardrail-sensitive paths
