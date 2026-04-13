@@ -1,0 +1,25 @@
+{{- if .Values.persistence.data.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "rag-financial.fullname" . }}-data
+  labels:
+    {{- include "rag-financial.labels" . | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: {{ .Values.persistence.data.size }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "rag-financial.fullname" . }}-audit
+  labels:
+    {{- include "rag-financial.labels" . | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: {{ .Values.persistence.audit.size }}
+{{- end }}
