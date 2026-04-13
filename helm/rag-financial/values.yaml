@@ -1,0 +1,72 @@
+replicaCount: 2
+
+image:
+  repository: rag-financial-multimodal
+  tag: "2.0.0"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  metricsPort: 8001
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: rag-financial.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+persistence:
+  data:
+    enabled: true
+    size: 20Gi
+  audit:
+    enabled: true
+    size: 5Gi
+
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  master:
+    resources:
+      requests:
+        memory: 256Mi
+
+config:
+  environment: production
+  logLevel: INFO
+  vectorStoreProvider: deeplake
+  multiTenancyEnabled: "true"
+
+secrets:
+  openaiApiKey: ""
+  activeloopToken: ""
+  ragApiMasterKey: "change-me"
+
+serviceMonitor:
+  enabled: false
+  interval: 15s
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

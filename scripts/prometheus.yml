@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    service: rag-financial-multimodal
+    environment: local
+
+scrape_configs:
+  - job_name: rag-financial-api
+    static_configs:
+      - targets: ['rag-api:8001']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
