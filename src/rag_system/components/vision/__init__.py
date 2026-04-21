@@ -1,7 +1,16 @@
 """Vision/multimodal describer implementations.
 
-Supports: OpenAI GPT-4o, Qwen2-VL (via Together/vLLM), Gemini, Pixtral.
-All implement BaseVisionDescriber; switch via config with zero code changes.
+Providers:
+  openai      → OpenAIVisionDescriber    (GPT-4o, highest accuracy)
+  gemini      → GeminiVisionDescriber    (Gemini 2.0 Flash, cheapest cloud)
+  qwen2-vl    → Qwen2VLDescriber         (open-source, via Together.ai)
+  local_vllm  → LocalVLLMDescriber       (any HF model via vLLM, fully private)
+
+Fallback chain:
+  FallbackVisionDescriber wraps multiple providers in priority order.
+
+All implement BaseVisionDescriber — switch via config with zero code changes:
+    VISION_CONFIG__PROVIDER=gemini
 """
 from __future__ import annotations
 
@@ -53,8 +62,13 @@ class OpenAIVisionDescriber(BaseVisionDescriber):
     def name(self) -> str:
         return f"openai/{self._cfg.model}"
 
-    async def describe(self, image_path: str, source_document: str, tenant_id: Optional[str] = None) -> Optional[DocumentElement]:
-        async with async_trace_span("vision_describe", {"model": self._cfg.model, "file": Path(image_path).name}):
+    async def describe(
+        self,
+        image_path: str,
+        source_document: str,
+        tenant_id: Optional[str] = None,
+    ) -> Optional[DocumentElement]:
+        async with async_trace_span("vision_describe", {"model": self._cfg.model}):
             try:
                 cfg = get_config()
                 api_key = cfg.get_openai_key()
@@ -76,7 +90,9 @@ class OpenAIVisionDescriber(BaseVisionDescriber):
                 }
                 for attempt in range(self._cfg.retry_max_attempts):
                     try:
-                        async with httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client:
+                        async with httpx.AsyncClient(
+                            timeout=self._cfg.timeout_seconds
+                        ) as client:
                             resp = await client.post(
                                 "https://api.openai.com/v1/chat/completions",
                                 headers={"Authorization": f"Bearer {api_key}"},
@@ -86,9 +102,11 @@ class OpenAIVisionDescriber(BaseVisionDescriber):
                             data = resp.json()
                         break
                     except httpx.HTTPStatusError as exc:
-                        if exc.response.status_code == 429 and attempt < self._cfg.retry_max_attempts - 1:
-                            wait = self._cfg.retry_backoff_factor ** attempt
-                            await asyncio.sleep(wait)
+                        if (
+                            exc.response.status_code == 429
+                            and attempt < self._cfg.retry_max_attempts - 1
+                        ):
+                            await asyncio.sleep(self._cfg.retry_backoff_factor ** attempt)
                         else:
                             raise
 
@@ -111,24 +129,32 @@ class OpenAIVisionDescriber(BaseVisionDescriber):
                 )
             except Exception as exc:
                 logger.error("vision_describe_failed", image=image_path, error=str(exc))
-                # Try fallback model
-                if self._cfg.fallback_model and self._cfg.model != self._cfg.fallback_model:
-                    logger.info("vision_fallback_triggered", fallback=self._cfg.fallback_model)
                 return None
 
-    async def describe_batch(self, image_paths: List[str], source_document: str, tenant_id: Optional[str] = None) -> List[DocumentElement]:
-        sem = asyncio.Semaphore(4)  # Max 4 concurrent vision calls
+    async def describe_batch(
+        self,
+        image_paths: List[str],
+        source_document: str,
+        tenant_id: Optional[str] = None,
+    ) -> List[DocumentElement]:
+        sem = asyncio.Semaphore(4)
+
         async def _describe_with_sem(path: str) -> Optional[DocumentElement]:
             async with sem:
                 return await self.describe(path, source_document, tenant_id)
+
         results = await asyncio.gather(*[_describe_with_sem(p) for p in image_paths])
         return [r for r in results if r is not None]
 
 
 class Qwen2VLDescriber(BaseVisionDescriber):
-    """Qwen2-VL via Together.ai — open-source, 5-20x cheaper, private inference."""
+    """Qwen2-VL via Together.ai — open-source, 5–20× cheaper, private inference."""
 
-    def __init__(self, base_url: str = "https://api.together.xyz/v1", model: str = "Qwen/Qwen2-VL-72B-Instruct") -> None:
+    def __init__(
+        self,
+        base_url: str = "https://api.together.xyz/v1",
+        model: str = "Qwen/Qwen2-VL-72B-Instruct",
+    ) -> None:
         self._base_url = base_url
         self._model = model
 
@@ -136,11 +162,16 @@ class Qwen2VLDescriber(BaseVisionDescriber):
     def name(self) -> str:
         return f"qwen2vl/{self._model}"
 
-    async def describe(self, image_path: str, source_document: str, tenant_id: Optional[str] = None) -> Optional[DocumentElement]:
+    async def describe(
+        self,
+        image_path: str,
+        source_document: str,
+        tenant_id: Optional[str] = None,
+    ) -> Optional[DocumentElement]:
         import os
         api_key = os.environ.get("TOGETHER_API_KEY", "")
         if not api_key:
-            logger.warning("TOGETHER_API_KEY not set, skipping Qwen2-VL")
+            logger.warning("TOGETHER_API_KEY not set — skipping Qwen2-VL")
             return None
         try:
             image_b64 = await asyncio.to_thread(_encode_image, image_path)
@@ -151,7 +182,8 @@ class Qwen2VLDescriber(BaseVisionDescriber):
                     "role": "user",
                     "content": [
                         {"type": "text", "text": FINANCIAL_CHART_PROMPT},
-                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}"}},
+                        {"type": "image_url",
+                         "image_url": {"url": f"data:image/png;base64,{image_b64}"}},
                     ],
                 }],
             }
@@ -174,15 +206,49 @@ class Qwen2VLDescriber(BaseVisionDescriber):
             logger.error("qwen2vl_describe_failed", image=image_path, error=str(exc))
             return None
 
-    async def describe_batch(self, image_paths: List[str], source_document: str, tenant_id: Optional[str] = None) -> List[DocumentElement]:
-        results = await asyncio.gather(*[self.describe(p, source_document, tenant_id) for p in image_paths])
+    async def describe_batch(
+        self,
+        image_paths: List[str],
+        source_document: str,
+        tenant_id: Optional[str] = None,
+    ) -> List[DocumentElement]:
+        results = await asyncio.gather(
+            *[self.describe(p, source_document, tenant_id) for p in image_paths]
+        )
         return [r for r in results if r is not None]
 
 
-def build_vision_describer(provider: Optional[str] = None) -> BaseVisionDescriber:
-    """Factory: build vision describer by provider name."""
+def build_vision_describer(
+    provider: Optional[str] = None,
+    use_fallback_chain: bool = True,
+) -> BaseVisionDescriber:
+    """Factory: build vision describer by provider name.
+
+    With use_fallback_chain=True (default), wraps in FallbackVisionDescriber
+    so failures automatically try the next provider.
+    """
+    from src.rag_system.components.vision.gemini_adapter import GeminiVisionDescriber
+    from src.rag_system.components.vision.local_vllm_adapter import LocalVLLMDescriber
+    from src.rag_system.components.vision.fallback_chain import FallbackVisionDescriber
+
     cfg = get_config().vision_config
     name = provider or cfg.provider
-    if name in ("qwen2-vl", "qwen2vl"):
-        return Qwen2VLDescriber()
-    return OpenAIVisionDescriber()
+
+    _PROVIDERS = {
+        "openai": OpenAIVisionDescriber,
+        "gemini": GeminiVisionDescriber,
+        "qwen2-vl": Qwen2VLDescriber,
+        "qwen2vl": Qwen2VLDescriber,
+        "local_vllm": LocalVLLMDescriber,
+    }
+
+    primary_cls = _PROVIDERS.get(name, OpenAIVisionDescriber)
+    primary = primary_cls()
+
+    if use_fallback_chain and cfg.fallback_model:
+        # Build a simple 2-provider chain: primary → openai fallback
+        fallback = OpenAIVisionDescriber()
+        if name != "openai" and fallback.name != primary.name:
+            return FallbackVisionDescriber([primary, fallback])
+
+    return primary
