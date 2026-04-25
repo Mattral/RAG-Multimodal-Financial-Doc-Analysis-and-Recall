@@ -3,8 +3,8 @@
 > **World-class multimodal RAG system for financial document analysis.**
 > Built to production standards: async, observable, secure, multi-tenant, CI-gated.
 
-[![CI/CD](https://github.com/your-org/rag-financial-multimodal/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/rag-financial-multimodal/actions)
-[![Coverage](https://codecov.io/gh/your-org/rag-financial-multimodal/branch/main/graph/badge.svg)](https://codecov.io/gh/your-org/rag-financial-multimodal)
+[![CI/CD](https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/actions/workflows/ci.yml/badge.svg)](https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/actions)
+[![Coverage](https://codecov.io/gh/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/branch/main/graph/badge.svg)](https://codecov.io/gh/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -58,8 +58,8 @@ PDF ──► Parser ──► Layout Grouper ──► PII Redactor
 ## Quick Start (Docker — recommended)
 
 ```bash
-git clone https://github.com/your-org/rag-financial-multimodal
-cd rag-financial-multimodal
+git clone https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall
+cd RAG-Multimodal-Financial-Doc-Analysis-and-Recall
 cp .env.example .env          # fill in OPENAI_API_KEY
 docker compose up             # API on :8000, metrics on :8001
 ```
