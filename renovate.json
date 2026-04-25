@@ -1,0 +1,28 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "schedule": ["before 9am on Monday"],
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "matchDepTypes": ["devDependencies"],
+      "automerge": true
+    },
+    {
+      "matchPackageNames": ["openai", "anthropic", "pydantic", "pydantic-settings"],
+      "groupName": "core-llm-deps",
+      "automerge": false
+    },
+    {
+      "matchPackageNames": ["fastapi", "uvicorn"],
+      "groupName": "api-deps"
+    }
+  ],
+  "ignorePaths": [".venv/**", "htmlcov/**"],
+  "pip_requirements": {
+    "fileMatch": ["requirements\\.txt$"]
+  },
+  "poetry": {
+    "enabled": true
+  }
+}
