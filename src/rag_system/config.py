@@ -44,6 +44,7 @@ class VectorStoreConfig(BaseModel):
     connection_string: Optional[str] = None
     collection_name: str = "rag_financial"
     embedding_model: str = "text-embedding-3-small"
+    embedding_provider: Literal["openai", "local", "voyage", "cohere"] = "openai"
     embedding_dim: int = 1536
     enable_hybrid_search: bool = True
     enable_deep_memory: bool = False
