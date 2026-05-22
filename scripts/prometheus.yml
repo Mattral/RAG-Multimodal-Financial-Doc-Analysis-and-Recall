@@ -5,6 +5,18 @@ global:
     service: rag-financial-multimodal
     environment: local
 
+rule_files:
+  - "alerting/slo-burn-rate.yml"
+  # Note: this path is relative to /etc/prometheus/ inside the container,
+  # which is where docker-compose.yml mounts ./scripts/prometheus.yml and
+  # ./scripts/alerting/. If running Prometheus directly (not via compose),
+  # point this at the absolute path to scripts/alerting/slo-burn-rate.yml.
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
 scrape_configs:
   - job_name: rag-financial-api
     static_configs:
