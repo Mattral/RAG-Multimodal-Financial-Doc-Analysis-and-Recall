@@ -68,6 +68,67 @@ docker compose logs rag-api
 - If passed but wrong: the number appears in context but was misattributed — add more specific context
 - File a bug with the query, answer, and source document
 
+## High Error Rate
+
+> Linked from `RAGAvailabilitySLOFastBurn` / `RAGAvailabilitySLOMediumBurn`
+> alerts in `scripts/alerting/slo-burn-rate.yml`. If you were paged here,
+> work through these steps in order — they're ordered by likelihood, not
+> by severity.
+
+**1. Identify which tenant/model is failing.**
+```bash
+# Prometheus query — breaks errors down by tenant and model
+sum(rate(rag_queries_total{status="error"}[5m])) by (tenant_id, model)
+```
+A spike concentrated in one tenant usually means a quota/auth issue for
+that tenant, not a system-wide outage — check `RAGTenantQuotaNearExhaustion`
+firing around the same time.
+
+**2. Check upstream LLM/embedding provider status.**
+- OpenAI: https://status.openai.com
+- Google (Gemini): https://status.cloud.google.com
+- Anthropic: https://status.anthropic.com
+
+If the configured `LLM_CONFIG__PROVIDER` is degraded upstream, errors will
+correlate with `429`/`503` in application logs:
+```bash
+docker compose logs rag-api --since 15m | grep -E "429|503|APIRateLimitError|APITimeoutError"
+```
+
+**3. Check for a bad deploy.**
+```bash
+kubectl rollout history deploy/rag-financial -n rag-prod
+```
+If the error spike started right after a deploy, roll back:
+```bash
+kubectl rollout undo deploy/rag-financial -n rag-prod
+```
+
+**4. Check Redis (cache + rate limiter) health.**
+A Redis outage degrades gracefully for the embedding cache (cache miss, not
+an error) but can surface as errors from the rate limiter if it's configured
+to fail closed:
+```bash
+redis-cli -u $CACHE_CONFIG__REDIS_URL ping
+```
+
+**5. Check vector store connectivity.**
+```bash
+rag-financial health
+# Look for "vector_store: error: ..." in the output
+```
+
+**6. If none of the above explain it: pull a trace.**
+Every query is a root OTel span. Find a failing trace in Jaeger
+(http://localhost:16686, service=`rag-financial-multimodal`) and inspect
+which child span (parse / retrieve / generate) failed and why.
+
+**Mitigations while investigating:**
+- Temporarily disable model routing to avoid cascading into the more
+  expensive/rate-limited complex model: `LLM_CONFIG__ENABLE_MODEL_ROUTING=false`
+- If a single tenant is the source, pause it via the quota endpoint rather
+  than degrading service for everyone.
+
 ### Very high latency (>10s)
 1. Check Redis is running: `redis-cli ping`
 2. First query is always slower (model loading) — check p99 after warmup
