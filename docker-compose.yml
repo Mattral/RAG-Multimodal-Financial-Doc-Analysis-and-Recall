@@ -89,11 +89,31 @@ services:
       - "9090:9090"
     volumes:
       - ./scripts/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./scripts/alerting:/etc/prometheus/alerting:ro
       - prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.retention.time=15d"
       - "--web.enable-lifecycle"
+    networks:
+      - rag-net
+    profiles: ["observability"]
+
+  # ── Alertmanager (PagerDuty / OpsGenie routing) ──────────────────────────
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: rag-alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    environment:
+      - PAGERDUTY_INTEGRATION_KEY=${PAGERDUTY_INTEGRATION_KEY:-}
+      - OPSGENIE_API_KEY=${OPSGENIE_API_KEY:-}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+    volumes:
+      - ./scripts/alerting/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
     networks:
       - rag-net
     profiles: ["observability"]

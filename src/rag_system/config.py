@@ -101,6 +101,12 @@ class ObservabilityConfig(BaseModel):
     enable_cost_metrics: bool = True
     enable_quality_metrics: bool = True
     slo_p99_latency_ms: float = 8000.0
+    shutdown_drain_timeout_seconds: float = Field(
+        30.0, ge=0.0, le=300.0,
+        description="Max seconds to wait for in-flight requests to drain on SIGTERM "
+                    "before the process exits. Should be set lower than the K8s "
+                    "terminationGracePeriodSeconds to leave headroom for cleanup.",
+    )
     model_config = {"frozen": True}
 
 

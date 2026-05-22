@@ -130,6 +130,16 @@ if PROMETHEUS_AVAILABLE:
         "rag_active_tenants",
         "Number of currently active tenants",
     )
+    TENANT_MONTHLY_TOKENS_USED = Gauge(
+        "rag_tenant_monthly_tokens_used",
+        "Tokens consumed by a tenant in the current billing month",
+        ["tenant_id"],
+    )
+    TENANT_MONTHLY_TOKEN_QUOTA = Gauge(
+        "rag_tenant_monthly_token_quota",
+        "Configured monthly token quota for a tenant",
+        ["tenant_id"],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -289,3 +299,15 @@ def record_query(
 def record_cache_hit(cache_type: str, tenant_id: str) -> None:
     if PROMETHEUS_AVAILABLE:
         CACHE_HIT_TOTAL.labels(cache_type=cache_type, tenant_id=tenant_id).inc()
+
+
+def record_tenant_quota(tenant_id: str, tokens_used: int, monthly_quota: int) -> None:
+    """Publish current quota consumption as gauges.
+
+    Called after every cost_tracker.record() so RAGTenantQuotaNearExhaustion
+    and cost-burn-rate alerts (scripts/alerting/slo-burn-rate.yml) always see
+    fresh values rather than stale/missing series.
+    """
+    if PROMETHEUS_AVAILABLE:
+        TENANT_MONTHLY_TOKENS_USED.labels(tenant_id=tenant_id).set(tokens_used)
+        TENANT_MONTHLY_TOKEN_QUOTA.labels(tenant_id=tenant_id).set(monthly_quota)

@@ -23,8 +23,9 @@ from src.rag_system.config import get_config
 from src.rag_system.utils.audit import AuditLogger
 from src.rag_system.utils.cost_tracker import get_cost_tracker
 from src.rag_system.utils.logger import get_logger, setup_logging
+from src.rag_system.utils.semantic_cache import build_semantic_cache
 from src.rag_system.utils.telemetry import (
-    async_trace_span, record_ingest, record_query, setup_telemetry,
+    async_trace_span, record_cache_hit, record_ingest, record_query, setup_telemetry,
 )
 
 logger = get_logger(__name__)
@@ -62,6 +63,7 @@ class RAGPipeline:
         audit_logger=None,
         query_analyzer=None,
         version_manager=None,
+        semantic_cache=None,
         config=None,
     ) -> None:
         self._config = config or get_config()
@@ -84,6 +86,10 @@ class RAGPipeline:
         self._query_analyzer = query_analyzer or QueryAnalyzer()
         self._version_manager = version_manager or DocumentVersionManager()
         self._cost_tracker = get_cost_tracker()
+        self._semantic_cache = (
+            semantic_cache if semantic_cache is not None
+            else build_semantic_cache(self._config.cache_config)
+        )
 
         obs = self._config.observability_config
         setup_telemetry(
@@ -288,6 +294,35 @@ class RAGPipeline:
         effective_top_k = max(top_k, analysis.suggested_top_k)
         effective_query = analysis.rewritten_query
 
+        # Semantic cache check — skip retrieval + generation entirely on a hit.
+        # Only attempted for simple/non-PoT queries: numeric/agentic queries
+        # have answers that depend on the exact retrieved figures, which is
+        # already guaranteed fresh by retrieval, so we don't risk serving a
+        # stale calculated value from a semantically-similar but distinct query.
+        query_embedding: Optional[List[float]] = None
+        if self._semantic_cache and self._embedder and not analysis.use_pot:
+            try:
+                query_embedding = await self._embedder.embed_query(effective_query)
+                cache_result = await self._semantic_cache.get(query_embedding, tenant_id=tenant_id)
+                if cache_result.hit and cache_result.answer_payload:
+                    record_cache_hit("semantic", tenant_id=tenant_id)
+                    logger.info(
+                        "semantic_cache_served",
+                        tenant_id=tenant_id,
+                        similarity=round(cache_result.similarity, 4),
+                    )
+                    payload = dict(cache_result.answer_payload)
+                    payload["query"] = query_text
+                    payload["cache"] = {
+                        "hit": True,
+                        "matched_query": cache_result.matched_query,
+                        "similarity": round(cache_result.similarity, 4),
+                    }
+                    return payload
+            except Exception as exc:
+                logger.warning("semantic_cache_check_failed", error=str(exc))
+                query_embedding = None
+
         async with async_trace_span("query_pipeline", {
             "tenant_id": tenant_id, "intent": analysis.intent.value,
             "complexity": analysis.complexity.value,
@@ -361,7 +396,7 @@ class RAGPipeline:
                 num_chunks=len(chunks),
             )
 
-            return {
+            response_payload = {
                 "status": "success", "tenant_id": tenant_id,
                 "query": query_text,
                 "analysis": {
@@ -388,6 +423,27 @@ class RAGPipeline:
                     "num_chunks": len(chunks),
                 },
             }
+
+            # Populate semantic cache for future similar queries. Only cache
+            # clean successful answers that passed guardrails — never cache
+            # a guardrail-flagged or empty answer, since a future "similar"
+            # query would then silently inherit the same problem.
+            if (
+                self._semantic_cache and query_embedding and answer
+                and guardrail_results.get("overall_passed", True)
+            ):
+                try:
+                    cacheable_payload = {k: v for k, v in response_payload.items() if k != "answer_obj"}
+                    await self._semantic_cache.set(
+                        query_text=effective_query,
+                        query_embedding=query_embedding,
+                        answer_payload=cacheable_payload,
+                        tenant_id=tenant_id,
+                    )
+                except Exception as exc:
+                    logger.warning("semantic_cache_store_failed", error=str(exc))
+
+            return response_payload
 
     # ── DOCUMENT MANAGEMENT ───────────────────────────────────────────────────
 

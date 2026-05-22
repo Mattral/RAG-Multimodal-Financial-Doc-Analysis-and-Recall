@@ -14,6 +14,19 @@ async def k8s_liveness():
 
 @router.get("/readyz", summary="K8s readiness probe")
 async def k8s_readiness(request: Request):
+    shutdown_state = getattr(request.app.state, "shutdown", None)
+    if shutdown_state is not None and shutdown_state.is_shutting_down:
+        # Flip unready the instant shutdown begins so the Service/Ingress
+        # stops routing new traffic here within one probe interval — this
+        # is what makes connection draining effective, independent of the
+        # actual in-flight request count or pipeline health.
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "shutting_down",
+                "in_flight_requests": shutdown_state.in_flight_requests,
+            },
+        )
     pipeline = getattr(request.app.state, "pipeline", None)
     if pipeline is None:
         return JSONResponse(status_code=503, content={"status": "not_ready", "reason": "pipeline_not_initialized"})

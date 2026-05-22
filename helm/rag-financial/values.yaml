@@ -29,6 +29,26 @@ resources:
     cpu: 2000m
     memory: 4Gi
 
+# ── Graceful shutdown / zero-downtime rolling deploys ─────────────────────────
+# terminationGracePeriodSeconds must exceed preStopSleepSeconds plus the
+# app's drain timeout (OBSERVABILITY_CONFIG__SHUTDOWN_DRAIN_TIMEOUT_SECONDS,
+# default 30s in config.py) or Kubernetes will SIGKILL before draining
+# finishes.
+terminationGracePeriodSeconds: 45
+preStopSleepSeconds: 10
+
+# ── Topology spread: avoid all replicas landing on one zone/node ─────────────
+# labelSelector is derived automatically from the chart's selector labels —
+# only specify maxSkew/topologyKey/whenUnsatisfiable here. Set to [] to
+# disable if your cluster has too few nodes/zones to satisfy this.
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+
 autoscaling:
   enabled: true
   minReplicas: 2
