@@ -84,8 +84,22 @@ class CostTracker:
         return self._tenants.get(tenant_id)
 
     def check_quota(self, tenant_id: str, monthly_token_limit: int) -> bool:
-        """Return False if tenant has exceeded monthly token quota."""
+        """Return False if tenant has exceeded monthly token quota.
+
+        Also publishes current usage/quota as Prometheus gauges so
+        RAGTenantQuotaNearExhaustion (scripts/alerting/slo-burn-rate.yml)
+        always sees fresh values — this is the natural call site since
+        the pipeline invokes check_quota() at the start of every query.
+        """
         acc = self._tenants.get(tenant_id)
+        tokens_used = acc.total_tokens if acc is not None else 0
+
+        try:
+            from src.rag_system.utils.telemetry import record_tenant_quota
+            record_tenant_quota(tenant_id, tokens_used, monthly_token_limit)
+        except ImportError:
+            pass  # telemetry module optional in minimal/test environments
+
         if acc is None:
             return True
         return acc.total_tokens <= monthly_token_limit
