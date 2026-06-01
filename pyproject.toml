@@ -125,7 +125,9 @@ exclude = [
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 addopts = "--strict-markers --tb=short -v --cov=src/rag_system --cov-report=term-missing --cov-report=html"
+asyncio_mode = "auto"
 markers = [
+    "asyncio: marks tests as async (deselect with '-m \"not asyncio\"')",
     "async: marks tests as async (deselect with '-m \"not async\"')",
     "integration: marks tests as integration tests",
     "slow: marks tests as slow",
