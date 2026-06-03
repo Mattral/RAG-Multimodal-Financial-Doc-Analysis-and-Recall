@@ -86,17 +86,22 @@ ragas         = { version = "^0.1.9", optional = true }
 datasets      = { version = "^2.19.0", optional = true }
 
 [tool.poetry.extras]
+# pip install "rag-financial-multimodal[api]"
+# pip install "rag-financial-multimodal[enterprise]"
+# pip install "rag-financial-multimodal[eval]"
+# pip install "rag-financial-multimodal[graph]"
+# pip install "rag-financial-multimodal[agentic]"
+# pip install "rag-financial-multimodal[all]"
+api        = []
+enterprise = ["presidio-analyzer", "presidio-anonymizer", "sentence-transformers", "cohere"]
 pii        = ["presidio-analyzer", "presidio-anonymizer"]
 rerank     = ["sentence-transformers"]
 cohere     = ["cohere"]
 eval       = ["ragas", "datasets"]
-all        = [
-    "presidio-analyzer", "presidio-anonymizer",
-    "sentence-transformers", "cohere",
-    "ragas", "datasets",
-]
+graph      = []
+agentic    = []
+all        = ["presidio-analyzer", "presidio-anonymizer", "sentence-transformers", "cohere", "ragas", "datasets"]
 
-# ── Dev dependencies ─────────────────────────────────────────────────────────
 [tool.poetry.group.dev.dependencies]
 pytest            = "^8.2.0"
 pytest-asyncio    = "^0.23.0"
