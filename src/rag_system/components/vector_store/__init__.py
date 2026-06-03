@@ -166,12 +166,11 @@ def build_vector_store(provider: Optional[str] = None) -> BaseVectorStore:
     if name == "pgvector":
         from src.rag_system.components.vector_store.pgvector_adapter import PGVectorAdapter
         return PGVectorAdapter()
-    if name in ("qdrant", "chroma"):
-        logger.warning(
-            "vector_store_provider_not_yet_implemented",
-            provider=name,
-            fallback="deeplake",
-            detail="Qdrant/Chroma adapters are planned for v2.1 — falling back to DeepLake",
-        )
+    if name == "qdrant":
+        from src.rag_system.components.vector_store.qdrant_adapter import QdrantAdapter
+        return QdrantAdapter()
+    if name == "chroma":
+        logger.warning("chroma_not_implemented", fallback="deeplake",
+                       detail="Chroma adapter planned v2.1")
         return DeepLakeVectorStoreAdapter()
     return DeepLakeVectorStoreAdapter()
