@@ -1,231 +1,355 @@
-"""Asynchronous pipeline orchestrator for multimodal RAG."""
+"""Enterprise RAG Pipeline Orchestrator.
+
+Thin orchestration layer composing pluggable components via dependency injection:
+  Parser → Vision → Embedder → VectorStore → Retriever → Reranker → Generator → Guardrails
+
+Supports multi-tenancy, PII redaction, audit logging, cost tracking, OTel traces.
+"""
+from __future__ import annotations
 
 import asyncio
-from typing import List, Optional, Dict, Any
+import hashlib
+import time
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
+import structlog
+
+from src.rag_system.components.guardrails import FinancialGuardrails, PIIRedactor
 from src.rag_system.config import get_config
+from src.rag_system.utils.audit import AuditLogger
+from src.rag_system.utils.cost_tracker import get_cost_tracker
 from src.rag_system.utils.logger import get_logger, setup_logging
-from src.rag_system.utils.exceptions import RAGException
-from src.rag_system.components.pdf_parser import PDFParser, DocumentElement
-from src.rag_system.components.vision_processor import VisionProcessor
-from src.rag_system.components.vector_indexer import VectorIndexer
+from src.rag_system.utils.telemetry import (
+    async_trace_span,
+    record_ingest,
+    record_query,
+    setup_telemetry,
+)
 
 logger = get_logger(__name__)
 
 
+def _sha256(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()[:16]
+
+
 class RAGPipeline:
-    """Orchestrates multimodal RAG pipeline."""
+    """Enterprise-grade multimodal RAG pipeline with pluggable components.
 
-    def __init__(self):
-        """Initialize RAG pipeline."""
-        self.config = get_config()
-        setup_logging(
-            level=self.config.logging_config.level,
-            format_type=self.config.logging_config.format,
-        )
+    Usage::
 
-        self.pdf_parser = PDFParser()
-        self.vision_processor = VisionProcessor()
-        self.vector_indexer = VectorIndexer()
+        pipeline = await RAGPipeline.create()
+        await pipeline.ingest(["report.pdf"], tenant_id="acme")
+        result = await pipeline.query("What was Q3 revenue?", tenant_id="acme")
+    """
 
-        logger.info("RAG Pipeline initialized", environment=self.config.environment)
-
-    async def ingest_documents(
+    def __init__(
         self,
-        pdf_paths: List[str],
+        parser=None,
+        vision_describer=None,
+        embedder=None,
+        vector_store=None,
+        retriever=None,
+        reranker=None,
+        generator=None,
+        pii_redactor=None,
+        guardrails=None,
+        audit_logger=None,
+        config=None,
+    ) -> None:
+        self._config = config or get_config()
+        self._parser = parser
+        self._vision = vision_describer
+        self._embedder = embedder
+        self._vector_store = vector_store
+        self._retriever = retriever
+        self._reranker = reranker
+        self._generator = generator
+        self._pii_redactor = pii_redactor or PIIRedactor(
+            pii_entities=self._config.security_config.pii_entities,
+            enable_financial_patterns=self._config.security_config.enable_financial_redaction,
+        )
+        self._guardrails = guardrails or FinancialGuardrails()
+        self._audit = audit_logger or AuditLogger(
+            backend=self._config.security_config.audit_log_backend,
+            log_path=self._config.security_config.audit_log_path,
+        )
+        self._cost_tracker = get_cost_tracker()
+
+        obs = self._config.observability_config
+        setup_telemetry(
+            service_name=obs.service_name,
+            service_version=obs.service_version,
+            otlp_endpoint=obs.otlp_endpoint,
+            prometheus_port=obs.prometheus_port,
+            sampling_rate=obs.trace_sampling_rate,
+        )
+        setup_logging(
+            level=self._config.logging_config.level,
+            format_type=self._config.logging_config.format,
+        )
+        logger.info("RAGPipeline initialised", environment=self._config.environment)
+
+    @classmethod
+    async def create(cls, config=None, **kwargs) -> "RAGPipeline":
+        """Factory that wires default components from config."""
+        cfg = config or get_config()
+
+        try:
+            from src.rag_system.components.parser import UnstructuredParser
+            from src.rag_system.components.vision import OpenAIVisionDescriber
+            from src.rag_system.components.embedder import OpenAIEmbedder
+            from src.rag_system.components.vector_store import DeepLakeVectorStoreAdapter
+            from src.rag_system.components.retriever import HybridRetriever, BM25Index
+            from src.rag_system.components.reranker import build_reranker
+            from src.rag_system.components.generator import OpenAIGenerator
+
+            embedder = kwargs.get("embedder") or OpenAIEmbedder()
+            vector_store = kwargs.get("vector_store") or DeepLakeVectorStoreAdapter()
+            reranker = kwargs.get("reranker") or build_reranker(cfg.reranker_config.provider)
+            retriever = kwargs.get("retriever") or HybridRetriever(
+                vector_store=vector_store,
+                embedder=embedder,
+                reranker=reranker,
+                bm25_index=BM25Index(),
+            )
+            pipeline = cls(
+                parser=kwargs.get("parser") or UnstructuredParser(),
+                vision_describer=kwargs.get("vision_describer") or OpenAIVisionDescriber(),
+                embedder=embedder,
+                vector_store=vector_store,
+                retriever=retriever,
+                reranker=reranker,
+                generator=kwargs.get("generator") or OpenAIGenerator(),
+                config=cfg,
+            )
+        except ImportError as exc:
+            logger.warning("component_import_failed", error=str(exc), detail="Using minimal pipeline")
+            pipeline = cls(config=cfg)
+
+        if pipeline._vector_store:
+            await pipeline._vector_store.initialize()
+        return pipeline
+
+    # ------------------------------------------------------------------
+    # INGEST
+    # ------------------------------------------------------------------
+
+    async def ingest(
+        self,
+        file_paths: List[str],
+        tenant_id: Optional[str] = None,
         process_vision: bool = True,
         batch_size: Optional[int] = None,
     ) -> Dict[str, Any]:
-        """
-        Ingest and process PDF documents end-to-end.
+        """Ingest PDF documents end-to-end."""
+        tenant_id = tenant_id or self._config.multi_tenancy_config.default_tenant
+        batch_size = batch_size or self._config.batch_size
+        start = time.perf_counter()
 
-        Args:
-            pdf_paths: List of PDF file paths.
-            process_vision: Whether to process images with GPT-4V.
-            batch_size: Batch size for vision processing (default: config.batch_size).
+        async with async_trace_span("ingest_pipeline", {"tenant_id": tenant_id, "num_files": len(file_paths)}):
+            all_elements: List[Any] = []
 
-        Returns:
-            Dict[str, Any]: Ingestion results with statistics.
+            if self._parser:
+                elements = await self._parser.parse_batch(file_paths, tenant_id=tenant_id)
+                all_elements.extend(elements)
+                logger.info("parsing_complete", num_elements=len(elements))
 
-        Raises:
-            RAGException: If ingestion fails.
-        """
-        batch_size = batch_size or self.config.batch_size
+            if self._config.security_config.enable_pii_redaction:
+                all_elements = await self._redact_elements(all_elements)
 
-        try:
-            logger.info(
-                f"Starting ingestion pipeline for {len(pdf_paths)} PDFs",
-                process_vision=process_vision,
-            )
+            if process_vision and self._vision:
+                image_paths = await self._collect_images(file_paths)
+                if image_paths:
+                    vision_elements = await self._process_vision_batched(image_paths, batch_size, tenant_id)
+                    all_elements.extend(vision_elements)
 
-            # Phase 1: Parse PDFs
-            logger.info("Phase 1: Parsing PDFs")
-            pdf_elements = await self.pdf_parser.parse_multiple_pdfs(pdf_paths)
-            logger.info(f"Extracted {len(pdf_elements)} elements from PDFs")
+            if self._embedder and self._vector_store and all_elements:
+                texts = [e.text for e in all_elements]
+                embeddings = await self._embedder.embed(texts)
+                await self._vector_store.upsert(all_elements, embeddings, tenant_id=tenant_id)
 
-            all_elements = pdf_elements.copy()
-
-            # Phase 2: Process images (optional)
-            if process_vision:
-                logger.info("Phase 2: Processing images with GPT-4V")
-                image_paths = await asyncio.to_thread(
-                    self._generate_image_paths, pdf_paths
+            for fp in file_paths:
+                self._audit.log_ingest(
+                    tenant_id=tenant_id,
+                    source_doc=Path(fp).name,
+                    num_chunks=len(all_elements),
+                    doc_hash=_sha256(fp),
+                    parser=getattr(self._parser, "name", "unknown"),
                 )
 
-                if image_paths:
-                    vision_elements = await self._process_images_batched(
-                        image_paths, batch_size
-                    )
-                    all_elements.extend(vision_elements)
-                    logger.info(f"Processed {len(image_paths)} images, found {len(vision_elements)} graphs")
-                else:
-                    logger.warning("No images generated from PDFs")
-            else:
-                logger.info("Phase 2: Skipping vision processing")
+            latency_s = time.perf_counter() - start
+            record_ingest(
+                tenant_id=tenant_id,
+                parser=getattr(self._parser, "name", "unknown"),
+                status="success",
+                num_docs=len(file_paths),
+                num_chunks=len(all_elements),
+                latency_s=latency_s,
+            )
 
-            # Phase 3: Initialize vector store
-            logger.info("Phase 3: Initializing vector store")
-            await self.vector_indexer.initialize()
-
-            # Phase 4: Index documents
-            logger.info("Phase 4: Indexing documents")
-            await self.vector_indexer.index_documents(all_elements)
-
-            # Get final statistics
-            stats = await self.vector_indexer.get_dataset_stats()
-
-            results = {
+            return {
                 "status": "success",
-                "total_elements_processed": len(all_elements),
-                "pdf_elements": len(pdf_elements),
-                "vision_elements": len(all_elements) - len(pdf_elements),
-                "dataset_stats": stats,
+                "tenant_id": tenant_id,
+                "num_files": len(file_paths),
+                "num_chunks": len(all_elements),
+                "latency_s": round(latency_s, 2),
             }
 
-            logger.info("Ingestion pipeline completed successfully", results=results)
-            return results
+    async def _redact_elements(self, elements: List[Any]) -> List[Any]:
+        texts = [e.text for e in elements]
+        redacted_pairs = self._pii_redactor.redact_batch(texts)
+        result = []
+        for elem, (redacted_text, found) in zip(elements, redacted_pairs):
+            d = elem.model_dump()
+            d["text"] = redacted_text
+            d["metadata"] = {**d.get("metadata", {}), "pii_redacted": found}
+            result.append(elem.__class__(**d))
+        return result
 
-        except Exception as e:
-            logger.error(f"Ingestion pipeline failed: {str(e)}", exc_info=True)
-            raise RAGException(f"Ingestion failed: {str(e)}", details={"error": str(e)})
+    async def _collect_images(self, pdf_paths: List[str]) -> List[str]:
+        images: List[str] = []
+        for pdf_path in pdf_paths:
+            img_dir = Path(pdf_path).parent / (Path(pdf_path).stem + "_images")
+            if img_dir.exists():
+                images.extend([str(p) for p in img_dir.glob("*.png")])
+        return images
+
+    async def _process_vision_batched(self, image_paths: List[str], batch_size: int, tenant_id: str) -> List[Any]:
+        if not self._vision:
+            return []
+        results: List[Any] = []
+        for i in range(0, len(image_paths), batch_size):
+            batch = image_paths[i: i + batch_size]
+            elements = await self._vision.describe_batch(batch, "vision_batch", tenant_id)
+            results.extend(e for e in elements if e is not None)
+            if i + batch_size < len(image_paths):
+                await asyncio.sleep(0.5)
+        return results
+
+    # ------------------------------------------------------------------
+    # QUERY
+    # ------------------------------------------------------------------
 
     async def query(
         self,
         query_text: str,
+        tenant_id: Optional[str] = None,
         top_k: int = 5,
-        use_deep_memory: bool = False,
+        filters: Optional[Dict[str, Any]] = None,
+        system_prompt: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """
-        Query the indexed documents.
+        """Execute a full RAG query with retrieval, generation, and guardrails."""
+        tenant_id = tenant_id or self._config.multi_tenancy_config.default_tenant
+        start = time.perf_counter()
 
-        Args:
-            query_text: Query text.
-            top_k: Number of top results.
-            use_deep_memory: Whether to use DeepMemory feature.
+        # Quota check
+        if not self._cost_tracker.check_quota(
+            tenant_id, self._config.multi_tenancy_config.default_tokens_per_month
+        ):
+            return {"status": "error", "error": "Monthly token quota exceeded", "tenant_id": tenant_id}
 
-        Returns:
-            Dict[str, Any]: Query results.
-        """
-        try:
-            logger.info(f"Executing query", query_length=len(query_text), top_k=top_k)
+        if self._guardrails.check_prompt_injection(query_text):
+            return {"status": "error", "error": "Query blocked by safety guardrails", "tenant_id": tenant_id}
 
-            results = await self.vector_indexer.query(
-                query_text, top_k=top_k, use_deep_memory=use_deep_memory
+        async with async_trace_span("query_pipeline", {"tenant_id": tenant_id}):
+            t0 = time.perf_counter()
+            chunks: List[Any] = []
+            if self._retriever:
+                chunks = await self._retriever.retrieve(
+                    query=query_text, top_k=top_k, filters=filters, tenant_id=tenant_id
+                )
+            retrieval_latency_s = time.perf_counter() - t0
+
+            t1 = time.perf_counter()
+            answer = None
+            if self._generator and chunks:
+                answer = await self._generator.generate(
+                    query=query_text, context=chunks, tenant_id=tenant_id, system_prompt=system_prompt
+                )
+            generation_latency_s = time.perf_counter() - t1
+            total_latency_s = time.perf_counter() - start
+
+            guardrail_results: Dict[str, Any] = {}
+            if answer and self._config.security_config.enable_guardrails:
+                guardrail_results = self._guardrails.run_all_checks(
+                    query=query_text,
+                    answer=answer.answer,
+                    context_chunks=[c.text for c in chunks],
+                )
+
+            if answer:
+                self._audit.log_query(
+                    tenant_id=tenant_id,
+                    query_hash=_sha256(query_text),
+                    answer_hash=_sha256(answer.answer),
+                    sources_cited=[c.source_document for c in answer.citations],
+                    model=answer.model_used,
+                    latency_ms=total_latency_s * 1000,
+                    cost_usd=answer.estimated_cost_usd,
+                    guardrail_passed=guardrail_results.get("overall_passed", True),
+                )
+
+            record_query(
+                tenant_id=tenant_id,
+                query_mode=self._config.query_mode,
+                status="success",
+                total_latency_s=total_latency_s,
+                retrieval_latency_s=retrieval_latency_s,
+                generation_latency_s=generation_latency_s,
+                cost_usd=answer.estimated_cost_usd if answer else 0.0,
+                model=answer.model_used if answer else "none",
+                prompt_tokens=answer.prompt_tokens if answer else 0,
+                completion_tokens=answer.completion_tokens if answer else 0,
+                num_chunks=len(chunks),
             )
 
             return {
                 "status": "success",
+                "tenant_id": tenant_id,
                 "query": query_text,
-                "num_results": len(results),
-                "results": results,
+                "answer": answer.answer if answer else None,
+                "answer_obj": answer,
+                "sources": [
+                    {
+                        "document": c.source_document,
+                        "page": c.page_number,
+                        "score": c.score,
+                        "text_preview": c.text[:200],
+                    }
+                    for c in chunks
+                ],
+                "guardrails": guardrail_results,
+                "metrics": {
+                    "total_latency_ms": round(total_latency_s * 1000, 1),
+                    "retrieval_latency_ms": round(retrieval_latency_s * 1000, 1),
+                    "generation_latency_ms": round(generation_latency_s * 1000, 1),
+                    "cost_usd": answer.estimated_cost_usd if answer else 0.0,
+                    "num_chunks": len(chunks),
+                },
             }
 
-        except Exception as e:
-            logger.error(f"Query failed: {str(e)}", exc_info=True)
-            return {
-                "status": "error",
-                "query": query_text,
-                "error": str(e),
-            }
-
-    async def _process_images_batched(
-        self, image_paths: List[str], batch_size: int
-    ) -> List[DocumentElement]:
-        """Process images in batches with concurrency control."""
-        all_elements = []
-
-        for i in range(0, len(image_paths), batch_size):
-            batch = image_paths[i : i + batch_size]
-            logger.debug(f"Processing image batch {i // batch_size + 1}/{len(image_paths) // batch_size + 1}")
-
-            # Extract source document names from image paths
-            batch_elements = []
-            for image_path in batch:
-                # Infer source document name from image directory
-                source = Path(image_path).parent.name or "default"
+    async def health_check(self) -> Dict[str, Any]:
+        checks: Dict[str, str] = {}
+        for name, component in [
+            ("parser", self._parser), ("vision", self._vision),
+            ("vector_store", self._vector_store), ("retriever", self._retriever),
+            ("generator", self._generator),
+        ]:
+            if component is None:
+                checks[name] = "not_configured"
+            elif hasattr(component, "health_check"):
                 try:
-                    element = await self.vision_processor.process_image(image_path, source)
-                    if element:
-                        batch_elements.append(element)
-                except Exception as e:
-                    logger.warning(f"Failed to process image {image_path}: {str(e)}")
-
-            all_elements.extend(batch_elements)
-
-            # Respect rate limiting between batches
-            if i + batch_size < len(image_paths):
-                await asyncio.sleep(1)  # Small delay between batches
-
-        return all_elements
-
-    @staticmethod
-    def _generate_image_paths(pdf_paths: List[str]) -> List[str]:
-        """
-        Generate image paths from PDFs (placeholder for PDF-to-image conversion).
-
-        Args:
-            pdf_paths: List of PDF paths.
-
-        Returns:
-            List[str]: List of generated image paths.
-        """
-        # In a real implementation, this would convert PDFs to images
-        # For now, return empty list as images should be pre-generated
-        logger.debug("Image path generation called (would need pdf2image)")
-        return []
+                    await component.health_check()
+                    checks[name] = "ok"
+                except Exception as exc:
+                    checks[name] = f"error: {str(exc)[:80]}"
+            else:
+                checks[name] = "ok"
+        all_ok = all(v in ("ok", "not_configured") for v in checks.values())
+        return {"status": "healthy" if all_ok else "degraded", "components": checks}
 
 
-async def create_pipeline() -> RAGPipeline:
-    """
-    Factory function to create and initialize RAG pipeline.
-
-    Returns:
-        RAGPipeline: Initialized pipeline ready for use.
-    """
-    pipeline = RAGPipeline()
-    logger.info("RAG Pipeline factory created successfully")
-    return pipeline
-
-
-async def main_example():
-    """Example usage of the RAG pipeline."""
-    # This would be used in actual applications
-    try:
-        pipeline = await create_pipeline()
-
-        # Example ingestion
-        pdf_paths = ["example.pdf"]  # Replace with actual paths
-        results = await pipeline.ingest_documents(pdf_paths, process_vision=True)
-        logger.info("Ingestion completed", results=results)
-
-        # Example query
-        query_results = await pipeline.query("What are the key findings?")
-        logger.info("Query completed", results=query_results)
-
-    except Exception as e:
-        logger.error(f"Pipeline example failed: {str(e)}", exc_info=True)
-
-
-if __name__ == "__main__":
-    asyncio.run(main_example())
+async def create_pipeline(**kwargs) -> RAGPipeline:
+    return await RAGPipeline.create(**kwargs)

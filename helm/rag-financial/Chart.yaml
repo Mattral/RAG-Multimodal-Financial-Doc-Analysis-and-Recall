@@ -1,0 +1,13 @@
+apiVersion: v2
+name: rag-financial
+description: Enterprise Multimodal RAG for Financial Documents
+type: application
+version: 2.0.0
+appVersion: "2.0.0"
+keywords:
+  - rag
+  - financial
+  - multimodal
+  - llm
+maintainers:
+  - name: RAG Financial Team

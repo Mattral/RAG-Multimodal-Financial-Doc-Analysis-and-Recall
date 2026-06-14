@@ -1,0 +1,75 @@
+{
+  "__inputs": [{ "name": "DS_PROMETHEUS", "label": "Prometheus", "type": "datasource", "pluginId": "prometheus" }],
+  "title": "RAG Financial — Pipeline Overview",
+  "uid": "rag-financial-overview",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "tags": ["rag", "financial", "llm"],
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Total Queries (24h)",
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "targets": [{"expr": "increase(rag_queries_total[24h])", "legendFormat": "queries"}],
+      "options": {"colorMode": "background", "graphMode": "area"}
+    },
+    {
+      "id": 2, "type": "stat", "title": "P99 Query Latency",
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+      "targets": [{"expr": "histogram_quantile(0.99, rate(rag_query_latency_seconds_bucket[5m])) * 1000", "legendFormat": "p99 ms"}],
+      "options": {"colorMode": "background"},
+      "fieldConfig": {"defaults": {"thresholds": {"steps": [{"value": 0, "color": "green"}, {"value": 5000, "color": "yellow"}, {"value": 8000, "color": "red"}]}}}
+    },
+    {
+      "id": 3, "type": "stat", "title": "Total Cost Today (USD)",
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+      "targets": [{"expr": "increase(rag_query_cost_usd_total[24h]) + increase(rag_ingest_cost_usd_total[24h])", "legendFormat": "USD"}]
+    },
+    {
+      "id": 4, "type": "stat", "title": "Cache Hit Rate",
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+      "targets": [{"expr": "rate(rag_cache_hits_total[5m]) / (rate(rag_queries_total[5m]) + 0.001)", "legendFormat": "hit rate"}]
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Query Latency Percentiles",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "targets": [
+        {"expr": "histogram_quantile(0.50, rate(rag_query_latency_seconds_bucket[5m])) * 1000", "legendFormat": "p50"},
+        {"expr": "histogram_quantile(0.95, rate(rag_query_latency_seconds_bucket[5m])) * 1000", "legendFormat": "p95"},
+        {"expr": "histogram_quantile(0.99, rate(rag_query_latency_seconds_bucket[5m])) * 1000", "legendFormat": "p99"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ms"}}
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Query Rate by Status",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "targets": [
+        {"expr": "rate(rag_queries_total{status='success'}[5m])", "legendFormat": "success"},
+        {"expr": "rate(rag_queries_total{status='error'}[5m])", "legendFormat": "error"}
+      ]
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Hallucination Score (lower is better)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "targets": [{"expr": "histogram_quantile(0.95, rate(rag_hallucination_score_bucket[10m]))", "legendFormat": "p95 hallucination"}]
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Token Consumption by Model",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "targets": [
+        {"expr": "rate(rag_tokens_total{token_type='prompt'}[5m])", "legendFormat": "{{model}} prompt"},
+        {"expr": "rate(rag_tokens_total{token_type='completion'}[5m])", "legendFormat": "{{model}} completion"}
+      ]
+    },
+    {
+      "id": 9, "type": "barchart", "title": "Cost by Tenant (24h)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+      "targets": [{"expr": "increase(rag_query_cost_usd_total[24h])", "legendFormat": "{{tenant_id}}"}]
+    },
+    {
+      "id": 10, "type": "timeseries", "title": "Documents Ingested",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+      "targets": [{"expr": "increase(rag_ingest_documents_total[1h])", "legendFormat": "{{tenant_id}} {{status}}"}]
+    }
+  ]
+}

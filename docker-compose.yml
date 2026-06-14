@@ -1,0 +1,142 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RAG Financial Multimodal — Full Stack
+# Usage: docker compose up
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Main API ──────────────────────────────────────────────────────────────
+  rag-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: rag-financial-multimodal:latest
+    container_name: rag-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"   # API
+      - "8001:8001"   # Prometheus metrics
+    environment:
+      - ENVIRONMENT=development
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - COHERE_API_KEY=${COHERE_API_KEY:-}
+      - ACTIVELOOP_TOKEN=${ACTIVELOOP_TOKEN:-}
+      - RAG_API_MASTER_KEY=${RAG_API_MASTER_KEY:-dev-key}
+      - CACHE_CONFIG__BACKEND=redis
+      - CACHE_CONFIG__REDIS_URL=redis://redis:6379/0
+      - OBSERVABILITY_CONFIG__OTLP_ENDPOINT=http://otel-collector:4317
+      - OBSERVABILITY_CONFIG__PROMETHEUS_PORT=8001
+      - VECTOR_STORE_CONFIG__DATASET_PATH=/app/data/vectorstore/rag_financial
+      - SECURITY_CONFIG__AUDIT_LOG_PATH=/app/audit_logs
+      - LOGGING_CONFIG__LEVEL=INFO
+      - PYTHONPATH=/app
+    volumes:
+      - rag_data:/app/data
+      - audit_logs:/app/audit_logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - rag-net
+
+  # ── Redis (caching, rate limiting) ───────────────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    container_name: rag-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --save ""
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rag-net
+
+  # ── OpenTelemetry Collector ──────────────────────────────────────────────
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.96.0
+    container_name: rag-otel
+    restart: unless-stopped
+    command: ["--config=/etc/otel-config.yaml"]
+    volumes:
+      - ./scripts/otel-config.yaml:/etc/otel-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    networks:
+      - rag-net
+    profiles: ["observability"]
+
+  # ── Prometheus ────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.49.0
+    container_name: rag-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./scripts/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
+    networks:
+      - rag-net
+    profiles: ["observability"]
+
+  # ── Grafana ───────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.3.0
+    container_name: rag-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - rag-net
+    profiles: ["observability"]
+
+  # ── Jaeger (tracing UI) ───────────────────────────────────────────────────
+  jaeger:
+    image: jaegertracing/all-in-one:1.54
+    container_name: rag-jaeger
+    restart: unless-stopped
+    ports:
+      - "16686:16686"   # UI
+      - "14250:14250"   # gRPC collector
+    networks:
+      - rag-net
+    profiles: ["observability"]
+
+
+volumes:
+  rag_data:
+  audit_logs:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  rag-net:
+    driver: bridge

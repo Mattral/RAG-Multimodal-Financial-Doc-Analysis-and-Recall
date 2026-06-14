@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-financial
+  labels:
+    app: rag-financial
+spec:
+  selector:
+    app: rag-financial
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+    - name: metrics
+      port: 8001
+      targetPort: 8001
+  type: ClusterIP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: rag-financial
+  labels:
+    app: rag-financial
+spec:
+  selector:
+    matchLabels:
+      app: rag-financial
+  endpoints:
+    - port: metrics
+      interval: 15s
+      path: /metrics

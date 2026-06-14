@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rag-financial-config
+data:
+  ENVIRONMENT: "production"
+  CACHE_CONFIG__BACKEND: "redis"
+  LOGGING_CONFIG__LEVEL: "INFO"
+  LOGGING_CONFIG__FORMAT: "json"
+  VECTOR_STORE_CONFIG__PROVIDER: "deeplake"
+  VECTOR_STORE_CONFIG__DATASET_PATH: "/app/data/vectorstore/rag_financial"
+  SECURITY_CONFIG__AUDIT_LOG_PATH: "/app/audit_logs"
+  MULTI_TENANCY_CONFIG__ENABLED: "true"
+  OBSERVABILITY_CONFIG__PROMETHEUS_PORT: "8001"
