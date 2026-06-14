@@ -1,194 +1,149 @@
-"""Structured logging infrastructure with JSON output and dynamic metadata."""
+"""Enterprise structured logging via structlog with OTel trace/span injection.
+
+Processors chain:
+  add_log_level → add_logger_name → TimeStamper(ISO) → OTelContextProcessor
+  → CallsiteParameter → MemoryMetricsProcessor → JSONRenderer (prod)
+  | ConsoleRenderer (dev)
+"""
+from __future__ import annotations
 
 import logging
-import sys
-import json
-import traceback
-import psutil
 import os
-from typing import Any, Dict, Optional
-from datetime import datetime
-import uuid
+import sys
+from typing import Any, MutableMapping, Optional
 
 import structlog
+from structlog.types import EventDict, WrappedLogger
 
 
-class JSONFormatter(logging.Formatter):
-    """Custom JSON formatter for structured logging."""
+# ── Custom processors ────────────────────────────────────────────────────────
 
-    def format(self, record: logging.LogRecord) -> str:
-        """
-        Format a log record as JSON.
+class OTelContextProcessor:
+    """Inject OpenTelemetry trace_id/span_id from active span into log record."""
 
-        Args:
-            record: The log record to format.
-
-        Returns:
-            str: JSON-formatted log line.
-        """
-        log_obj: Dict[str, Any] = {
-            "timestamp": datetime.utcnow().isoformat(),
-            "level": record.levelname,
-            "logger": record.name,
-            "message": record.getMessage(),
-            "module": record.module,
-            "function": record.funcName,
-            "line": record.lineno,
-        }
-
-        # Add trace and span IDs if available
-        if hasattr(record, "trace_id"):
-            log_obj["trace_id"] = record.trace_id
-        if hasattr(record, "span_id"):
-            log_obj["span_id"] = record.span_id
-
-        # Add memory metrics
+    def __call__(self, logger: WrappedLogger, method: str, event_dict: EventDict) -> EventDict:
         try:
-            process = psutil.Process(os.getpid())
-            log_obj["memory_mb"] = round(process.memory_info().rss / 1024 / 1024, 2)
+            from opentelemetry import trace
+            span = trace.get_current_span()
+            ctx = span.get_span_context()
+            if ctx and ctx.is_valid:
+                event_dict["trace_id"] = format(ctx.trace_id, "032x")
+                event_dict["span_id"] = format(ctx.span_id, "016x")
         except Exception:
             pass
-
-        # Add exception info if present
-        if record.exc_info:
-            log_obj["exception"] = {
-                "type": record.exc_info[0].__name__,
-                "message": str(record.exc_info[1]),
-                "traceback": traceback.format_exception(*record.exc_info),
-            }
-
-        # Add extra fields
-        if hasattr(record, "extra_fields"):
-            log_obj.update(record.extra_fields)
-
-        return json.dumps(log_obj, default=str)
+        return event_dict
 
 
-class StructuredLogger:
-    """Wrapper for structured logging with dynamic context."""
+class MemoryMetricsProcessor:
+    """Inject process memory_mb into log records when enabled."""
 
-    def __init__(self, name: str, trace_id: Optional[str] = None, span_id: Optional[str] = None):
-        """
-        Initialize structured logger.
+    def __init__(self, enabled: bool = True) -> None:
+        self._enabled = enabled
 
-        Args:
-            name: Logger name.
-            trace_id: Optional trace ID for correlation.
-            span_id: Optional span ID for distributed tracing.
-        """
-        self.logger = logging.getLogger(name)
-        self.trace_id = trace_id or str(uuid.uuid4())[:8]
-        self.span_id = span_id or str(uuid.uuid4())[:8]
-        self.extra_fields: Dict[str, Any] = {}
-
-    def _make_record(self, level: int, msg: str, *args, **kwargs) -> None:
-        """Helper to inject trace/span IDs and extra fields."""
-        record = self.logger.makeRecord(
-            name=self.logger.name,
-            level=level,
-            fn="",
-            lno=0,
-            msg=msg,
-            args=args,
-            exc_info=kwargs.get("exc_info"),
-        )
-        record.trace_id = self.trace_id
-        record.span_id = self.span_id
-        if self.extra_fields:
-            record.extra_fields = self.extra_fields
-        return record
-
-    def debug(self, msg: str, **context) -> None:
-        """Log at DEBUG level with optional context."""
-        self.extra_fields = context
-        self.logger.debug(msg, extra={"trace_id": self.trace_id, "span_id": self.span_id})
-
-    def info(self, msg: str, **context) -> None:
-        """Log at INFO level with optional context."""
-        self.extra_fields = context
-        self.logger.info(msg, extra={"trace_id": self.trace_id, "span_id": self.span_id})
-
-    def warning(self, msg: str, **context) -> None:
-        """Log at WARNING level with optional context."""
-        self.extra_fields = context
-        self.logger.warning(msg, extra={"trace_id": self.trace_id, "span_id": self.span_id})
-
-    def error(self, msg: str, exc_info: bool = False, **context) -> None:
-        """Log at ERROR level with optional context."""
-        self.extra_fields = context
-        self.logger.error(
-            msg, exc_info=exc_info, extra={"trace_id": self.trace_id, "span_id": self.span_id}
-        )
-
-    def critical(self, msg: str, exc_info: bool = False, **context) -> None:
-        """Log at CRITICAL level with optional context."""
-        self.extra_fields = context
-        self.logger.critical(
-            msg, exc_info=exc_info, extra={"trace_id": self.trace_id, "span_id": self.span_id}
-        )
+    def __call__(self, logger: WrappedLogger, method: str, event_dict: EventDict) -> EventDict:
+        if not self._enabled:
+            return event_dict
+        try:
+            import psutil
+            proc = psutil.Process(os.getpid())
+            event_dict["memory_mb"] = round(proc.memory_info().rss / 1024 / 1024, 1)
+        except Exception:
+            pass
+        return event_dict
 
 
-def get_logger(
-    name: str, trace_id: Optional[str] = None, span_id: Optional[str] = None
-) -> StructuredLogger:
-    """
-    Get a structured logger instance.
+class ServiceContextProcessor:
+    """Inject static service metadata into every log record."""
 
-    Args:
-        name: Logger name (typically __name__).
-        trace_id: Optional trace ID for correlation.
-        span_id: Optional span ID for distributed tracing.
+    def __init__(self, service_name: str, service_version: str, environment: str) -> None:
+        self._ctx = {
+            "service": service_name,
+            "version": service_version,
+            "env": environment,
+        }
 
-    Returns:
-        StructuredLogger: A structured logger instance.
-    """
-    return StructuredLogger(name, trace_id=trace_id, span_id=span_id)
+    def __call__(self, logger: WrappedLogger, method: str, event_dict: EventDict) -> EventDict:
+        event_dict.update(self._ctx)
+        return event_dict
 
+
+# ── Setup ────────────────────────────────────────────────────────────────────
 
 def setup_logging(
     level: str = "INFO",
     format_type: str = "json",
     log_file: Optional[str] = None,
+    service_name: str = "rag-financial-multimodal",
+    service_version: str = "2.0.0",
+    environment: str = "development",
+    include_memory: bool = False,
 ) -> None:
-    """
-    Configure structured logging for the application.
+    """Configure structlog + stdlib logging for the application.
 
     Args:
-        level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
-        format_type: Format type ('json' or 'text').
-        log_file: Optional file path to write logs to.
+        level: Log level string (DEBUG/INFO/WARNING/ERROR/CRITICAL).
+        format_type: "json" for production, "text" for development console.
+        log_file: Optional path to write logs to (in addition to stdout).
+        service_name: Service name injected into every record.
+        service_version: Service version injected into every record.
+        environment: Environment name injected into every record.
+        include_memory: Whether to log process memory usage.
     """
-    # Configure root logger
-    root_logger = logging.getLogger()
-    root_logger.setLevel(getattr(logging, level.upper()))
+    log_level = getattr(logging, level.upper(), logging.INFO)
 
-    # Remove existing handlers
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
-
-    # Console handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(getattr(logging, level.upper()))
+    shared_processors: list[Any] = [
+        structlog.contextvars.merge_contextvars,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.ExtraAdder(),
+        structlog.processors.TimeStamper(fmt="iso", utc=True),
+        OTelContextProcessor(),
+        ServiceContextProcessor(service_name, service_version, environment),
+        MemoryMetricsProcessor(enabled=include_memory),
+        structlog.processors.StackInfoRenderer(),
+    ]
 
     if format_type == "json":
-        formatter = JSONFormatter()
+        renderer: Any = structlog.processors.JSONRenderer()
     else:
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
+        renderer = structlog.dev.ConsoleRenderer(colors=True)
 
-    console_handler.setFormatter(formatter)
-    root_logger.addHandler(console_handler)
+    structlog.configure(
+        processors=shared_processors + [
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ],
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
 
-    # File handler (if specified)
+    formatter = structlog.stdlib.ProcessorFormatter(
+        foreign_pre_chain=shared_processors,
+        processors=[
+            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            renderer,
+        ],
+    )
+
+    handlers: list[logging.Handler] = []
+
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(formatter)
+    handlers.append(stream_handler)
+
     if log_file:
         file_handler = logging.FileHandler(log_file)
-        file_handler.setLevel(getattr(logging, level.upper()))
         file_handler.setFormatter(formatter)
-        root_logger.addHandler(file_handler)
+        handlers.append(file_handler)
 
-    # Suppress verbose third-party loggers
-    logging.getLogger("unstructured").setLevel(logging.WARNING)
-    logging.getLogger("llama_index").setLevel(logging.WARNING)
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("openai").setLevel(logging.WARNING)
+    logging.basicConfig(level=log_level, handlers=handlers, force=True)
+
+    # Silence noisy third-party loggers
+    for noisy in ("unstructured", "httpx", "openai", "httpcore", "urllib3",
+                  "multipart", "PIL", "pdfminer"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
+
+
+def get_logger(name: str) -> structlog.stdlib.BoundLogger:
+    """Return a structlog BoundLogger bound to the given name."""
+    return structlog.get_logger(name)
