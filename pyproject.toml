@@ -1,107 +1,142 @@
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=1.8.0"]
 build-backend = "poetry.core.masonry.api"
 
 [project]
-name = "rag-multimodal-finance"
-version = "1.0.0"
-description = "Enterprise-grade multimodal RAG system for financial document analysis with async processing, structured logging, and observability."
+name = "rag-financial-multimodal"
+version = "2.0.0"
+description = "Enterprise-grade multimodal RAG system for financial document analysis"
 readme = "README.md"
-requires-python = ">=3.10"
-license = {text = "MIT"}
-authors = [
-    {name = "RAG Team", email = "team@example.com"},
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "RAG Financial Team", email = "team@example.com" }]
+keywords = ["rag", "financial", "multimodal", "llm", "vector-search"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
 [tool.poetry]
-name = "rag-multimodal-finance"
-version = "1.0.0"
+name = "rag-financial-multimodal"
+version = "2.0.0"
 description = "Enterprise-grade multimodal RAG system for financial document analysis"
-authors = ["Your Name <you@example.com>"]
+authors = ["RAG Financial Team <team@example.com>"]
+packages = [{ include = "rag_system", from = "src" }]
 
-packages = [
-    { include = "rag_system", from = "src" },
-]
-
+# ── Core runtime ────────────────────────────────────────────────────────────
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.11"
 
-# Core LLM & Vector DB
-llama-index = "^0.9.8"
-deeplake = "^3.8.12"
-langchain = "^0.0.350"
-openai = "^1.3.0"
-cohere = "^4.37"
+# LLM & APIs
+openai        = "^1.30.0"
+anthropic     = "^0.25.0"
+httpx         = "^0.27.0"
+tiktoken      = "^0.7.0"
+
+# Embeddings & Vector Store
+deeplake      = "^3.9.0"
+numpy         = "^1.26.0"
 
 # PDF & Vision Processing
-unstructured = {extras = ["all-docs"], version = "^0.11.0"}
-pdf2image = "^1.16.3"
-Pillow = "^10.0.0"
+unstructured  = { extras = ["all-docs"], version = "^0.14.0" }
+pypdf         = "^4.0.0"
+pdf2image     = "^1.17.0"
+Pillow        = "^10.3.0"
 
-# Web & Data Handling
-httpx = "^0.24.0"
-pydantic = "^2.0.0"
-pydantic-settings = "^2.0.0"
-requests = "^2.31.0"
+# Config & Validation
+pydantic         = "^2.7.0"
+pydantic-settings = "^2.3.0"
+
+# Web / API
+fastapi       = "^0.111.0"
+uvicorn       = { extras = ["standard"], version = "^0.30.0" }
+python-multipart = "^0.0.9"
+
+# CLI
+typer         = { extras = ["all"], version = "^0.12.0" }
+rich          = "^13.7.0"
+
+# Observability
+structlog     = "^24.1.0"
+prometheus-client = "^0.20.0"
+
+# Security
+presidio-analyzer  = { version = "^2.2.354", optional = true }
+presidio-anonymizer = { version = "^2.2.354", optional = true }
+
+# Caching
+redis         = { extras = ["hiredis"], version = "^5.0.0" }
 
 # Utilities
-tqdm = "^4.66.0"
-numpy = "^1.24.0"
-pandas = "^2.0.0"
+pyyaml        = "^6.0.1"
+psutil        = "^5.9.0"
+tqdm          = "^4.66.0"
+pandas        = "^2.2.0"
 
-# Logging & Observability
-structlog = "^23.1.0"
-python-json-logger = "^2.0.7"
+# Reranking
+sentence-transformers = { version = "^3.0.0", optional = true }
+cohere        = { version = "^5.5.0", optional = true }
 
-# API & FastAPI (for potential serving)
-fastapi = "^0.103.2"
-uvicorn = "^0.24.0"
+# Evaluation
+ragas         = { version = "^0.1.9", optional = true }
+datasets      = { version = "^2.19.0", optional = true }
 
-# System Dependencies (via apt in Docker/Colab)
-# - poppler-utils
-# - tesseract-ocr
+[tool.poetry.extras]
+pii        = ["presidio-analyzer", "presidio-anonymizer"]
+rerank     = ["sentence-transformers"]
+cohere     = ["cohere"]
+eval       = ["ragas", "datasets"]
+all        = [
+    "presidio-analyzer", "presidio-anonymizer",
+    "sentence-transformers", "cohere",
+    "ragas", "datasets",
+]
 
+# ── Dev dependencies ─────────────────────────────────────────────────────────
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.4.0"
-pytest-asyncio = "^0.21.0"
-pytest-cov = "^4.1.0"
-black = "^23.7.0"
-isort = "^5.12.0"
-mypy = "^1.4.0"
-flake8 = "^6.0.0"
-pylint = "^2.17.0"
-ruff = "^0.0.280"
+pytest            = "^8.2.0"
+pytest-asyncio    = "^0.23.0"
+pytest-cov        = "^5.0.0"
+pytest-mock       = "^3.14.0"
+pytest-timeout    = "^2.3.0"
+hypothesis        = "^6.100.0"
+black             = "^24.4.0"
+isort             = "^5.13.0"
+ruff              = "^0.4.0"
+mypy              = "^1.10.0"
+types-pyyaml      = "^6.0.12"
+types-redis       = "^4.6.0"
 
+[tool.poetry.group.load.dependencies]
+locust = "^2.28.0"
+
+[tool.poetry.scripts]
+rag-financial = "src.rag_system.cli:main_cli"
+
+# ── Tool configs ─────────────────────────────────────────────────────────────
 [tool.black]
 line-length = 100
-target-version = ["py310", "py311"]
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | _build
-  | buck-out
-  | build
-  | dist
-)/
-'''
+target-version = ["py311", "py312"]
 
 [tool.isort]
 profile = "black"
 line_length = 100
-multi_line_mode = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-use_parentheses = true
-ensure_newline_before_comments = true
-skip_gitignore = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
+ignore = ["E501", "B008", "UP007"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
+strict = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -110,31 +145,50 @@ check_untyped_defs = true
 no_implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
-warn_no_return = true
-strict_equality = true
 show_error_codes = true
-show_error_context = true
-exclude = [
-    ".git",
-    ".venv",
-    "__pycache__",
-    "tests",
-]
+exclude = ["tests/", "evals/", ".venv/"]
+
+[[tool.mypy.overrides]]
+module = ["deeplake.*", "unstructured.*", "ragas.*", "locust.*", "presidio_analyzer.*", "presidio_anonymizer.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py", "*_test.py"]
-addopts = "--strict-markers --tb=short -v --cov=src/rag_system --cov-report=term-missing --cov-report=html"
-asyncio_mode = "auto"
+testpaths       = ["tests"]
+asyncio_mode    = "auto"
+addopts         = """
+  --strict-markers
+  --tb=short
+  -v
+  --cov=src/rag_system
+  --cov-report=term-missing
+  --cov-report=html:htmlcov
+  --cov-report=xml:coverage.xml
+  --cov-fail-under=70
+"""
 markers = [
-    "asyncio: marks tests as async (deselect with '-m \"not asyncio\"')",
-    "async: marks tests as async (deselect with '-m \"not async\"')",
-    "integration: marks tests as integration tests",
-    "slow: marks tests as slow",
+    "unit: fast unit tests with no external dependencies",
+    "integration: integration tests (may use in-memory components)",
+    "slow: tests taking >5s",
+    "requires_openai: tests that need a live OpenAI key",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:pydantic.*",
+    "ignore::DeprecationWarning:langchain.*",
 ]
 
-[tool.ruff]
-line-length = 100
-target-version = "py310"
-select = ["E", "F", "W", "I", "N"]
-ignore = ["E501", "W503"]
+[tool.coverage.run]
+source    = ["src/rag_system"]
+omit      = ["*/tests/*", "*/__pycache__/*", "*/migrations/*"]
+branch    = true
+
+[tool.coverage.report]
+show_missing  = true
+skip_covered  = false
+fail_under    = 70
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abc.abstractmethod",
+]
