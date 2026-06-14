@@ -1,364 +1,251 @@
-"""
-Command-line interface for the RAG system.
+"""Enterprise CLI for the RAG Financial Multimodal system.
 
-Provides two main commands:
-- ingest <file>: Parse, process, and index documents
-- query "<prompt>": Retrieve context and generate responses
+Commands:
+  ingest   — Parse, embed, and index financial PDFs
+  query    — Retrieve and answer from indexed documents
+  evaluate — Run golden-dataset quality evals
+  serve    — Start the FastAPI server
+  health   — Check system/component health
+  version  — Show version info
 """
+from __future__ import annotations
 
 import asyncio
+import json
+import sys
 from pathlib import Path
-from typing import Optional, Annotated
+from typing import List, Optional, Annotated
 
 import typer
-import structlog
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
+from rich.table import Table
 from rich.syntax import Syntax
+import structlog
 
-from .config import get_config
-from .utils.logger import get_logger, setup_logging
-from .components.pdf_parser import PDFParser
-from .components.vision_processor import VisionProcessor
-from .components.vector_indexer import VectorIndexer
-from .components.layout_parser import LayoutParser, parse_document_layout, elements_to_markdown
-from .components.pot_executor import PoTExecutor, execute_financial_formula
-
-# ============================================================================
-# Setup
-# ============================================================================
+from src.rag_system.config import get_config
+from src.rag_system.utils.logger import setup_logging
 
 app = typer.Typer(
-    help="RAG system for multimodal financial document analysis",
+    name="rag-financial",
+    help="🏦 Enterprise Multimodal RAG for Financial Documents",
     pretty_exceptions_show_locals=False,
+    rich_markup_mode="rich",
 )
-
 console = Console()
-logger = get_logger(__name__)
+logger = structlog.get_logger(__name__)
 
 
-# ============================================================================
-# Ingest Command
-# ============================================================================
+def _version_callback(value: bool):
+    if value:
+        console.print("[bold cyan]RAG Financial Multimodal[/bold cyan] [green]v2.0.0[/green]")
+        console.print("Enterprise-grade multimodal RAG for financial document analysis")
+        raise typer.Exit()
 
+
+@app.callback()
+def main(
+    version: bool = typer.Option(None, "--version", "-v", callback=_version_callback, is_eager=True),
+):
+    pass
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# INGEST
+# ─────────────────────────────────────────────────────────────────────────────
 
 @app.command()
-async def ingest(
-    file_path: Annotated[
-        str,
-        typer.Argument(help="Path to the document to ingest"),
-    ],
-    output_dir: Annotated[
-        Optional[str],
-        typer.Option(
-            "--output", "-o",
-            help="Output directory for processed files",
-        ),
-    ] = None,
-    extract_charts: Annotated[
-        bool,
-        typer.Option(
-            "--extract-charts/--no-extract-charts",
-            help="Extract and describe charts/images",
-        ),
-    ] = True,
-    verbose: Annotated[
-        bool,
-        typer.Option(
-            "--verbose/--quiet",
-            help="Enable verbose output",
-        ),
-    ] = False,
-) -> None:
-    """
-    Ingest and process a document.
+def ingest(
+    files: Annotated[List[str], typer.Argument(help="PDF file paths to ingest")],
+    tenant: Annotated[str, typer.Option("--tenant", "-t", help="Tenant ID")] = "default",
+    no_vision: Annotated[bool, typer.Option("--no-vision", help="Skip vision/chart processing")] = False,
+    verbose: Annotated[bool, typer.Option("--verbose", help="Verbose logging")] = False,
+):
+    """📄 Ingest and index financial PDF documents."""
+    setup_logging(level="DEBUG" if verbose else "INFO", format_type="text" if verbose else "json")
 
-    Performs the following steps:
-    1. Parse the document with layout awareness
-    2. Extract and describe charts/images (if enabled)
-    3. Create layout-aware chunks
-    4. Index to vector store
-    5. Save processing report
+    missing = [f for f in files if not Path(f).exists()]
+    if missing:
+        console.print(f"[red]✗ Files not found:[/red] {missing}")
+        raise typer.Exit(1)
 
-    Example:
-        rag ingest finance_report.pdf --output ./indexed_docs --extract-charts
-    """
+    async def _run():
+        from src.rag_system.pipeline import create_pipeline
+        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
+                      BarColumn(), TimeElapsedColumn(), console=console) as prog:
+            t = prog.add_task(f"[cyan]Ingesting {len(files)} file(s)…", total=None)
+            pipeline = await create_pipeline()
+            result = await pipeline.ingest(
+                file_paths=files, tenant_id=tenant, process_vision=not no_vision
+            )
+            prog.update(t, completed=True)
+        return result
+
+    result = asyncio.run(_run())
+    table = Table(title="✅ Ingest Summary", show_header=True, header_style="bold green")
+    table.add_column("Metric"); table.add_column("Value", style="cyan")
+    table.add_row("Status", result.get("status", "?"))
+    table.add_row("Tenant", result.get("tenant_id", "?"))
+    table.add_row("Files", str(result.get("num_files", 0)))
+    table.add_row("Chunks indexed", str(result.get("num_chunks", 0)))
+    table.add_row("Latency", f"{result.get('latency_s', 0):.2f}s")
+    console.print(table)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# QUERY
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.command()
+def query(
+    question: Annotated[str, typer.Argument(help="Question to ask")],
+    tenant: Annotated[str, typer.Option("--tenant", "-t")] = "default",
+    top_k: Annotated[int, typer.Option("--top-k", "-k")] = 5,
+    show_sources: Annotated[bool, typer.Option("--show-sources", "-s")] = False,
+    json_out: Annotated[bool, typer.Option("--json", help="Output raw JSON")] = False,
+    verbose: Annotated[bool, typer.Option("--verbose")] = False,
+):
+    """🔍 Query indexed financial documents and get a grounded answer."""
+    setup_logging(level="DEBUG" if verbose else "WARNING", format_type="json")
+
+    async def _run():
+        from src.rag_system.pipeline import create_pipeline
+        with Progress(SpinnerColumn(), TextColumn("[cyan]Querying…"), console=console) as prog:
+            prog.add_task("", total=None)
+            pipeline = await create_pipeline()
+            return await pipeline.query(query_text=question, tenant_id=tenant, top_k=top_k)
+
+    result = asyncio.run(_run())
+
+    if json_out:
+        console.print(Syntax(json.dumps(result, indent=2, default=str), "json", theme="monokai"))
+        return
+
+    console.print(Panel(f"[bold]{result.get('answer', 'No answer generated')}[/bold]",
+                        title="💡 Answer", border_style="cyan"))
+
+    m = result.get("metrics", {})
+    console.print(f"[dim]Latency: {m.get('total_latency_ms', 0):.0f}ms  "
+                  f"Cost: ${m.get('cost_usd', 0):.5f}  "
+                  f"Chunks: {m.get('num_chunks', 0)}[/dim]")
+
+    if show_sources and result.get("sources"):
+        table = Table(title="📚 Sources", show_header=True, header_style="bold blue")
+        table.add_column("#"); table.add_column("Document"); table.add_column("Page")
+        table.add_column("Score", justify="right"); table.add_column("Preview")
+        for i, src in enumerate(result["sources"], 1):
+            table.add_row(str(i), src["document"], str(src.get("page") or "?"),
+                          f"{src.get('score', 0):.3f}", src.get("text_preview", "")[:60] + "…")
+        console.print(table)
+
+    guards = result.get("guardrails", {})
+    if guards and not guards.get("overall_passed", True):
+        console.print(Panel(
+            f"[yellow]⚠ Guardrail warning:[/yellow] {guards}",
+            title="Guardrails", border_style="yellow"
+        ))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# EVALUATE
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.command()
+def evaluate(
+    dataset: Annotated[str, typer.Option("--dataset", "-d")] = "evals/golden_datasets/financial_qa.jsonl",
+    tenant: Annotated[str, typer.Option("--tenant", "-t")] = "eval",
+    fail_on_regression: Annotated[bool, typer.Option("--fail-on-regression")] = True,
+    output: Annotated[Optional[str], typer.Option("--output", "-o")] = None,
+):
+    """📊 Run quality evaluation against the golden dataset."""
+    async def _run():
+        from src.rag_system.pipeline import create_pipeline
+        from src.rag_system.components.evaluator import RagasEvaluator, GoldenDatasetRunner
+        pipeline = await create_pipeline()
+        evaluator = RagasEvaluator()
+        runner = GoldenDatasetRunner(pipeline=pipeline, evaluator=evaluator, golden_dataset_path=dataset)
+        return await runner.run(tenant_id=tenant)
+
+    with Progress(SpinnerColumn(), TextColumn("[cyan]Running evals…"), TimeElapsedColumn(), console=console) as prog:
+        prog.add_task("", total=None)
+        report = asyncio.run(_run())
+
+    table = Table(title="📊 Eval Report", show_header=True, header_style="bold magenta")
+    table.add_column("Metric"); table.add_column("Value", style="cyan")
+    table.add_row("Run ID", report.run_id)
+    table.add_row("Samples", str(report.num_samples))
+    table.add_row("Pass Rate", f"{report.pass_rate:.1%}")
+    table.add_row("Avg Faithfulness", f"{report.avg_faithfulness:.3f}")
+    table.add_row("Avg Answer Relevancy", f"{report.avg_answer_relevancy:.3f}")
+    table.add_row("Avg Numeric Accuracy", f"{report.avg_numeric_accuracy:.3f}")
+    table.add_row("Avg Latency", f"{report.avg_latency_ms:.0f}ms")
+    table.add_row("Total Cost", f"${report.total_cost_usd:.4f}")
+    table.add_row("Regression", "⚠ YES" if report.regression_detected else "✅ None")
+    console.print(table)
+
+    if output:
+        Path(output).write_text(json.dumps(
+            {"run_id": report.run_id, "pass_rate": report.pass_rate,
+             "avg_faithfulness": report.avg_faithfulness,
+             "regression_detected": report.regression_detected}, indent=2
+        ))
+        console.print(f"[dim]Report saved to {output}[/dim]")
+
+    if fail_on_regression and report.regression_detected:
+        console.print("[red]✗ Quality regression detected — CI gate FAILED[/red]")
+        raise typer.Exit(1)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SERVE
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.command()
+def serve(
+    host: Annotated[str, typer.Option("--host")] = "0.0.0.0",
+    port: Annotated[int, typer.Option("--port")] = 8000,
+    workers: Annotated[int, typer.Option("--workers")] = 1,
+    reload: Annotated[bool, typer.Option("--reload")] = False,
+):
+    """🚀 Start the FastAPI server."""
     try:
-        # Setup logging
-        setup_logging(
-            level="DEBUG" if verbose else "INFO",
-            format_type="json",
+        import uvicorn
+        console.print(f"[green]Starting RAG Financial API on {host}:{port}[/green]")
+        uvicorn.run(
+            "src.rag_system.api.app:create_app",
+            host=host, port=port, workers=workers,
+            reload=reload, factory=True,
         )
-
-        file_path_obj = Path(file_path)
-        if not file_path_obj.exists():
-            console.print(f"[red]Error:[/red] File not found: {file_path}", style="bold")
-            raise typer.Exit(code=1)
-
-        config = get_config()
-        output_path = Path(output_dir) if output_dir else Path.cwd() / "indexed_docs"
-        output_path.mkdir(parents=True, exist_ok=True)
-
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console,
-        ) as progress:
-            # Step 1: Parse PDF
-            task_parse = progress.add_task("[cyan]Parsing document...", total=None)
-            pdf_parser = PDFParser()
-            elements = await pdf_parser.parse(str(file_path_obj))
-            progress.update(task_parse, completed=True)
-            console.print(
-                f"[green]✓[/green] Parsed {len(elements)} elements",
-                style="dim",
-            )
-
-            # Step 2: Extract chart descriptions
-            task_charts = progress.add_task("[cyan]Processing charts...", total=None)
-            if extract_charts and elements:
-                vision_processor = VisionProcessor()
-                chart_descriptions = []
-                # In a real implementation, would filter for chart elements
-                # and call vision_processor.analyze_chart() for each
-                console.print(
-                    f"[green]✓[/green] Processed {len(chart_descriptions)} charts",
-                    style="dim",
-                )
-            progress.update(task_charts, completed=True)
-
-            # Step 3: Apply layout parsing
-            task_layout = progress.add_task("[cyan]Analyzing layout...", total=None)
-            layout_parser = LayoutParser()
-            layout_groups = await layout_parser.parse_elements(elements)
-            progress.update(task_layout, completed=True)
-            console.print(
-                f"[green]✓[/green] Created {len(layout_groups)} semantic groups",
-                style="dim",
-            )
-
-            # Step 4: Index to vector store
-            task_index = progress.add_task("[cyan]Indexing to vector store...", total=None)
-            vector_indexer = VectorIndexer()
-            # In a real implementation would call vector_indexer.index()
-            progress.update(task_index, completed=True)
-            console.print("[green]✓[/green] Indexed to vector store", style="dim")
-
-            # Step 5: Generate report
-            report = {
-                "file": file_path,
-                "elements_parsed": len(elements),
-                "semantic_groups": len(layout_groups),
-                "output_directory": str(output_path),
-            }
-
-            structlog.get_logger("cli").info(
-                "document_ingestion_completed",
-                file=file_path,
-                elements_count=len(elements),
-                groups_count=len(layout_groups),
-                output_dir=str(output_path),
-            )
-
-            # Display summary
-            console.print(
-                Panel(
-                    f"""[green]✓ Document successfully ingested![/green]
-
-File: [bold]{file_path}[/bold]
-Elements parsed: [bold]{len(elements)}[/bold]
-Semantic groups: [bold]{len(layout_groups)}[/bold]
-Output directory: [cyan]{output_path}[/cyan]""",
-                    title="Ingestion Summary",
-                    style="green",
-                ),
-            )
-
-    except Exception as e:
-        console.print(
-            Panel(
-                f"[red]Ingestion failed:[/red]\n{type(e).__name__}: {str(e)}",
-                title="Error",
-                style="red",
-            ),
-        )
-        logger.error("ingest_failed", error=str(e), error_type=type(e).__name__)
-        raise typer.Exit(code=1)
+    except ImportError:
+        console.print("[red]uvicorn not installed. Run: pip install uvicorn[/red]")
+        raise typer.Exit(1)
 
 
-# ============================================================================
-# Query Command
-# ============================================================================
-
+# ─────────────────────────────────────────────────────────────────────────────
+# HEALTH
+# ─────────────────────────────────────────────────────────────────────────────
 
 @app.command()
-async def query(
-    prompt: Annotated[
-        str,
-        typer.Argument(help="Query prompt"),
-    ],
-    use_pot: Annotated[
-        bool,
-        typer.Option(
-            "--use-pot/--no-pot",
-            help="Use Program-of-Thought for numerical reasoning",
-        ),
-    ] = True,
-    verbose: Annotated[
-        bool,
-        typer.Option(
-            "--verbose/--quiet",
-            help="Enable verbose output",
-        ),
-    ] = False,
-) -> None:
-    """
-    Query the indexed documents.
+def health():
+    """🏥 Check system and component health."""
+    async def _run():
+        from src.rag_system.pipeline import create_pipeline
+        pipeline = await create_pipeline()
+        return await pipeline.health_check()
 
-    Performs the following steps:
-    1. Retrieve relevant context from vector store
-    2. Route to PoT if numerical query (if enabled)
-    3. Generate response with citations
-    4. Display results
-
-    Example:
-        rag query "What was Tesla's revenue growth rate?"
-        rag query "Calculate CAGR for 2019-2023" --use-pot
-    """
-    try:
-        # Setup logging
-        setup_logging(
-            level="DEBUG" if verbose else "INFO",
-            format_type="json",
-        )
-
-        config = get_config()
-
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console,
-        ) as progress:
-            # Step 1: Retrieve context
-            task_retrieve = progress.add_task(
-                "[cyan]Retrieving relevant context...",
-                total=None,
-            )
-            vector_indexer = VectorIndexer()
-            # In a real implementation would call vector_indexer.retrieve()
-            context_chunks = []
-            progress.update(task_retrieve, completed=True)
-            console.print(
-                f"[green]✓[/green] Retrieved {len(context_chunks)} relevant chunks",
-                style="dim",
-            )
-
-            # Step 2: Check if numerical query
-            task_route = progress.add_task("[cyan]Analyzing query...", total=None)
-            is_numerical = any(
-                keyword in prompt.lower()
-                for keyword in ["calculate", "cagr", "growth", "rate", "return", "roi"]
-            )
-            progress.update(task_route, completed=True)
-
-            if is_numerical and use_pot:
-                console.print("[green]✓[/green] Routing to PoT executor", style="dim")
-
-                # Step 3: Execute PoT
-                task_pot = progress.add_task("[cyan]Executing calculations...", total=None)
-                pot_executor = PoTExecutor()
-                # In a real implementation would extract numerical code from LLM
-                # and execute it
-                progress.update(task_pot, completed=True)
-            else:
-                console.print("[dim]Using standard context retrieval[/dim]")
-
-            # Step 4: Generate response
-            task_generate = progress.add_task("[cyan]Generating response...", total=None)
-            # In a real implementation would call LLM to generate response
-            response = f"Response to: {prompt}"
-            progress.update(task_generate, completed=True)
-
-        # Display response
-        console.print(
-            Panel(
-                response,
-                title="Query Response",
-                style="cyan",
-            ),
-        )
-
-        structlog.get_logger("cli").info(
-            "query_completed",
-            prompt=prompt,
-            is_numerical=is_numerical,
-            use_pot=use_pot and is_numerical,
-        )
-
-    except Exception as e:
-        console.print(
-            Panel(
-                f"[red]Query failed:[/red]\n{type(e).__name__}: {str(e)}",
-                title="Error",
-                style="red",
-            ),
-        )
-        logger.error("query_failed", error=str(e), error_type=type(e).__name__)
-        raise typer.Exit(code=1)
+    result = asyncio.run(_run())
+    color = "green" if result["status"] == "healthy" else "yellow"
+    console.print(Panel(
+        json.dumps(result, indent=2),
+        title=f"[{color}]System Health: {result['status'].upper()}[/{color}]",
+        border_style=color,
+    ))
 
 
-# ============================================================================
-# Additional Commands
-# ============================================================================
-
-
-@app.command()
-def version() -> None:
-    """Display version information."""
-    console.print("[cyan]RAG Multimodal Finance System[/cyan] v1.0.0")
-    console.print("Enterprise-grade document analysis and retrieval")
-
-
-@app.command()
-def health() -> None:
-    """Check system health and configuration."""
-    try:
-        config = get_config()
-        
-        checks = {
-            "Configuration": "✓" if config else "✗",
-            "API Key": "✓" if config.openai_api_key else "✗",
-            "Environment": config.environment,
-            "Debug Mode": "On" if config.debug_mode else "Off",
-        }
-
-        console.print(
-            Panel(
-                "\n".join(f"{k}: {v}" for k, v in checks.items()),
-                title="System Health",
-                style="green" if all("✓" in str(v) for v in checks.values()) else "yellow",
-            ),
-        )
-    except Exception as e:
-        console.print(
-            Panel(
-                f"[red]Health check failed:[/red] {str(e)}",
-                style="red",
-            ),
-        )
-        raise typer.Exit(code=1)
-
-
-# ============================================================================
-# Entry Point
-# ============================================================================
-
-
-def main() -> None:
-    """Main entry point for the CLI."""
+def main_cli():
     app()
 
 
 if __name__ == "__main__":
-    main()
+    main_cli()
