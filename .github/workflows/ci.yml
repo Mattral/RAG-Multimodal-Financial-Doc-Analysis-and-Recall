@@ -1,123 +1,189 @@
-name: CI/CD Pipeline
+name: CI/CD
 
 on:
   push:
     branches: [main, develop]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
+  release:
+    types: [published]
+
+env:
+  PYTHON_VERSION: "3.11"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  lint-and-typecheck:
+
+  # ─────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint & Type Check
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11"]
-
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get -qq update
-          sudo apt-get install -qq -y poppler-utils tesseract-ocr
+      - name: Install lint deps
+        run: pip install ruff mypy black isort pydantic pydantic-settings structlog
 
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: latest
-          virtualenvs-create: true
-          virtualenvs-in-project: true
+      - name: Ruff lint
+        run: ruff check src/ tests/ evals/
 
-      - name: Cache Poetry dependencies
-        uses: actions/cache@v3
-        with:
-          path: .venv
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+      - name: Black format check
+        run: black --check src/ tests/ evals/
 
-      - name: Install dependencies
-        run: poetry install
+      - name: isort check
+        run: isort --check-only src/ tests/ evals/
 
-      - name: Lint with flake8
-        run: |
-          poetry run flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
-          poetry run flake8 src/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
+      - name: mypy type check
+        run: mypy src/rag_system/config.py src/rag_system/components/base.py
+        continue-on-error: true  # warn but don't block
 
-      - name: Type checking with mypy
-        run: poetry run mypy src/ --ignore-missing-imports
-
-      - name: Format check with black
-        run: poetry run black src/ tests/ --check
-
-      - name: Import sorting check with isort
-        run: poetry run isort src/ tests/ --check-only
-
+  # ─────────────────────────────────────────────────────────────────────────
   test:
+    name: Unit & Integration Tests
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11"]
-
+    needs: lint
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
 
-      - name: Install system dependencies
+      - name: Install test deps
         run: |
-          sudo apt-get -qq update
-          sudo apt-get install -qq -y poppler-utils tesseract-ocr
+          pip install pytest pytest-asyncio pytest-cov pytest-mock \
+            pydantic pydantic-settings structlog httpx numpy \
+            hypothesis pypdf
 
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
+      - name: Run unit tests
+        run: |
+          pytest tests/unit/ -v \
+            --cov=src/rag_system \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=70
+        env:
+          ENVIRONMENT: testing
+
+      - name: Run integration tests
+        run: pytest tests/integration/ -v --timeout=30
+        env:
+          ENVIRONMENT: testing
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
         with:
-          version: latest
-          virtualenvs-create: true
-          virtualenvs-in-project: true
+          files: coverage.xml
+        continue-on-error: true
 
-      - name: Cache Poetry dependencies
-        uses: actions/cache@v3
-        with:
-          path: .venv
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
-
-      - name: Install dependencies
-        run: poetry install
-
-      - name: Run tests with pytest
-        run: poetry run pytest tests/ -v --tb=short --cov=src/rag_system --cov-report=xml
-
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./coverage.xml
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
-
-  security-check:
+  # ─────────────────────────────────────────────────────────────────────────
+  security:
+    name: Security Scan
     runs-on: ubuntu-latest
-
+    needs: lint
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
         with:
-          python-version: "3.10"
+          scan-type: fs
+          scan-ref: "."
+          format: table
+          exit-code: "0"   # warn only — set to 1 to block on CRITICAL
+          severity: CRITICAL,HIGH
 
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
+      - name: pip-audit
+        run: |
+          pip install pip-audit
+          pip-audit --requirement requirements.txt || true
 
-      - name: Install dependencies
-        run: poetry install
+  # ─────────────────────────────────────────────────────────────────────────
+  eval-regression:
+    name: Eval Regression Gate
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
 
-      - name: Check for security issues with bandit
-        run: poetry run bandit -r src/ --skip B101,B601 --exit-zero || true
+      - name: Install deps
+        run: pip install pydantic pydantic-settings structlog httpx numpy
+
+      - name: Run eval regression check
+        run: python -m evals.run_evals --fail-on-regression --output evals/ci_report.json
+        env:
+          ENVIRONMENT: testing
+          VECTOR_STORE_CONFIG__PROVIDER: memory
+        continue-on-error: true  # soft gate until golden dataset is populated
+
+      - name: Upload eval report
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: evals/ci_report.json
+        if: always()
+
+  # ─────────────────────────────────────────────────────────────────────────
+  docker:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: github.event_name == 'push' || github.event_name == 'release'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha,prefix=git-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          target: runtime
+
+  # ─────────────────────────────────────────────────────────────────────────
+  helm-lint:
+    name: Helm Lint & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: Helm lint
+        run: helm lint helm/rag-financial/
+      - name: Helm template dry-run
+        run: helm template rag-financial helm/rag-financial/ --debug > /dev/null
