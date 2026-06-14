@@ -1,226 +1,126 @@
-This multimodal financial RAG repository contains a strong technical foundation. Its use of an async-first pipeline, strict type-safety, exponential backoff, and a token-bucket rate limiter demonstrates solid systems engineering principles.
+# Feedback & Changelog — v1.0 → v2.0
 
-However, to align this project with the production-grade engineering expected at top-tier AI labs like **OpenAI, Anthropic, and Google DeepMind**, we must address the gap between an "educational proof of concept"  and a "high-reliability, mission-critical systems architecture".
+This document captures the architectural gap analysis that drove the v2.0 upgrade, and maps each identified weakness to its resolution.
 
-Below is a deep-dive analysis of your repository's architectural gaps, followed by a **comprehensive, context-aware Copilot/Cursor refactoring prompt** designed to upgrade your codebase to elite industry standards.
+## Gap → Resolution Map
 
----
+### 1. Layout-Blind Chunking → Layout-Aware Semantic Parser
 
-### Deep-Dive Structural Gap Analysis
+**Gap:** Raw text extraction flattened tables, split captions from their figures, and allowed multi-page tables to be fragmented into meaningless chunks.
 
-To understand why this repository is not yet considered "strong enough" for high-tier production deployment, we must evaluate its design choices against the state-of-the-art standards used to build platforms like *OpenAI Search* or *Google DeepMind Research Agents*:
-
-#### 1. Layout-Blind Context Splitting vs. Layout-Aware Ingestion
-
-* **The Gap:** Your pipeline extracts raw text, tables, and images, but flattens them before chunking. Standard recursive character chunking frequently breaks tabular structures, divides label-value pairs in financial tables, and dissociates figures or charts from their contextual captions.
-
-
-* **Frontier Lab Expectation:** Production RAG systems preserve the spatial coordinates and layout hierarchies of documents using **layout-aware semantic chunking**. Elements must be grouped dynamically by logical sections (e.g., matching a chart to its adjacent narrative paragraph or keeping an entire multi-page financial table unified using HTML markdown wrappers).
-
-#### 2. The Numerical Reasoning Gap: Direct Synthesis vs. Program-of-Thought (PoT) Execution
-
-* **The Gap:** When retrieving financial figures (such as compound growth or profit margins), your generator directly synthesizes the final arithmetic answers. However, LLMs are notoriously unreliable when performing multi-step numerical calculations in natural language.
-
-
-* **Frontier Lab Expectation:** Advanced financial RAG architectures use **Program-of-Thought (PoT) reasoning**. Instead of writing out math directly, the generator writes executable Python code blocks to calculate the formulas, which are then processed by a secure runtime interpreter. This approach eliminates calculation errors and ensures high accuracy.
-
-```
-Raw Query ──► Router ──► ──► LLM Policy generates code ──► [Local Exec Engine] ──► Grounded Math Answer
-
-```
-
-#### 3. Legacy Multimodal Processing vs. Modern VLM Retrieval (ColPali-native)
-
-* **The Gap:** Your workflow relies on a multi-stage approach: parsing documents using `unstructured.io`, cropping charts, sending them to `GPT-4V` to generate descriptions, and embedding those descriptions into a vector store. This process is slow, resource-heavy, and relies on the quality of intermediate text descriptions.
-
-
-* **Frontier Lab Expectation:** Modern multimodal retrieval bypasses the text conversion step entirely. Modern systems use direct vision-language model (VLM) encoders, such as **ColPali** or **ColQwen**, to map page images directly into a multi-vector late-interaction space. This allows the retriever to index visual cues (including layouts, fonts, and chart lines) natively.
-
-#### 4. Isolated Mock Evaluators vs. Continuous CI Assertion Gates (DeepEval/Ragas)
-
-* **The Gap:** Your repository includes a custom evaluation script (`evals/run_evals.py`). While useful, it behaves as an isolated script rather than an automated CI test suite that can block bad model updates.
-
-
-* **Frontier Lab Expectation:** Every document update or prompt revision must pass through an automated evaluation harness. These systems use tools like **DeepEval** or **Ragas** to score key metrics—**Faithfulness, Answer Relevancy, and Context Recall**—acting as continuous integration (CI) test gates.
-
-$$\text{Faithfulness} = \frac{|C_{\text{grounded}}|}{|C_{\text{total}}|}$$
-
-$$\text{Context Recall} = \frac{|S_{\text{retrieved}} \cap S_{\text{relevant}}|}{|S_{\text{relevant}}|}$$
+**Resolution (`src/rag_system/components/layout_parser.py`):**
+- `LayoutAwareParser` groups elements by semantic proximity before chunking
+- Tables are matched with their captions within a configurable line-proximity window
+- Consecutive table elements on adjacent pages are merged into single `LayoutChunk` objects with `is_continuation=True`
+- Section headings are detected (Item 7, RISK FACTORS, NOTE 12, etc.) and propagated to all child chunks as `heading` metadata
+- All structured elements are wrapped in HTML (`<table>`, `<figure>`, `<section>`) to give the LLM rich layout context
+- `to_document_elements()` converts back to `DocumentElement` with HTML embedded in the `text` field
 
 ---
 
-### Master Copilot Refactoring Prompt
+### 2. Hallucinated Arithmetic → Program-of-Thought Sandboxed Executor
 
-To resolve these architectural weaknesses, copy and paste the prompt below into your AI coding assistant (such as GitHub Copilot Chat or Cursor). Use `@workspace` (or `/workspace` in Copilot) to ensure the assistant analyzes your entire codebase before initiating edits.
+**Gap:** LLMs computing multi-step financial formulas in natural language introduce errors. Direct arithmetic in generation is unreliable.
 
-@workspace You are a Principal Machine Learning Systems Engineer specializing in high-throughput Retrieval-Augmented Generation (RAG) platforms. Your task is to refactor this repository from an educational demonstration into a production-grade, multi-stage Multimodal Financial RAG system that meets the standards of premier AI labs (OpenAI, DeepMind, Anthropic).
-
-### ARCHITECTURAL SCHEMAS
-
-Refactor the codebase to implement these structural improvements:
-
-1. Transition from Notebooks to a CLI Interface:
-* Deprecate `Tesla Investor Presentations.ipynb` and move its execution logic into a command-line interface under `src/rag_system/cli.py` using `typer`.
-* Implement two CLI commands:
-* `python -m rlhf_platform.cli ingest <file_path>`: Runs asynchronous document processing, chart extraction, visual description generation, and vector indexing.
-* `python -m rlhf_platform.cli query "<prompt>"`: Runs multi-turn retrieval and returns a grounded answer.
-
-
-
-
-2. Implement Program-of-Thought (PoT) Execution:
-* Create `src/rag_system/components/pot_executor.py` containing a secure Python runtime execution layer.
-* When processing numerical questions, prompt the generator to output Python code using standard templates for financial patterns:
-* Percentage Change:
-
-$$\text{Change} = \frac{V_{\text{new}} - V_{\text{old}}}{V_{\text{old}}} \times 100$$
-
-
-* Compound Annual Growth Rate (CAGR):
-
-$$\text{CAGR} = \left(\frac{V_{\text{final}}}{V_{\text{initial}}}\right)^{\frac{1}{n}} - 1$$
-
-
-
-
-* Parse this code block, execute it using your sandbox runtime, and return the result.
-
-
-3. Refactor Layout-Aware Semantic Parsing:
-* Create `src/rag_system/components/layout_parser.py`.
-* Group tables, adjacent narrative paragraphs, and image/chart captions into layout blocks before indexing to preserve visual context.
-
-
-4. Integrate a CI/CD Evaluation Harness:
-* Integrate `DeepEval` or `Ragas` into `tests/test_rag_pipeline.py`.
-* Define a test suite evaluating:
-* Faithfulness (Groundedness)
-* Context Recall
-* Answer Relevancy
-
-
-* Write these tests to run via `pytest` and output metrics to `results/eval_report.json`.
-
-
+**Resolution (`src/rag_system/components/pot_executor.py`):**
+- `ASTSandboxValidator` validates generated code against an AST node allowlist before execution — blocks `import`, `exec`, `eval`, `open`, `__builtins__` access, and all network libraries
+- `PoTExecutor.execute_code()` runs validated code in a restricted namespace with only safe builtins (`round`, `abs`, `sum`, `min`, `max`, `float`, `int`, etc.)
+- `asyncio.wait_for()` enforces a hard 5-second timeout preventing infinite loop DoS
+- Named financial templates (`cagr`, `roi`, `gross_margin`, `percentage_change`, `ebitda_margin`, `debt_to_equity`) are provided for direct use without LLM code generation
+- Code extraction supports fenced (` ```python `) and unfenced formats
 
 ---
 
-### STRIC CODE COMPLIANCE
+### 3. Hardcoded Components → Pluggable ABC Architecture
 
-* Type Safety: Ensure all modified and newly generated Python files are 100% compliant with strict type hints (verifiable via `mypy --strict`).
-* Resilient Connections: Wrap all API calls (unstructured, DeepLake, OpenAI) in the existing retry policy and token-bucket rate limiter.
-* Asynchronous Runtime: Ensure all network requests and parsing runs are executed using async/await structures to maximize system throughput.
+**Gap:** Components (parser, vector store, LLM) were tightly coupled to specific implementations.
 
-Let's write:
-
-1. `src/rag_system/components/pot_executor.py` (The sandbox arithmetic execution engine).
-2. `src/rag_system/components/layout_parser.py` (The structured table-text-image association layer).
-3. `src/rag_system/cli.py` (The main terminal-based control center).
-
-Generate the complete files with no placeholders, code truncations, or ellipses.
+**Resolution (`src/rag_system/components/base.py`):**
+- `BaseParser`, `BaseEmbedder`, `BaseVectorStore`, `BaseRetriever`, `BaseReranker`, `BaseGenerator`, `BaseEvaluator` define strict contracts via `@abc.abstractmethod`
+- Shared data models (`DocumentElement`, `RetrievedChunk`, `GeneratedAnswer`) are immutable Pydantic v2 models
+- All components accept base types — the pipeline orchestrator never imports concrete implementations
+- Factory functions (`build_parser()`, `build_vector_store()`, `build_reranker()`, etc.) map config values to concrete classes
+- `InMemoryVectorStore` provides a zero-dependency alternative for testing and development
 
 ---
 
-### Technical Implementation Blueprint for Your Reference
+### 4. Single-Provider Retrieval → Hybrid RRF + Reranking
 
-To ensure your refactoring aligns with this roadmap, here is the architecture pattern for your secure **Program-of-Thought (PoT) Execution Engine**. This module isolates execution logic, runs calculation steps, and returns grounded math evaluations:
+**Gap:** Dense-only retrieval missed exact financial figure matches (specific numbers, tickers, dates).
 
-Create a new component file `src/rag_system/components/pot_executor.py`:
+**Resolution (`src/rag_system/components/retriever/__init__.py`):**
+- `HybridRetriever` combines dense vector search + in-memory `BM25Index`
+- Fusion via `_reciprocal_rank_fusion()` — no weight tuning required, robust to score scale differences
+- `CrossEncoderReranker` (local, `ms-marco-MiniLM-L-6-v2`) and `CohereReranker` (cloud) provide final relevance scoring
+- Configurable via `RETRIEVER_CONFIG__STRATEGY=hybrid` and `RERANKER_CONFIG__PROVIDER=cross_encoder`
 
-```python
-import sys
-import io
-import re
-from typing import Dict, Any, Tuple
-from pydantic import BaseModel
-from structlog import get_logger
+---
 
-log = get_logger()
+### 5. No Evaluation Gate → RAGAS + CI Regression Blocker
 
-class ExecutionResult(BaseModel):
-    success: bool
-    output: str
-    result_value: float
-    error_message: str
+**Gap:** No automated quality measurement prevented regressions from reaching production.
 
-class ProgramOfThoughtExecutor:
-    """
-    Executes LLM-generated code blocks containing financial calculations.
-    Ensures safe, isolated execution and precise calculation returns.
-    """
-    def __init__(self, timeout_seconds: float = 2.0):
-        self.timeout = timeout_seconds
-        # Regex to target python markdown block enclosures
-        self.code_pattern = re.compile(r"```python\s*(.*?)\s*```", re.DOTALL)
+**Resolution (`src/rag_system/components/evaluator/__init__.py`, `.github/workflows/ci.yml`):**
+- `RagasEvaluator` wraps RAGAS (faithfulness, answer_relevancy, context_precision) with LLM-as-judge numeric accuracy scoring
+- `GoldenDatasetRunner` loads JSONL golden samples, runs pipeline, scores each, and produces `EvalReport`
+- History tracking in `evals/history.json` enables regression detection (>5% faithfulness drop fails CI)
+- GitHub Actions workflow runs eval gate on every PR with `--fail-on-regression`
 
-    def extract_code(self, raw_llm_response: str) -> str:
-        """Parses response and extracts valid executable blocks."""
-        match = self.code_pattern.search(raw_llm_response)
-        if match:
-            return match.group(1).strip()
-        return ""
+---
 
-    def execute_code(self, code_snippet: str) -> ExecutionResult:
-        """Executes snippet within an isolated global scope."""
-        if not code_snippet:
-            return ExecutionResult(
-                success=False, output="", result_value=0.0, error_message="No code segment found."
-            )
+### 6. No Observability → OTel + Prometheus + Grafana
 
-        log.info("executing_calculation_script", snippet=code_snippet)
+**Gap:** No distributed tracing, no custom RAG metrics, no cost visibility.
 
-        # Catch output streams
-        stdout_capture = io.StringIO()
-        isolated_globals: Dict[str, Any] = {"__builtins__": __builtins__}
-        
-        # Enforce result variable mapping
-        setup_code = code_snippet + "\n\n# Map output\nif 'result' not in locals(): result = 0.0\n"
+**Resolution (`src/rag_system/utils/telemetry.py`, `grafana/dashboards/`):**
+- OpenTelemetry spans: `ingest_pipeline`, `parse_document`, `vision_describe`, `retrieval`, `llm_generation`
+- Prometheus custom metrics: `rag_query_latency_seconds`, `rag_hallucination_score`, `rag_citation_coverage_ratio`, `rag_query_cost_usd_total`, `rag_tokens_total`, `rag_cache_hits_total`
+- Grafana dashboard JSON auto-provisioned with 10 panels covering latency percentiles, cost, token consumption, hallucination score, cache hit rate
 
-        original_stdout = sys.stdout
-        sys.stdout = stdout_capture
-        try:
-            # Execute within restricted execution block
-            exec(setup_code, isolated_globals)
-            sys.stdout = original_stdout
-            
-            output_str = stdout_capture.getvalue().strip()
-            result_val = float(isolated_globals.get("result", 0.0))
-            
-            return ExecutionResult(
-                success=True,
-                output=output_str,
-                result_value=result_val,
-                error_message=""
-            )
-        except Exception as err:
-            sys.stdout = original_stdout
-            log.error("execution_computation_failed", error=str(err))
-            return ExecutionResult(
-                success=False,
-                output=stdout_capture.getvalue().strip(),
-                result_value=0.0,
-                error_message=str(err)
-            )
+---
 
-if __name__ == "__main__":
-    # Test financial computation
-    sample_response = """
-    We will compute CAGR using the compound growth pattern.
-    ```python
-    v_initial = 12500000.00
-    v_final = 45000000.00
-    years = 4
-    result = (v_final / v_initial) ** (1 / years) - 1
-    print(f"Calculated CAGR: {result:.4%}")
-    ```
-    """
-    
-    executor = ProgramOfThoughtExecutor()
-    code = executor.extract_code(sample_response)
-    exec_res = executor.execute_code(code)
-    print("Execution output metrics:")
-    print(exec_res.model_dump_json(indent=2))
+### 7. No Security Layer → Auth + PII + Guardrails + Audit
 
-```
+**Gap:** No authentication, no PII protection on ingested content, no tamper-evident audit trail.
 
-This structural shift resolves the common mathematical and scaling limitations of typical financial RAG setups. Running the refactoring cycle and updating the layout moves this repository from an experimental demo to a production-ready, layout-aware multimodal intelligence engine.
+**Resolution:**
+- `APIKeyMiddleware` — constant-time SHA-256 key comparison, exempt paths for health probes
+- `PIIRedactor` — Presidio integration with financial-domain extensions (CUSIP, ISIN, routing numbers)
+- `FinancialGuardrails` — numeric grounding check (every answer number must appear in context), prompt injection detection
+- `AuditLogger` — append-only JSONL with SHA-256 content hash per event, GDPR/CCPA deletion logging
+
+---
+
+### 8. No Multi-Tenancy → Per-Tenant Isolation + Quotas + Cost Tracking
+
+**Gap:** Single shared vector store with no tenant separation.
+
+**Resolution:**
+- Per-tenant dataset paths in DeepLake (`rag_financial_{tenant_id}`)
+- `AsyncRateLimiter` maintains per-tenant token buckets with global cap
+- `CostTracker` accumulates per-tenant, per-model USD costs with monthly quota enforcement
+- All log records, audit events, and Prometheus labels carry `tenant_id`
+
+---
+
+### 9. Notebook-Only Interface → CLI + REST API + SDK
+
+**Gap:** System only usable via Jupyter notebook — no programmatic or operational interface.
+
+**Resolution:**
+- `rag-financial` CLI (`typer`) — `ingest`, `query`, `evaluate`, `serve`, `health` commands with `rich` output
+- FastAPI application with `/api/v1/ingest`, `/api/v1/query`, `/api/v1/tenants`, `/healthz`, `/readyz` endpoints
+- Python SDK (`src/rag_system/sdk`) with both `async` and sync wrappers, YAML config loader
+
+---
+
+### 10. No Production Infrastructure → Docker + K8s + Helm
+
+**Gap:** No deployment artifacts — system only ran locally.
+
+**Resolution:**
+- Multi-stage Dockerfile (builder → non-root runtime, HEALTHCHECK, Prometheus port)
+- `docker-compose.yml` with Redis, OTel collector, Prometheus, Grafana, Jaeger
+- Kubernetes base manifests: Deployment, Service, HPA (2–10 replicas), ConfigMap, PVC, ServiceMonitor
+- Helm chart with `values.yaml`, HPA, PodDisruptionBudget, Prometheus ServiceMonitor
+- GitHub Actions CI: lint → test → security scan → eval gate → Docker build → Helm lint
