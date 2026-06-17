@@ -1,0 +1,55 @@
+# NetworkPolicy: deny all ingress by default, allow only from ingress controller and prometheus
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rag-financial
+  labels:
+    app: rag-financial
+spec:
+  podSelector:
+    matchLabels:
+      app: rag-financial
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000
+    # Allow Prometheus scrape on metrics port
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8001
+    # Allow from within same namespace (for Redis)
+    - from:
+        - podSelector: {}
+  egress:
+    # Allow DNS
+    - ports:
+        - protocol: UDP
+          port: 53
+    # Allow HTTPS to LLM APIs
+    - ports:
+        - protocol: TCP
+          port: 443
+    # Allow Redis within cluster
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    # Allow OTel collector
+    - ports:
+        - protocol: TCP
+          port: 4317
