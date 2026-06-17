@@ -1,0 +1,22 @@
+# RAG Financial Multimodal — HuggingFace Space dependencies
+# Updated for v2.0: Gemini 2.0 Flash + GPT-4o-mini support
+
+# Core framework
+gradio>=4.44.0,<5.0
+
+# PDF processing
+pdfplumber>=0.10.3
+pdf2image>=1.17.0
+Pillow>=10.4.0
+
+# Retrieval (local, no API key needed)
+sentence-transformers>=3.0.0
+faiss-cpu>=1.8.0
+rank-bm25>=0.2.2
+numpy>=1.26.0
+
+# HTTP client for LLM APIs (OpenAI + Gemini)
+httpx>=0.27.0
+
+# Utilities
+python-dotenv>=1.0.0
