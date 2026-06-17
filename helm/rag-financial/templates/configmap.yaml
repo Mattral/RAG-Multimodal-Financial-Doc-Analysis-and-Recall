@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "rag-financial.fullname" . }}-config
+  labels:
+    {{- include "rag-financial.labels" . | nindent 4 }}
+data:
+  ENVIRONMENT: {{ .Values.config.environment | quote }}
+  LOGGING_CONFIG__LEVEL: {{ .Values.config.logLevel | quote }}
+  VECTOR_STORE_CONFIG__PROVIDER: {{ .Values.config.vectorStoreProvider | quote }}
+  MULTI_TENANCY_CONFIG__ENABLED: {{ .Values.config.multiTenancyEnabled | quote }}
+  OBSERVABILITY_CONFIG__PROMETHEUS_PORT: "8001"
+  CACHE_CONFIG__BACKEND: "redis"
+  CACHE_CONFIG__REDIS_URL: {{ printf "redis://%s-redis-master:6379/0" .Release.Name | quote }}
+  SECURITY_CONFIG__AUDIT_LOG_PATH: "/app/audit_logs"
+  VECTOR_STORE_CONFIG__DATASET_PATH: "/app/data/vectorstore/rag_financial"
