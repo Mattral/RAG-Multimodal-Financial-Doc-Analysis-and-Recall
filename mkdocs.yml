@@ -1,0 +1,107 @@
+site_name: RAG Financial Multimodal
+site_description: Enterprise-grade multimodal RAG for financial document analysis
+site_author: RAG Financial Team
+site_url: https://your-org.github.io/rag-financial-multimodal
+repo_url: https://github.com/your-org/rag-financial-multimodal
+repo_name: your-org/rag-financial-multimodal
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Dark mode
+    - scheme: slate
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - search.share
+    - content.code.annotate
+    - content.code.copy
+    - content.tabs.link
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: true
+            show_root_heading: true
+            heading_level: 2
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Quickstart:
+    - Local Setup: quickstart/local.md
+    - Docker: quickstart/docker.md
+    - First Query: quickstart/first-query.md
+  - Architecture:
+    - Overview: architecture/overview.md
+    - Component Design: architecture/components.md
+    - Data Flow: architecture/data-flow.md
+    - ADRs:
+      - "001: Hybrid Retrieval": adr/001-hybrid-retrieval-rrf.md
+      - "002: Pydantic Config": adr/002-pydantic-v2-config.md
+      - "003: Pluggable ABCs": adr/003-pluggable-components-abc.md
+      - "004: PoT Sandbox": adr/004-program-of-thought-sandbox.md
+  - Tutorials:
+    - 10-K Analysis: tutorials/10k-analysis.md
+    - Earnings QA: tutorials/earnings-qa.md
+    - Multi-Tenant Setup: tutorials/multi-tenant.md
+  - Configuration: configuration.md
+  - API Reference:
+    - REST API: api/rest.md
+    - Python SDK: api/sdk.md
+    - CLI: api/cli.md
+  - Deployment:
+    - Docker: deployment/docker.md
+    - Kubernetes: deployment/kubernetes.md
+    - Helm: deployment/helm.md
+  - Security & Compliance: security.md
+  - Evaluation: evaluation.md
+  - Deep Dive: educational_deepdive.md
+  - Contributing: contributing.md
+  - Changelog: CHANGELOG.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/your-org/rag-financial-multimodal
+  version:
+    provider: mike

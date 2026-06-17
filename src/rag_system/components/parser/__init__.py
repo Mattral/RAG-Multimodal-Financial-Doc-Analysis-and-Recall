@@ -183,3 +183,21 @@ def build_parser(provider: Optional[str] = None) -> BaseParser:
     if name == "docling":
         return DoclingParser()
     return UnstructuredParser()
+
+
+# Re-import Marker adapter so it's available from the package
+try:
+    from src.rag_system.components.parser.marker_adapter import MarkerParser
+
+    def build_parser(provider: Optional[str] = None) -> BaseParser:
+        """Factory: return the parser specified in config or by argument."""
+        cfg = get_config().pdf_parsing_config
+        name = provider or cfg.primary_parser
+        if name == "docling":
+            return DoclingParser()
+        if name == "marker":
+            return MarkerParser()
+        return UnstructuredParser()
+
+except ImportError:
+    pass  # MarkerParser already has graceful fallback
