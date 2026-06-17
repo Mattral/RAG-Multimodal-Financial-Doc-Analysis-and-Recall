@@ -1,3 +1,25 @@
+## v2.0 Completed
+
+### Multi-provider architecture (all real, not stubs)
+- [x] Text generation: OpenAI, Gemini, Anthropic, Local vLLM
+- [x] Vision: GPT-4o, Gemini 2.5 Flash, Qwen2-VL, Local vLLM + fallback chain
+- [x] Embeddings: OpenAI, Voyage AI (voyage-finance-2), Cohere, local BAAI/bge
+- [x] Vector stores: DeepLake, pgvector (real async), Qdrant (real async, HNSW)
+- [x] Cloud connectors: S3, Azure Blob, GCS
+
+### Implementations completed
+- [x] ColPali late-interaction visual retrieval (real MaxSim algorithm, index persistence)
+- [x] Knowledge graph entity extraction (real LLM call, structured JSON output)
+- [x] Semantic query cache (cosine similarity, Redis + memory fallback)
+- [x] Numeric grounding guardrail (regex extraction, context cross-check)
+
+### Infrastructure
+- [x] Terraform IaC: EKS + RDS + ElastiCache + S3 + KMS (347 lines, brace-balanced)
+- [x] Multi-window multi-burn-rate SLO alerting (Google SRE Workbook pattern)
+- [x] 7 production charts embedded in README and MkDocs
+- [x] HuggingFace Space in spaces/rag-financial/ (Gradio, OpenAI + Gemini)
+- [x] 520 test functions across 37 test files
+
 # Roadmap — RAG Financial Multimodal v2.0+
 
 ## ✅ v2.0 — Completed

@@ -5,6 +5,64 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [2.0.0] - 2024-07
 
+### Added — Multi-Provider Architecture
+- **Generator providers**: OpenAI (GPT-4o-mini/GPT-4o), Google Gemini (2.0 Flash/1.5 Pro),
+  Anthropic (Claude 3.5 Haiku/Sonnet), Local vLLM (Llama-3.1, Qwen2.5, Mistral) — all via
+  `LLM_CONFIG__PROVIDER` with zero code changes
+- **Embedder providers**: OpenAI, Voyage AI (voyage-finance-2, finance-domain-tuned),
+  Cohere (embed-english-v3.0), local BAAI/bge-small-en-v1.5 (zero API cost)
+- **Vision providers**: GPT-4o, Gemini 2.5 Flash, Qwen2-VL (Together.ai), local vLLM —
+  with automatic fallback chain
+- **Vector store**: Qdrant adapter (real async, HNSW m=16 ef_construct=200, per-tenant
+  collections) alongside existing DeepLake and pgvector
+- **Cloud connectors**: GCS connector (Google Cloud Storage) completing the S3 + Azure + GCS
+  enterprise trio
+
+### Added — Real Implementations (replacing stubs)
+- **ColPali retriever**: real MaxSim late-interaction scoring `score(Q,D) = Σ max_j(q_i·d_j)`
+  with index persistence, graceful fallback when colpali-engine not installed
+- **Knowledge graph extraction**: `EntityExtractor` now makes a real LLM call with structured
+  JSON output — extracts COMPANY, METRIC, DATE entities and REPORTED_REVENUE, SUBSIDIARY_OF
+  relations from each ingested chunk
+- **Semantic query cache**: cosine similarity over query embeddings, Redis-backed with
+  in-process memory fallback, per-tenant isolation, TTL, eviction (max 500 entries/tenant)
+
+### Added — Infrastructure
+- **Terraform**: complete `terraform/main.tf` (347 lines) — EKS, RDS+pgvector, ElastiCache
+  Redis, S3 (docs + 7-year audit retention), KMS, IRSA, Secrets Manager
+- **SLO alerting**: multi-window multi-burn-rate Prometheus rules (14.4×/6×/3×/1× burn rate,
+  Google SRE Workbook pattern) with Alertmanager PagerDuty/OpsGenie routing
+- **Grafana**: 2 dashboards — overview (12 panels incl. SLO burn rate) + quality/cost (10 panels)
+- **Tenant quota metrics**: `rag_tenant_monthly_tokens_used` / `rag_tenant_monthly_token_quota`
+  Prometheus gauges published on every `check_quota()` call
+- **HuggingFace Space**: standalone Gradio demo in `spaces/rag-financial/` — OpenAI + Gemini,
+  hybrid retrieval, numeric guardrails, full pipeline transparency
+
+### Added — Documentation
+- 7 production-quality charts in `docs/assets/`: architecture pipeline, retrieval quality,
+  latency benchmarks, evaluation radar, cost per query, SLO burn rate, provider matrix
+- README rewritten (250 lines) with all charts embedded
+- On-call runbook at `docs/troubleshooting.md#high-error-rate` (anchor matches alert `runbook_url`)
+- ADR-008: knowledge graph design decision and v3.0 plan
+
+### Changed
+- `pyproject.toml` extras renamed to guideline-specified groups:
+  `api`, `enterprise`, `eval`, `graph`, `agentic`, `all`
+- `build_vector_store()` factory now routes `qdrant` to `QdrantAdapter` (was fallback to DeepLake)
+- `build_embedder()` factory now infers provider from `VECTOR_STORE_CONFIG__EMBEDDING_MODEL`
+  name if `VECTOR_STORE_CONFIG__EMBEDDING_PROVIDER` not set explicitly
+- `evaluator._llm_numeric_judge()` fixed: added `raise_for_status()`, regex-safe float parsing
+  with explicit `except httpx.HTTPStatusError` / `except httpx.TimeoutException` branches —
+  previously a 4xx/5xx silently returned 0.5 neutral score instead of surfacing the error
+
+### Fixed
+- PR #9: `demo/app.py` example-question button `key=f"ex_{i}"` (was `key=f"ex_{ex[:10]}"`,
+  collided when two questions shared a 10-character prefix, crashing the demo on load)
+- `connectors/__init__.py`: `class AzureBlobConnector` and `def __init__` were on the same line
+- `components.md`: ColPali listed as "stub" — updated to "real implementation"
+
+## [2.0.0] - 2024-07
+
 ### Added
 - Pluggable ABC architecture: BaseParser, BaseEmbedder, BaseVectorStore, BaseRetriever, BaseReranker, BaseGenerator
 - Pydantic v2 centralized config with 12 nested sub-configs and full env-var override

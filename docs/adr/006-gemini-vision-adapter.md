@@ -1,5 +1,8 @@
 # ADR 006: Multi-Provider Vision Strategy — Gemini as Primary Alternative
 
+> **Update**: the guideline and this ADR originally named the Gemini 2.0 series. Google retired 2.0-flash/2.0-pro in favor of the 2.5 and 3.x generations; the codebase now defaults to `gemini-2.5-flash`/`gemini-2.5-pro`. The adapter's `model` parameter and pricing table are updated accordingly — see `src/rag_system/components/vision/gemini_adapter.py`.
+
+
 **Status:** Accepted  
 **Date:** 2024-07  
 **Deciders:** Core team

@@ -16,7 +16,7 @@
 
 | Problem | This System's Solution |
 |---|---|
-| Charts and graphs are invisible to text-only RAG | Vision LLM extraction — GPT-4o / Gemini 2.0 Flash / Qwen2-VL / local vLLM with fallback chain |
+| Charts and graphs are invisible to text-only RAG | Vision LLM extraction — GPT-4o / Gemini 2.5 Flash / Qwen2-VL / local vLLM with fallback chain |
 | Exact financial figures miss semantic search | Hybrid RRF: dense embeddings + BM25 keyword search fused with Reciprocal Rank Fusion |
 | LLMs fabricate numbers | Numeric grounding guardrail verifies every stated number against retrieved source text |
 | One API vendor fails = full outage | Provider fallback chains at every model-facing layer |

@@ -12,7 +12,7 @@ BaseParser
 
 BaseVisionDescriber
 ├── OpenAIVisionDescriber   (GPT-4o, highest accuracy)
-├── GeminiVisionDescriber   (Gemini 2.0 Flash, cheapest)
+├── GeminiVisionDescriber   (Gemini 2.5 Flash, cheapest)
 └── Qwen2VLDescriber        (open-source, private inference)
 
 BaseEmbedder
@@ -26,7 +26,7 @@ BaseVectorStore
 
 BaseRetriever
 ├── HybridRetriever      (dense + BM25 + RRF, default)
-└── ColPaliRetriever     (late-interaction, stub)
+└── ColPaliRetriever     (late-interaction, MaxSim — real implementation)
 
 BaseReranker
 ├── CrossEncoderReranker   (ms-marco-MiniLM, local)

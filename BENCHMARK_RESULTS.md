@@ -28,7 +28,7 @@
 | gpt-4o-mini + text-embedding-3-small | $0.00018 | Default routing |
 | gpt-4o (complex queries only) | $0.0082 | Auto-routed |
 | With embedding cache (hit rate 72%) | $0.00011 | After warmup |
-| Gemini 2.0 Flash vision | $0.0028/image | Per chart extraction |
+| Gemini 2.5 Flash vision | $0.0028/image | Per chart extraction |
 
 ## Retrieval Quality
 
