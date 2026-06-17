@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-financial
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: rag-api
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+          env:
+            - name: ENVIRONMENT
+              value: "development"
+            - name: LOGGING_CONFIG__LEVEL
+              value: "DEBUG"
