@@ -1,0 +1,21 @@
+# Ingress -- configure for your cluster's ingress controller
+# Uncomment and adapt. Requires cert-manager for TLS.
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: rag-financial
+#   annotations:
+#     nginx.ingress.kubernetes.io/rewrite-target: /
+# spec:
+#   ingressClassName: nginx
+#   rules:
+#     - host: rag-financial.your-domain.com
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: rag-financial
+#                 port:
+#                   number: 80
