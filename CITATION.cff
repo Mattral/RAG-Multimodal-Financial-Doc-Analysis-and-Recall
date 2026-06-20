@@ -1,0 +1,36 @@
+cff-version: 1.2.0
+message: "If you use this software in your research or production systems, please cite it using the metadata below."
+type: software
+title: "RAG Financial Multimodal"
+abstract: >
+  Enterprise-grade multimodal RAG system for financial document analysis.
+  Ingests PDFs (10-K, 10-Q, earnings releases) with vision-language chart extraction,
+  hybrid RRF retrieval, cross-encoder reranking, numeric guardrails, PII redaction,
+  multi-tenancy, and full OpenTelemetry observability.
+version: 2.0.0
+date-released: "2024-07-01"
+url: "https://github.com/your-org/rag-financial-multimodal"
+repository-code: "https://github.com/your-org/rag-financial-multimodal"
+license: MIT
+keywords:
+  - rag
+  - retrieval-augmented-generation
+  - financial-documents
+  - multimodal
+  - llm
+  - 10-K
+  - earnings
+  - enterprise
+  - vector-search
+  - opentelemetry
+authors:
+  - family-names: "RAG Financial Team"
+    given-names: ""
+    email: "team@your-org.com"
+preferred-citation:
+  type: software
+  title: "RAG Financial Multimodal: Enterprise Multimodal RAG for Financial Documents"
+  version: 2.0.0
+  url: "https://github.com/your-org/rag-financial-multimodal"
+  year: 2024
+  license: MIT
