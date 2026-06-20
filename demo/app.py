@@ -114,8 +114,8 @@ def main():
             "Describe the revenue trend from the charts",
         ]
         cols = st.columns(len(examples))
-        for col, ex in zip(cols, examples):
-            if col.button(ex[:30] + "...", key=f"ex_{ex[:10]}"):
+        for i, (col, ex) in enumerate(zip(cols, examples)):
+            if col.button(ex[:30] + "...", key=f"ex_{i}"):
                 st.session_state["query_input"] = ex
 
     query = st.text_input(
