@@ -3,8 +3,8 @@
 > **World-class multimodal RAG system for financial document analysis.**
 > Built to production standards: async, observable, secure, multi-tenant, CI-gated.
 
-[![CI/CD](https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/actions/workflows/ci.yml/badge.svg)](https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/actions)
-[![Coverage](https://codecov.io/gh/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/branch/main/graph/badge.svg)](https://codecov.io/gh/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall)
+[![CI/CD](https://github.com/your-org/rag-financial-multimodal/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/rag-financial-multimodal/actions)
+[![Coverage](https://codecov.io/gh/your-org/rag-financial-multimodal/branch/main/graph/badge.svg)](https://codecov.io/gh/your-org/rag-financial-multimodal)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -38,13 +38,13 @@ PDF ──► Parser ──► Layout Grouper ──► PII Redactor
 | Layer | Component | Technology |
 |---|---|---|
 | **Parsing** | PDF text + tables | unstructured.io / Docling |
-| **Vision** | Chart & graph description | GPT-4o / Qwen2-VL |
+| **Vision** | Chart & graph description | GPT-4o / Gemini 2.0 Flash / Qwen2-VL / local vLLM (fallback chain) |
 | **Layout** | Semantic grouping | Custom layout parser |
-| **Embedding** | Dense vectors + cache | OpenAI `text-embedding-3-small` + Redis |
+| **Embedding** | Dense vectors + cache | OpenAI / Voyage / Cohere / local (BAAI bge), Redis cached |
 | **Indexing** | Vector store | DeepLake / pgvector / Qdrant |
 | **Retrieval** | Hybrid (dense + BM25) | RRF fusion |
 | **Reranking** | Cross-encoder | `ms-marco-MiniLM-L-6-v2` / Cohere |
-| **Generation** | Cost-routed LLM | GPT-4o-mini → GPT-4o |
+| **Generation** | Cost-routed, multi-provider LLM | OpenAI, Gemini, Anthropic, or fully local/open-source via vLLM |
 | **Guardrails** | Numeric grounding + PII | Presidio + custom AST |
 | **Calculations** | Program-of-Thought | Sandboxed Python executor |
 | **API** | REST + OpenAPI | FastAPI + uvicorn |
@@ -58,8 +58,8 @@ PDF ──► Parser ──► Layout Grouper ──► PII Redactor
 ## Quick Start (Docker — recommended)
 
 ```bash
-git clone https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall
-cd RAG-Multimodal-Financial-Doc-Analysis-and-Recall
+git clone https://github.com/your-org/rag-financial-multimodal
+cd rag-financial-multimodal
 cp .env.example .env          # fill in OPENAI_API_KEY
 docker compose up             # API on :8000, metrics on :8001
 ```
