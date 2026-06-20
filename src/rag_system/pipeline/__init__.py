@@ -110,10 +110,10 @@ class RAGPipeline:
             from src.rag_system.components.vector_store import DeepLakeVectorStoreAdapter, build_vector_store
             from src.rag_system.components.retriever import HybridRetriever, BM25Index
             from src.rag_system.components.reranker import build_reranker
-            from src.rag_system.components.generator import OpenAIGenerator
+            from src.rag_system.components.generator import build_generator
 
-            embedder = kwargs.get("embedder") or build_embedder()
-            vector_store = kwargs.get("vector_store") or build_vector_store()
+            embedder = kwargs.get("embedder") or build_embedder(cfg.vector_store_config.embedding_provider)
+            vector_store = kwargs.get("vector_store") or build_vector_store(cfg.vector_store_config.provider)
             reranker = kwargs.get("reranker") or build_reranker(cfg.reranker_config.provider)
             retriever = kwargs.get("retriever") or HybridRetriever(
                 vector_store=vector_store, embedder=embedder,
@@ -126,7 +126,7 @@ class RAGPipeline:
                 vector_store=vector_store,
                 retriever=retriever,
                 reranker=reranker,
-                generator=kwargs.get("generator") or OpenAIGenerator(),
+                generator=kwargs.get("generator") or build_generator(cfg.llm_config.provider),
                 config=cfg,
             )
         except ImportError as exc:
