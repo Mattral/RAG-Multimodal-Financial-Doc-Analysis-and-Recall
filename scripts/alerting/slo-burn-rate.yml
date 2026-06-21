@@ -1,0 +1,310 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# RAG Financial Multimodal — Prometheus Alerting Rules
+#
+# Implements the Google SRE Workbook "multi-window, multi-burn-rate" pattern
+# for the two SLOs documented in roadmap.md's "SLO Targets" table:
+#
+#   SLO 1 — Availability: 99% of queries succeed (current target: error rate < 1%)
+#                          v2.1 target tightens this to < 0.5% — update the
+#                          0.01 constants below to 0.005 when that target ships,
+#                          and keep BENCHMARK_RESULTS.md / roadmap.md in sync.
+#   SLO 2 — Latency:      99% of queries complete in < 8s (p99 < 8000ms)
+#
+# Why multi-window multi-burn-rate (rather than a single "rate > X" alert):
+#   - A single long-window alert (e.g. errors > 1% over 1h) is SLOW to fire
+#     (you eat 1h of bad error budget before paging) and SLOW to clear.
+#   - A single short-window alert is NOISY (flaps on transient blips).
+#   - Pairing a short "for" window with a long "context" window, gated on
+#     burn-rate multiples of the error budget, gives fast detection with
+#     low false-positive rate. This is the same pattern used at Google.
+#
+# Burn rate reference table (for a 30-day SLO window):
+#   14.4x burn rate over  5m (+ 1h) -> exhausts a 30-day budget in 2 days  -> page
+#    6x   burn rate over 30m (+ 6h) -> exhausts a 30-day budget in 5 days  -> page
+#    3x   burn rate over  2h (+ 1d) -> exhausts a 30-day budget in 10 days -> ticket
+#    1x   burn rate over  6h (+ 3d) -> exhausts a 30-day budget in 30 days -> ticket
+#
+# Load into Prometheus via: scripts/prometheus.yml -> rule_files:
+#   - "alerting/slo-burn-rate.yml"
+# ─────────────────────────────────────────────────────────────────────────────
+
+groups:
+
+  # ── SLO 1: Availability (error rate) ──────────────────────────────────────
+  # Error budget: 1% of all queries may fail over a rolling 30-day window
+  # (current target per roadmap.md; tightens to 0.5% in v2.1).
+
+  - name: rag_financial_availability_slo
+    rules:
+      # Recording rules: pre-aggregate the ratio so burn-rate alerts are cheap
+      - record: rag:errors_per_request:ratio_rate5m
+        expr: |
+          sum(rate(rag_queries_total{status="error"}[5m]))
+          /
+          sum(rate(rag_queries_total[5m]))
+
+      - record: rag:errors_per_request:ratio_rate30m
+        expr: |
+          sum(rate(rag_queries_total{status="error"}[30m]))
+          /
+          sum(rate(rag_queries_total[30m]))
+
+      - record: rag:errors_per_request:ratio_rate1h
+        expr: |
+          sum(rate(rag_queries_total{status="error"}[1h]))
+          /
+          sum(rate(rag_queries_total[1h]))
+
+      - record: rag:errors_per_request:ratio_rate6h
+        expr: |
+          sum(rate(rag_queries_total{status="error"}[6h]))
+          /
+          sum(rate(rag_queries_total[6h]))
+
+      - record: rag:errors_per_request:ratio_rate2h
+        expr: |
+          sum(rate(rag_queries_total{status="error"}[2h]))
+          /
+          sum(rate(rag_queries_total[2h]))
+
+      - record: rag:errors_per_request:ratio_rate1d
+        expr: |
+          sum(rate(rag_queries_total{status="error"}[1d]))
+          /
+          sum(rate(rag_queries_total[1d]))
+
+      - record: rag:errors_per_request:ratio_rate3d
+        expr: |
+          sum(rate(rag_queries_total{status="error"}[3d]))
+          /
+          sum(rate(rag_queries_total[3d]))
+
+      # Fast burn — page immediately. 14.4x burn rate, 5m+1h windows.
+      - alert: RAGAvailabilitySLOFastBurn
+        expr: |
+          (
+            rag:errors_per_request:ratio_rate5m > (14.4 * 0.01)
+            and
+            rag:errors_per_request:ratio_rate1h > (14.4 * 0.01)
+          )
+        for: 2m
+        labels:
+          severity: page
+          slo: availability
+          burn_rate: "14.4x"
+        annotations:
+          summary: "RAG API error budget burning 14.4x normal rate"
+          description: >
+            At this burn rate the 30-day error budget will be exhausted in
+            ~2 days. 5-minute error ratio: {{ $value | humanizePercentage }}.
+            Check rag_queries_total{status="error"} by tenant_id and model.
+          runbook_url: "https://your-org.github.io/rag-financial-multimodal/troubleshooting/#high-error-rate"
+
+      # Medium burn — page, but with a slightly longer confirmation window.
+      - alert: RAGAvailabilitySLOMediumBurn
+        expr: |
+          (
+            rag:errors_per_request:ratio_rate30m > (6 * 0.01)
+            and
+            rag:errors_per_request:ratio_rate6h > (6 * 0.01)
+          )
+        for: 15m
+        labels:
+          severity: page
+          slo: availability
+          burn_rate: "6x"
+        annotations:
+          summary: "RAG API error budget burning 6x normal rate"
+          description: >
+            At this burn rate the 30-day error budget will be exhausted in
+            ~5 days. 30-minute error ratio: {{ $value | humanizePercentage }}.
+
+      # Slow burn — ticket, not page. Plenty of time to investigate.
+      - alert: RAGAvailabilitySLOSlowBurn
+        expr: |
+          (
+            rag:errors_per_request:ratio_rate2h > (3 * 0.01)
+            and
+            rag:errors_per_request:ratio_rate1d > (3 * 0.01)
+          )
+        for: 1h
+        labels:
+          severity: ticket
+          slo: availability
+          burn_rate: "3x"
+        annotations:
+          summary: "RAG API error budget burning 3x normal rate"
+          description: >
+            At this burn rate the 30-day error budget will be exhausted in
+            ~10 days. File a ticket and investigate during business hours.
+
+      - alert: RAGAvailabilitySLOMinorBurn
+        expr: |
+          (
+            rag:errors_per_request:ratio_rate6h > (1 * 0.01)
+            and
+            rag:errors_per_request:ratio_rate3d > (1 * 0.01)
+          )
+        for: 3h
+        labels:
+          severity: ticket
+          slo: availability
+          burn_rate: "1x"
+        annotations:
+          summary: "RAG API consuming error budget at the sustainable rate limit"
+          description: >
+            Burning the 30-day budget at exactly the rate that exhausts it
+            in 30 days. Not urgent, but trending toward SLO breach.
+
+  # ── SLO 2: Latency (p99 < 8s) ──────────────────────────────────────────────
+  # We approximate "fraction of slow requests" as a proxy error-budget signal,
+  # using the same multi-window multi-burn-rate shape as the availability SLO.
+  # A request counts as "slow" if it falls outside the 8s p99 latency bucket.
+
+  - name: rag_financial_latency_slo
+    rules:
+      - record: rag:slow_requests:ratio_rate5m
+        expr: |
+          sum(rate(rag_query_latency_seconds_bucket{le="8"}[5m]))
+          /
+          sum(rate(rag_query_latency_seconds_count[5m]))
+
+      - alert: RAGLatencySLOFastBurn
+        expr: |
+          (1 - rag:slow_requests:ratio_rate5m) > (14.4 * 0.01)
+        for: 5m
+        labels:
+          severity: page
+          slo: latency
+          burn_rate: "14.4x"
+        annotations:
+          summary: "RAG query latency SLO burning fast (p99 target: 8s)"
+          description: >
+            More than {{ $value | humanizePercentage }} of requests are
+            exceeding the 8s latency target over the last 5 minutes.
+            Check rag_retrieval_latency_seconds and rag_generation_latency_seconds
+            to isolate whether retrieval or generation is the bottleneck.
+
+      - alert: RAGLatencyP99HighSustained
+        expr: |
+          histogram_quantile(0.99, sum(rate(rag_query_latency_seconds_bucket[30m])) by (le)) > 8
+        for: 15m
+        labels:
+          severity: page
+          slo: latency
+        annotations:
+          summary: "RAG p99 query latency exceeds 8s SLO target for 15+ minutes"
+          description: "Current p99: {{ $value }}s (target: < 8s)."
+
+      - alert: RAGLatencyP95Degraded
+        expr: |
+          histogram_quantile(0.95, sum(rate(rag_query_latency_seconds_bucket[15m])) by (le)) > 5
+        for: 30m
+        labels:
+          severity: ticket
+          slo: latency
+        annotations:
+          summary: "RAG p95 query latency degraded (target: < 5s)"
+          description: "Current p95: {{ $value }}s. Investigate before it becomes a p99 SLO breach."
+
+  # ── Cost burn rate ──────────────────────────────────────────────────────────
+  # Guideline §3.2: "Prometheus metrics + alerts on budget thresholds."
+
+  - name: rag_financial_cost_alerts
+    rules:
+      - alert: RAGCostBurnRateHigh
+        expr: |
+          sum(increase(rag_query_cost_usd_total[1h])) > 10
+        for: 10m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "RAG query cost exceeding $10/hour"
+          description: >
+            Hourly spend: ${{ $value | printf "%.2f" }}. Check
+            rag_query_cost_usd_total by tenant_id and model for the source —
+            likely an unrouted query storm hitting gpt-4o instead of
+            gpt-4o-mini, or a tenant bypassing quotas.
+
+      - alert: RAGCostBurnRateCritical
+        expr: |
+          sum(increase(rag_query_cost_usd_total[1h])) > 50
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: "RAG query cost exceeding $50/hour — possible runaway spend"
+          description: >
+            Hourly spend: ${{ $value | printf "%.2f" }}. This is 5x the
+            warning threshold. Consider temporarily disabling
+            LLM_CONFIG__ENABLE_MODEL_ROUTING fallback to the complex model,
+            or pausing the offending tenant via the quota endpoint.
+
+      - alert: RAGTenantQuotaNearExhaustion
+        expr: |
+          rag_tenant_monthly_tokens_used / rag_tenant_monthly_token_quota > 0.9
+        for: 5m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "Tenant {{ $labels.tenant_id }} at 90%+ of monthly token quota"
+          description: >
+            Tenant {{ $labels.tenant_id }} has consumed
+            {{ $value | humanizePercentage }} of its monthly token quota.
+            Queries will start returning 429 quota-exceeded soon.
+
+  # ── Infrastructure health ────────────────────────────────────────────────────
+
+  - name: rag_financial_infra_alerts
+    rules:
+      - alert: RAGAPIDown
+        expr: up{job="rag-financial-api"} == 0
+        for: 1m
+        labels:
+          severity: page
+        annotations:
+          summary: "RAG Financial API is down"
+          description: "Prometheus has not been able to scrape {{ $labels.instance }} for 1+ minute."
+
+      - alert: RAGHighMemoryUsage
+        expr: |
+          process_resident_memory_bytes{job="rag-financial-api"} / (1024*1024*1024) > 6.5
+        for: 10m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "RAG API pod approaching memory limit"
+          description: >
+            RSS memory: {{ $value | printf "%.2f" }}GB (limit typically 8GB,
+            see helm values.yaml resources.limits.memory). Risk of OOMKill.
+
+      - alert: RAGEmbeddingCacheHitRateLow
+        expr: |
+          (
+            sum(rate(rag_cache_hits_total{cache_type="embedding"}[1h]))
+            /
+            sum(rate(rag_queries_total[1h]))
+          ) < 0.2
+        for: 1h
+        labels:
+          severity: ticket
+        annotations:
+          summary: "Embedding cache hit rate below 20% — Redis may be unhealthy"
+          description: >
+            Expected hit rate after warmup is 60-80% (see
+            docs/performance-cost-tuning.md). Current: {{ $value | humanizePercentage }}.
+            Check Redis connectivity and CACHE_CONFIG__REDIS_URL.
+
+      - alert: RAGHallucinationScoreElevated
+        expr: |
+          histogram_quantile(0.95, sum(rate(rag_hallucination_score_bucket[1h])) by (le)) > 0.3
+        for: 30m
+        labels:
+          severity: ticket
+          slo: quality
+        annotations:
+          summary: "Hallucination proxy score elevated (p95 > 0.3)"
+          description: >
+            Numeric grounding guardrail is flagging more answers than usual.
+            Consider running `rag-financial evaluate --fail-on-regression`
+            to confirm whether this is a real quality regression.

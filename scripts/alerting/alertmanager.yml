@@ -1,0 +1,98 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Alertmanager configuration — RAG Financial Multimodal
+#
+# Routes alerts from scripts/alerting/slo-burn-rate.yml based on the
+# `severity` label set on each alert rule:
+#   severity: page    -> PagerDuty (or OpsGenie) on-call, paged immediately
+#   severity: ticket   -> Slack/email backlog channel, no paging
+#
+# This is a STUB — both integrations are commented out with placeholder
+# keys. Uncomment ONE (not both) and supply your real routing/integration
+# key via environment variable or a K8s Secret mounted at this path.
+#
+# Usage:
+#   docker compose --profile observability up alertmanager
+#   (wired automatically via scripts/prometheus.yml -> alerting.alertmanagers)
+# ─────────────────────────────────────────────────────────────────────────────
+
+global:
+  resolve_timeout: 5m
+  # smtp_smarthost: 'smtp.your-org.com:587'
+  # smtp_from: 'rag-alerts@your-org.com'
+
+# ── Routing tree ──────────────────────────────────────────────────────────────
+route:
+  receiver: default-ticket-queue
+  group_by: ['alertname', 'slo']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+  routes:
+    # Page-severity alerts: fast burn rate, API down, critical cost spike.
+    # Fires immediately, repeats every 15 minutes until acknowledged.
+    - matchers:
+        - severity = "page"
+      receiver: oncall-page
+      group_wait: 10s
+      repeat_interval: 15m
+      continue: false
+
+    # Ticket-severity alerts: slow burn, degraded latency, quota warnings.
+    # Batched and sent to a non-paging channel.
+    - matchers:
+        - severity = "ticket"
+      receiver: default-ticket-queue
+      group_wait: 5m
+      repeat_interval: 6h
+      continue: false
+
+# ── Receivers ─────────────────────────────────────────────────────────────────
+receivers:
+
+  - name: default-ticket-queue
+    # Example: Slack webhook for non-paging alerts
+    # slack_configs:
+    #   - api_url: '${SLACK_WEBHOOK_URL}'
+    #     channel: '#rag-financial-alerts'
+    #     title: '{{ .CommonAnnotations.summary }}'
+    #     text: '{{ .CommonAnnotations.description }}'
+    #     send_resolved: true
+
+  - name: oncall-page
+    # ── Option A: PagerDuty ────────────────────────────────────────────────
+    # pagerduty_configs:
+    #   - routing_key: '${PAGERDUTY_INTEGRATION_KEY}'
+    #     description: '{{ .CommonAnnotations.summary }}'
+    #     severity: '{{ if eq .CommonLabels.severity "page" }}critical{{ else }}warning{{ end }}'
+    #     details:
+    #       slo: '{{ .CommonLabels.slo }}'
+    #       burn_rate: '{{ .CommonLabels.burn_rate }}'
+    #       runbook: '{{ .CommonAnnotations.runbook_url }}'
+    #     send_resolved: true
+    #
+    # ── Option B: OpsGenie (use instead of PagerDuty, not both) ────────────
+    # opsgenie_configs:
+    #   - api_key: '${OPSGENIE_API_KEY}'
+    #     message: '{{ .CommonAnnotations.summary }}'
+    #     description: '{{ .CommonAnnotations.description }}'
+    #     priority: '{{ if eq .CommonLabels.severity "page" }}P1{{ else }}P3{{ end }}'
+    #     tags: 'rag-financial,{{ .CommonLabels.slo }}'
+    #     send_resolved: true
+
+# ── Inhibition rules ───────────────────────────────────────────────────────────
+# If the fast-burn alert is already paging, suppress the slower-burn alerts
+# for the same SLO — they're redundant signal once the page has fired.
+inhibit_rules:
+  - source_matchers:
+      - severity = "page"
+      - burn_rate = "14.4x"
+    target_matchers:
+      - slo =~ ".+"
+    equal: ['slo']
+
+  - source_matchers:
+      - alertname = "RAGAPIDown"
+    target_matchers:
+      - alertname =~ "RAGLatency.*|RAGAvailability.*"
+    equal: []
