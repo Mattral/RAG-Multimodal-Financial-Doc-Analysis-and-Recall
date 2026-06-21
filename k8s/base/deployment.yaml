@@ -25,6 +25,26 @@ spec:
         prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: rag-financial
+      # Grace period must exceed: preStop sleep + app drain timeout
+      # (preStop sleep gives kube-proxy/Service/Ingress time to deregister
+      # this pod's endpoint BEFORE SIGTERM is sent, so no new traffic
+      # arrives mid-shutdown; the drain timeout then lets in-flight
+      # requests finish). Keep in sync with
+      # OBSERVABILITY_CONFIG__SHUTDOWN_DRAIN_TIMEOUT_SECONDS (default 30s).
+      terminationGracePeriodSeconds: 45
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: rag-financial
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: rag-financial
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001
@@ -50,6 +70,16 @@ spec:
             limits:
               cpu: "2000m"
               memory: "4Gi"
+          lifecycle:
+            preStop:
+              exec:
+                # Sleep before the SIGTERM that uvicorn's lifespan shutdown
+                # handler reacts to. This window lets the Service endpoint
+                # controller and any Ingress/load balancer remove this pod
+                # from rotation BEFORE we stop accepting work, eliminating
+                # the race where traffic is still sent to a pod that has
+                # already begun shutting down.
+                command: ["/bin/sh", "-c", "sleep 10"]
           livenessProbe:
             httpGet:
               path: /healthz

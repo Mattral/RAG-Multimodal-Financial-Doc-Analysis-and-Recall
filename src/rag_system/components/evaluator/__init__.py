@@ -150,7 +150,14 @@ class RagasEvaluator(BaseEvaluator):
     async def _llm_numeric_judge(
         self, query: str, answer: str, context_texts: List[str]
     ) -> float:
-        """Ask LLM to verify numeric claims in the answer are grounded."""
+        """Ask LLM to verify numeric claims in the answer are grounded.
+
+        Returns 0.5 (neutral) ONLY on genuine infrastructure failure (timeout,
+        non-2xx response, malformed JSON) — never silently swallows a 4xx/5xx
+        as if it were a real judged score, since that would hide outages as
+        fake "borderline" quality scores in eval reports.
+        """
+        import re
         import httpx
         from src.rag_system.config import get_config
 
@@ -176,8 +183,43 @@ class RagasEvaluator(BaseEvaluator):
                         "temperature": 0.0,
                     },
                 )
-                score_str = response.json()["choices"][0]["message"]["content"].strip()
-                return min(1.0, max(0.0, float(score_str)))
+                response.raise_for_status()
+                data = response.json()
+                raw_content = data["choices"][0]["message"]["content"].strip()
+
+            # The judge is instructed to return "ONLY a number" but LLMs
+            # occasionally wrap it in prose/punctuation ("Score: 0.85.",
+            # "0.85/1.0"). Extract the first float-looking token rather than
+            # calling float() directly on the raw string, which would raise
+            # ValueError on any deviation and get masked below as a fake 0.5.
+            # Known limitation: if the judge disobeys the "ONLY a number"
+            # instruction and emits an earlier unrelated number (e.g. "100%
+            # accurate, score 0.95"), the first match wins, not the score.
+            # This is judged an acceptable tradeoff given temperature=0.0
+            # and an explicit single-number instruction in the prompt.
+            match = re.search(r"(\d*\.?\d+)", raw_content)
+            if not match:
+                logger.warning(
+                    "numeric_judge_unparseable_response",
+                    raw_content=raw_content[:80],
+                )
+                return 0.5
+            score = float(match.group(1))
+            return min(1.0, max(0.0, score))
+
+        except httpx.HTTPStatusError as exc:
+            logger.error(
+                "numeric_judge_api_error",
+                status_code=exc.response.status_code,
+                detail=exc.response.text[:200],
+            )
+            return 0.5
+        except (httpx.TimeoutException, httpx.ConnectError) as exc:
+            logger.error("numeric_judge_connection_failed", error=str(exc))
+            return 0.5
+        except (KeyError, IndexError) as exc:
+            logger.error("numeric_judge_malformed_response", error=str(exc))
+            return 0.5
         except Exception as exc:
             logger.warning("numeric_judge_failed", error=str(exc))
             return 0.5

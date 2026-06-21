@@ -17,6 +17,20 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "{{ .Values.service.metricsPort }}"
     spec:
+      # Keep in sync with config.shutdownDrainTimeoutSeconds (default 30s):
+      # terminationGracePeriodSeconds should exceed preStop sleep + drain timeout.
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds | default 45 }}
+      {{- if .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- range .Values.topologySpreadConstraints }}
+        - maxSkew: {{ .maxSkew }}
+          topologyKey: {{ .topologyKey }}
+          whenUnsatisfiable: {{ .whenUnsatisfiable }}
+          labelSelector:
+            matchLabels:
+              {{- include "rag-financial.selectorLabels" $ | nindent 14 }}
+        {{- end }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001
@@ -36,6 +50,14 @@ spec:
                 name: {{ include "rag-financial.fullname" . }}-config
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          lifecycle:
+            preStop:
+              exec:
+                # Lets the Service/Ingress deregister this pod's endpoint
+                # before SIGTERM triggers the app's connection-draining
+                # shutdown handler — avoids routing new traffic to a pod
+                # that is already shutting down.
+                command: ["/bin/sh", "-c", "sleep {{ .Values.preStopSleepSeconds | default 10 }}"]
           livenessProbe:
             httpGet:
               path: /healthz
