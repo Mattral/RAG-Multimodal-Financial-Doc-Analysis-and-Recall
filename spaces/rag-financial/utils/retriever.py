@@ -50,7 +50,7 @@ class EmbeddingModel:
         uncached = [t for t in texts if t not in self._cache]
         if uncached:
             vecs = model.encode(uncached, normalize_embeddings=True, show_progress_bar=False)
-            for text, vec in zip(uncached, vecs):
+            for text, vec in zip(uncached, vecs, strict=True):
                 self._cache[text] = vec.tolist()
         return np.array([self._cache[t] for t in texts], dtype=np.float32)
 

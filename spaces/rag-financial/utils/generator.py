@@ -11,13 +11,11 @@ a different `model` argument directly.
 """
 from __future__ import annotations
 
-import re
 import time
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List
 
 from utils.retriever import RetrievedChunk
-
 
 FINANCIAL_RAG_SYSTEM_PROMPT = """\
 You are an expert financial analyst AI assistant. Your task is to answer questions

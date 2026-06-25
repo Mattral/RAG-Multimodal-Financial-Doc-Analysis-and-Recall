@@ -5,9 +5,12 @@ that no retired Gemini model names (2.0-flash, 1.5-*) leak back in as
 defaults — the class of bug this session fixed.
 """
 from __future__ import annotations
+
 import sys
 from pathlib import Path
+
 import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
@@ -39,8 +42,9 @@ class TestModelCurrency:
         assert "gemini-2.5-flash" in _GEMINI_PRICING
 
     def test_generate_gemini_default_param_is_current(self):
-        from utils.generator import generate_gemini
         import inspect
+
+        from utils.generator import generate_gemini
         sig = inspect.signature(generate_gemini)
         assert sig.parameters["model"].default == "gemini-2.5-flash"
 
@@ -216,16 +220,16 @@ class TestGeneratorInputValidation:
 
 class TestCostComputation:
     def test_gpt4o_mini_cheaper_than_gpt4o(self):
-        from utils.generator import _compute_cost, _OPENAI_PRICING
+        from utils.generator import _OPENAI_PRICING, _compute_cost
         assert (_compute_cost("gpt-4o-mini", 1000, 500, _OPENAI_PRICING)
                 < _compute_cost("gpt-4o", 1000, 500, _OPENAI_PRICING))
 
     def test_unknown_model_returns_zero(self):
-        from utils.generator import _compute_cost, _OPENAI_PRICING
+        from utils.generator import _OPENAI_PRICING, _compute_cost
         assert _compute_cost("unknown-model-xyz", 1000, 500, _OPENAI_PRICING) == 0.0
 
     def test_gemini_flash_cheaper_than_pro(self):
-        from utils.generator import _compute_cost, _GEMINI_PRICING
+        from utils.generator import _GEMINI_PRICING, _compute_cost
         flash = _compute_cost("gemini-2.5-flash", 1_000_000, 500_000, _GEMINI_PRICING)
         pro = _compute_cost("gemini-2.5-pro", 1_000_000, 500_000, _GEMINI_PRICING)
         assert flash < pro

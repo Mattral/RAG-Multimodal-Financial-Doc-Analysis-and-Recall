@@ -6,10 +6,10 @@ Modules:
   generator      — OpenAI + Gemini generation with cost tracking (current models: v2.0)
   guardrails     — Numeric grounding, PII detection, injection blocking
 """
-from utils.pdf_processor import ingest_pdf, IngestResult, DocumentChunk
-from utils.retriever import VectorIndex, RetrievedChunk, EmbeddingModel
-from utils.generator import generate, GenerationResult
-from utils.guardrails import run_guardrails, GuardrailResult
+from utils.generator import GenerationResult, generate
+from utils.guardrails import GuardrailResult, run_guardrails
+from utils.pdf_processor import DocumentChunk, IngestResult, ingest_pdf
+from utils.retriever import EmbeddingModel, RetrievedChunk, VectorIndex
 
 __all__ = [
     "ingest_pdf", "IngestResult", "DocumentChunk",

@@ -12,6 +12,7 @@ Full source of truth: src/rag_system/ in the same repository.
 """
 from __future__ import annotations
 
+import contextlib
 import sys
 from pathlib import Path
 from typing import Optional, Tuple
@@ -20,10 +21,10 @@ import gradio as gr
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from utils.pdf_processor import ingest_pdf, IngestResult
-from utils.retriever import VectorIndex, EmbeddingModel
-from utils.generator import generate, GenerationResult
-from utils.guardrails import run_guardrails, GuardrailResult
+from utils.generator import GenerationResult, generate
+from utils.guardrails import GuardrailResult, run_guardrails
+from utils.pdf_processor import IngestResult, ingest_pdf
+from utils.retriever import EmbeddingModel, VectorIndex
 
 # ── Singletons ────────────────────────────────────────────────────────────────
 _embedding_model: Optional[EmbeddingModel] = None
@@ -79,7 +80,10 @@ def _make_vision_fn(provider: str, api_key: str):
     use_openai = "openai" in provider.lower() or "gpt" in provider.lower()
 
     def vision_fn(image) -> str:
-        import base64, io, httpx
+        import base64
+        import io
+
+        import httpx
         buf = io.BytesIO()
         image.save(buf, format="PNG")
         b64 = base64.b64encode(buf.getvalue()).decode()
@@ -127,10 +131,8 @@ def do_ingest(pdf_path: str, enable_vision: bool, provider: str, api_key: str):
 
     vision_fn = None
     if enable_vision and api_key and api_key.strip():
-        try:
+        with contextlib.suppress(Exception):
             vision_fn = _make_vision_fn(provider, api_key)
-        except Exception:
-            pass
 
     try:
         result: IngestResult = ingest_pdf(pdf_path, process_vision=enable_vision, vision_fn=vision_fn)
@@ -251,7 +253,7 @@ def _fmt_pipeline(retrieval_steps, gen: GenerationResult) -> str:
 
 
 def _fmt_guardrails(g: GuardrailResult) -> str:
-    md = f"## Guardrail Results\n\n"
+    md = "## Guardrail Results\n\n"
     md += "\n".join(g.details)
     if g.warnings:
         md += "\n\n### Warnings\n"
@@ -400,18 +402,17 @@ def create_demo() -> gr.Blocks:
                     "### Upload a PDF and click **Process Document** to begin."
                 )
 
-                with gr.Group(visible=False) as results_group:
-                    with gr.Tabs():
-                        with gr.TabItem("Answer"):
-                            answer_out = gr.Markdown(label="")
-                        with gr.TabItem("Sources"):
-                            sources_out = gr.Markdown(label="")
-                        with gr.TabItem("Pipeline"):
-                            pipeline_out = gr.Markdown(label="")
-                        with gr.TabItem("Guardrails"):
-                            guardrail_out = gr.Markdown(label="")
-                        with gr.TabItem("Metrics"):
-                            metrics_out = gr.Markdown(label="")
+                with gr.Group(visible=False) as results_group, gr.Tabs():
+                    with gr.TabItem("Answer"):
+                        answer_out = gr.Markdown(label="")
+                    with gr.TabItem("Sources"):
+                        sources_out = gr.Markdown(label="")
+                    with gr.TabItem("Pipeline"):
+                        pipeline_out = gr.Markdown(label="")
+                    with gr.TabItem("Guardrails"):
+                        guardrail_out = gr.Markdown(label="")
+                    with gr.TabItem("Metrics"):
+                        metrics_out = gr.Markdown(label="")
 
         gr.Markdown("---")
         with gr.Accordion("Technical Architecture", open=False):
