@@ -76,7 +76,7 @@ class TestFallbackVisionDescriber:
 
     def test_name_shows_chain(self):
         p1 = self._make_provider("openai/gpt-4o")
-        p2 = self._make_provider("gemini/gemini-2.0-flash")
+        p2 = self._make_provider("gemini/gemini-2.5-flash")
         describer = FallbackVisionDescriber([p1, p2])
         assert "openai" in describer.name
         assert "gemini" in describer.name
@@ -127,6 +127,6 @@ class TestGeminiVisionDescriber:
 
     def test_name_property(self):
         from src.rag_system.components.vision.gemini_adapter import GeminiVisionDescriber
-        d = GeminiVisionDescriber(model="gemini-2.0-flash")
+        d = GeminiVisionDescriber(model="gemini-2.5-flash")
         assert "gemini" in d.name
         assert "flash" in d.name

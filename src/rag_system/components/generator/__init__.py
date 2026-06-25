@@ -2,12 +2,12 @@
 
 Providers (all implement BaseGenerator, switch via config — zero code changes):
   openai      -> OpenAIGenerator      (GPT-4o-mini / GPT-4o, default)
-  gemini      -> GeminiGenerator      (Gemini 2.0 Flash / Pro, 10-40x cheaper)
+  gemini      -> GeminiGenerator      (Gemini 2.5 Flash / Pro, 5-30x cheaper)
   anthropic   -> AnthropicGenerator   (Claude 3.5 Sonnet / Haiku)
   local_vllm  -> LocalVLLMGenerator   (any HF model via vLLM, fully private)
 
     LLM_CONFIG__PROVIDER=gemini
-    LLM_CONFIG__MODEL=gemini-2.0-flash
+    LLM_CONFIG__MODEL=gemini-2.5-flash
 
 Every provider:
   - Routes simple queries to a cheap model and numerical/analytical queries
@@ -155,15 +155,21 @@ class OpenAIGenerator(BaseGenerator):
 class GeminiGenerator(BaseGenerator):
     """Google Gemini generator — 10-40x cheaper than GPT-4o, generous free tier.
 
-    Set GOOGLE_API_KEY in .env. Model defaults to gemini-2.0-flash;
-    set LLM_CONFIG__COMPLEX_QUERY_MODEL=gemini-2.0-pro for harder queries.
+    Set GOOGLE_API_KEY in .env. Model defaults to gemini-2.5-flash (stable GA);
+    set LLM_CONFIG__COMPLEX_QUERY_MODEL=gemini-2.5-pro for harder queries.
+
+    Note: gemini-2.0-flash and the gemini-1.5-* family were retired by Google
+    in favor of the 2.5 and 3.x generations. Pricing below reflects 2.5-series
+    rates — verify current pricing at ai.google.dev/gemini-api/docs/pricing
+    before relying on these numbers for budgeting, as Google updates pricing
+    independently of this codebase.
     """
 
     _PRICING = {
-        "gemini-2.0-flash": {"prompt": 0.10, "completion": 0.40},
-        "gemini-2.0-pro": {"prompt": 1.25, "completion": 5.00},
-        "gemini-1.5-pro": {"prompt": 1.25, "completion": 5.00},
-        "gemini-1.5-flash": {"prompt": 0.075, "completion": 0.30},
+        "gemini-2.5-flash":      {"prompt": 0.15, "completion": 0.60},
+        "gemini-2.5-pro":        {"prompt": 1.25, "completion": 5.00},
+        "gemini-3.5-flash":      {"prompt": 0.15, "completion": 0.60},
+        "gemini-3.1-flash-lite": {"prompt": 0.05, "completion": 0.20},
     }
 
     def __init__(self) -> None:
@@ -172,12 +178,12 @@ class GeminiGenerator(BaseGenerator):
         # If the user hasn't overridden the model away from the OpenAI default,
         # use a sensible Gemini default instead.
         self._default_model = (
-            self._cfg.model if "gemini" in self._cfg.model else "gemini-2.0-flash"
+            self._cfg.model if "gemini" in self._cfg.model else "gemini-2.5-flash"
         )
         self._complex_model = (
             self._cfg.complex_query_model
             if "gemini" in self._cfg.complex_query_model
-            else "gemini-2.0-pro"
+            else "gemini-2.5-pro"
         )
 
     @property

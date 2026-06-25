@@ -2,7 +2,7 @@
 
 Providers:
   openai      → OpenAIVisionDescriber    (GPT-4o, highest accuracy)
-  gemini      → GeminiVisionDescriber    (Gemini 2.0 Flash, cheapest cloud)
+  gemini      → GeminiVisionDescriber    (Gemini 2.5 Flash, cheapest cloud)
   qwen2-vl    → Qwen2VLDescriber         (open-source, via Together.ai)
   local_vllm  → LocalVLLMDescriber       (any HF model via vLLM, fully private)
 

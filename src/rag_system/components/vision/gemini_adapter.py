@@ -1,6 +1,8 @@
-"""Google Gemini 2.0 Flash/Pro vision adapter — generous free tier, strong document understanding.
+"""Google Gemini vision adapter (2.5 Flash/Pro) — generous free tier, strong document understanding.
 
-Guideline §7: 'Google Gemini 2.0 Flash and Gemini 2.0 Pro — excellent free or cheap alternatives.'
+Guideline §7: 'Google Gemini Flash and Pro — excellent free or cheap alternatives.'
+(Guideline originally named the 2.0 series; 2.0 was retired by Google in favor of
+2.5/3.x — this adapter tracks whichever Gemini generation is currently GA.)
 
 Usage: set VISION_CONFIG__PROVIDER=gemini and GOOGLE_API_KEY in .env
 """
@@ -24,22 +26,24 @@ logger = structlog.get_logger(__name__)
 
 # Gemini pricing (per 1M tokens, mid-2025 approximate)
 _GEMINI_PRICING = {
-    "gemini-2.0-flash": {"prompt": 0.10, "completion": 0.40},
-    "gemini-2.0-pro":   {"prompt": 1.25, "completion": 5.00},
-    "gemini-1.5-pro":   {"prompt": 1.25, "completion": 5.00},
+    "gemini-2.5-flash":      {"prompt": 0.15, "completion": 0.60},
+    "gemini-2.5-pro":        {"prompt": 1.25, "completion": 5.00},
+    "gemini-3.5-flash":      {"prompt": 0.15, "completion": 0.60},
+    "gemini-3.1-flash-lite": {"prompt": 0.05, "completion": 0.20},
 }
 
 
 class GeminiVisionDescriber(BaseVisionDescriber):
     """Google Gemini vision adapter for financial chart extraction.
 
-    Models supported: gemini-2.0-flash (recommended default), gemini-2.0-pro.
+    Models supported: gemini-2.5-flash (recommended default), gemini-2.5-pro.
+    Note: gemini-2.0-flash and gemini-1.5-* are retired — do not use.
     Uses Google AI Studio API (not Vertex) for simpler auth.
     """
 
     def __init__(
         self,
-        model: str = "gemini-2.0-flash",
+        model: str = "gemini-2.5-flash",
         max_tokens: int = 1500,
         temperature: float = 0.1,
         timeout: int = 120,
