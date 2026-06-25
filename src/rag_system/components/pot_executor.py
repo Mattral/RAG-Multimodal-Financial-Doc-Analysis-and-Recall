@@ -17,7 +17,7 @@ import asyncio
 import re
 import textwrap
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import structlog
 
@@ -31,7 +31,7 @@ _ALLOWED_AST_NODES = {
     ast.Compare, ast.IfExp, ast.Call, ast.Constant,
     ast.Name, ast.Load, ast.Attribute,
     # Arithmetic operators
-    ast.Add, ast.Sub, ast.Mul, ast.Div, ast.FloorDiv,
+    ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv,
     ast.Mod, ast.Pow, ast.USub, ast.UAdd,
     # Comparisons
     ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE,
@@ -221,7 +221,7 @@ class PoTExecutor:
                 variables=variables,
                 execution_time_ms=elapsed_ms,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return PoTResult(success=False, code=code, error=f"Execution timed out after {self._timeout}s")
         except Exception as exc:
             return PoTResult(success=False, code=code, error=f"RuntimeError: {exc}")
