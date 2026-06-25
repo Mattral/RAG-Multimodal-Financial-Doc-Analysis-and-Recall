@@ -23,8 +23,8 @@ logger = structlog.get_logger(__name__)
 
 
 async def _run(args):
+    from src.rag_system.components.evaluator import GoldenDatasetRunner, RagasEvaluator
     from src.rag_system.pipeline import create_pipeline
-    from src.rag_system.components.evaluator import RagasEvaluator, GoldenDatasetRunner
 
     pipeline = await create_pipeline()
     evaluator = RagasEvaluator()
