@@ -18,7 +18,7 @@ import json
 import sys
 import time
 from pathlib import Path
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Optional
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -135,7 +135,7 @@ async def test_numeric_grounding():
     return f"Hallucinated number caught: {ungrounded}"
 
 
-async def run_all():
+async def run_all(test_filter: Optional[str] = None):
     tests = [
         test_redis_unavailable,
         test_injection_blocked,
@@ -145,6 +145,12 @@ async def run_all():
         test_quota_exceeded,
         test_numeric_grounding,
     ]
+    if test_filter:
+        tests = [t for t in tests if test_filter in t.__name__]
+        if not tests:
+            print(f"No chaos test matches filter '{test_filter}'")
+            return 1
+
     print("\n Chaos Engineering Test Suite")
     print("=" * 50)
     for test in tests:
@@ -169,7 +175,7 @@ def main():
     parser = argparse.ArgumentParser(description="Chaos engineering tests")
     parser.add_argument("--test", default=None, help="Run specific test by name")
     args = parser.parse_args()
-    failed = asyncio.run(run_all())
+    failed = asyncio.run(run_all(test_filter=args.test))
     sys.exit(1 if failed else 0)
 
 

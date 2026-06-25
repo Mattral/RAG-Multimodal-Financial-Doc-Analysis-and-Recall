@@ -12,6 +12,7 @@ import hashlib
 import secrets
 import string
 
+
 def generate_key(length: int = 40) -> str:
     alphabet = string.ascii_letters + string.digits
     return "rag-" + "".join(secrets.choice(alphabet) for _ in range(length))
@@ -24,12 +25,12 @@ def main():
     key = generate_key(args.length)
     key_hash = hashlib.sha256(key.encode()).hexdigest()
 
-    print(f"\nGenerated API Key:")
+    print("\nGenerated API Key:")
     print(f"  RAG_API_MASTER_KEY={key}")
-    print(f"\nSHA-256 Hash (for server-side storage):")
+    print("\nSHA-256 Hash (for server-side storage):")
     print(f"  {key_hash}")
-    print(f"\n⚠  Store the key in a secrets manager — NOT in source control.")
-    print(f"   The hash is what the auth middleware compares against.\n")
+    print("\n⚠  Store the key in a secrets manager — NOT in source control.")
+    print("   The hash is what the auth middleware compares against.\n")
 
 if __name__ == "__main__":
     main()

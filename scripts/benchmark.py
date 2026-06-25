@@ -21,8 +21,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 async def run_benchmark(modes: List[str], sample_limit: int) -> List[Dict[str, Any]]:
-    from evals.run_evals import _run as run_evals
-    import argparse as ap
 
     results = []
     golden_path = "evals/golden_datasets/financial_qa.jsonl"
@@ -50,8 +48,8 @@ async def run_benchmark(modes: List[str], sample_limit: int) -> List[Dict[str, A
                         "latencies_ms": [], "costs_usd": []}
 
         try:
-            from src.rag_system.pipeline import create_pipeline
             from src.rag_system.config import reset_config
+            from src.rag_system.pipeline import create_pipeline
             reset_config()
             pipeline = await create_pipeline()
 

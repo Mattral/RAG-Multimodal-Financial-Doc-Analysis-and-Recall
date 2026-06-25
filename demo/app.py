@@ -82,7 +82,7 @@ def main():
                     tmp_path = tmp.name
                 try:
                     result = asyncio.run(pipeline.ingest(
-                        [tmp_path], process_vision=process_vision
+                        [tmp_path], tenant_id=tenant_id, process_vision=process_vision
                     ))
                     st.session_state["ingested_files"].append(uf.name)
                     progress.progress(
@@ -114,7 +114,7 @@ def main():
             "Describe the revenue trend from the charts",
         ]
         cols = st.columns(len(examples))
-        for i, (col, ex) in enumerate(zip(cols, examples)):
+        for i, (col, ex) in enumerate(zip(cols, examples, strict=True)):
             if col.button(ex[:30] + "...", key=f"ex_{i}"):
                 st.session_state["query_input"] = ex
 
@@ -135,7 +135,7 @@ def main():
             with st.spinner("Retrieving and generating answer..."):
                 try:
                     result = asyncio.run(pipeline.query(
-                        query, top_k=top_k
+                        query, tenant_id=tenant_id, top_k=top_k
                     ))
 
                     # ── Answer ─────────────────────────────────────────────────
@@ -184,7 +184,7 @@ def main():
                         if col1.button("👍"):
                             st.success("Thanks! Your feedback helps improve the system.")
                         if col2.button("👎"):
-                            comment = st.text_input("What went wrong?", key="feedback_comment")
+                            st.text_input("What went wrong?", key="feedback_comment")
                             st.info("Feedback noted. This will be used to improve retrieval quality.")
 
                     elif result.get("status") == "error":
