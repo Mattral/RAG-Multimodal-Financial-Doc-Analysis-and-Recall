@@ -137,7 +137,19 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
-ignore = ["E501", "B008", "UP007"]
+# UP006/UP007/UP035/UP045: this codebase deliberately uses typing.Optional/List/Dict
+# throughout rather than PEP 604/585 (`X | None`, `list[X]`) syntax, for consistency
+# with the existing style and readability in a large team codebase. This is a style
+# choice, not a correctness issue — do not "fix" these individually; if the team
+# decides to migrate styles, do it as one deliberate, fully-tested sweep, not via
+# scattered --fix runs that could silently touch behavior in edge cases (e.g. runtime
+# isinstance checks against typing constructs).
+# UP042: (str, Enum) -> StrEnum would change str()/f-string output from
+# "QueryIntent.FACTUAL" to "factual" (confirmed via direct testing on this
+# Python version). Every usage in this codebase already explicitly calls
+# .value, so the change has zero functional benefit here while carrying a
+# real behavior-change risk for any callsite not caught by this audit.
+ignore = ["E501", "B008", "UP006", "UP007", "UP035", "UP045", "UP042"]
 
 [tool.mypy]
 python_version = "3.11"
