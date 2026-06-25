@@ -8,11 +8,10 @@ All exceptions carry:
 """
 from __future__ import annotations
 
-from http import HTTPStatus
 from typing import Any, Dict, Optional
 
 
-class RAGException(Exception):
+class RAGError(Exception):
     """Base exception for all RAG system errors."""
 
     http_status: int = 500
@@ -48,7 +47,7 @@ class RAGException(Exception):
 
 # ── Ingestion ─────────────────────────────────────────────────────────────────
 
-class PDFParsingError(RAGException):
+class PDFParsingError(RAGError):
     http_status = 422
     default_code = "PDF_PARSING_ERROR"
 
@@ -59,7 +58,7 @@ class PDFParsingError(RAGException):
         super().__init__(message, details=details, **kwargs)
 
 
-class VisionParsingError(RAGException):
+class VisionParsingError(RAGError):
     http_status = 422
     default_code = "VISION_PARSING_ERROR"
 
@@ -78,14 +77,14 @@ class VisionParsingError(RAGException):
         super().__init__(message, details=details, **kwargs)
 
 
-class DocumentNotFoundError(RAGException):
+class DocumentNotFoundError(RAGError):
     http_status = 404
     default_code = "DOCUMENT_NOT_FOUND"
 
 
 # ── Storage ───────────────────────────────────────────────────────────────────
 
-class VectorStorageError(RAGException):
+class VectorStorageError(RAGError):
     http_status = 503
     default_code = "VECTOR_STORAGE_ERROR"
 
@@ -96,24 +95,24 @@ class VectorStorageError(RAGException):
         super().__init__(message, details=details, **kwargs)
 
 
-class EmbeddingError(RAGException):
+class EmbeddingError(RAGError):
     http_status = 503
     default_code = "EMBEDDING_ERROR"
 
 
 # ── Retrieval / Generation ────────────────────────────────────────────────────
 
-class RetrievalError(RAGException):
+class RetrievalError(RAGError):
     http_status = 503
     default_code = "RETRIEVAL_ERROR"
 
 
-class GenerationError(RAGException):
+class GenerationError(RAGError):
     http_status = 503
     default_code = "GENERATION_ERROR"
 
 
-class NoContextFoundError(RAGException):
+class NoContextFoundError(RAGError):
     """Raised when no relevant context is retrieved for a query."""
     http_status = 404
     default_code = "NO_CONTEXT_FOUND"
@@ -121,7 +120,7 @@ class NoContextFoundError(RAGException):
 
 # ── API / Network ─────────────────────────────────────────────────────────────
 
-class APIRateLimitError(RAGException):
+class APIRateLimitError(RAGError):
     http_status = 429
     default_code = "API_RATE_LIMIT_ERROR"
 
@@ -140,7 +139,7 @@ class APIRateLimitError(RAGException):
         super().__init__(message, details=details, **kwargs)
 
 
-class APITimeoutError(RAGException):
+class APITimeoutError(RAGError):
     http_status = 504
     default_code = "API_TIMEOUT_ERROR"
 
@@ -161,17 +160,17 @@ class APITimeoutError(RAGException):
 
 # ── Auth / Tenancy ────────────────────────────────────────────────────────────
 
-class AuthenticationError(RAGException):
+class AuthenticationError(RAGError):
     http_status = 401
     default_code = "AUTHENTICATION_ERROR"
 
 
-class AuthorizationError(RAGException):
+class AuthorizationError(RAGError):
     http_status = 403
     default_code = "AUTHORIZATION_ERROR"
 
 
-class QuotaExceededError(RAGException):
+class QuotaExceededError(RAGError):
     http_status = 429
     default_code = "QUOTA_EXCEEDED"
 
@@ -181,14 +180,14 @@ class QuotaExceededError(RAGException):
         super().__init__(message, details=details, **kwargs)
 
 
-class TenantNotFoundError(RAGException):
+class TenantNotFoundError(RAGError):
     http_status = 404
     default_code = "TENANT_NOT_FOUND"
 
 
 # ── Config / Guardrails ───────────────────────────────────────────────────────
 
-class ConfigurationError(RAGException):
+class ConfigurationError(RAGError):
     http_status = 500
     default_code = "CONFIGURATION_ERROR"
 
@@ -199,7 +198,7 @@ class ConfigurationError(RAGException):
         super().__init__(message, details=details, **kwargs)
 
 
-class GuardrailViolationError(RAGException):
+class GuardrailViolationError(RAGError):
     http_status = 400
     default_code = "GUARDRAIL_VIOLATION"
 
@@ -211,7 +210,7 @@ class GuardrailViolationError(RAGException):
 
 # ── Retry ─────────────────────────────────────────────────────────────────────
 
-class RetryableError(RAGException):
+class RetryableError(RAGError):
     http_status = 503
     default_code = "RETRYABLE_ERROR"
 
@@ -233,7 +232,7 @@ class MaxRetriesExceededError(RetryableError):
 
 # ── Cache ─────────────────────────────────────────────────────────────────────
 
-class CacheError(RAGException):
+class CacheError(RAGError):
     http_status = 503
     default_code = "CACHE_ERROR"
 
