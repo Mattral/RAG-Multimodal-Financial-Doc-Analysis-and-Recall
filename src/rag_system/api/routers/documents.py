@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from typing import Optional
 
+import structlog
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-import structlog
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)
@@ -30,7 +30,7 @@ async def list_documents(request: Request, tenant_id: Optional[str] = None):
         return JSONResponse(status_code=500, content={"error": str(exc)})
 
 
-@router.delete("/documents/{doc_id}", summary="GDPR/CCPA soft-delete a document")
+@router.delete("/documents/{doc_id:path}", summary="GDPR/CCPA soft-delete a document")
 async def delete_document(request: Request, doc_id: str, tenant_id: Optional[str] = None):
     """Soft-delete a document for GDPR/CCPA compliance. Logged to audit trail."""
     pipeline = getattr(request.app.state, "pipeline", None)

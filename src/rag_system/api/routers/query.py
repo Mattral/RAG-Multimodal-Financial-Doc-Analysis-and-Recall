@@ -1,10 +1,12 @@
 """Query API router."""
 from __future__ import annotations
+
 from typing import Any, Dict, Optional
+
+import structlog
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-import structlog
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)

@@ -6,14 +6,14 @@ feedback stored with query_id, used later for fine-tuning reranker or reward mod
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, Optional
 
+import structlog
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-import structlog
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)
@@ -67,7 +67,7 @@ async def submit_feedback(request: Request, body: FeedbackRequest):
         "model_used": body.model_used,
         "latency_ms": body.latency_ms,
         "num_sources": len(body.sources or []),
-        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "timestamp_utc": datetime.now(UTC).isoformat(),
     }
 
     try:

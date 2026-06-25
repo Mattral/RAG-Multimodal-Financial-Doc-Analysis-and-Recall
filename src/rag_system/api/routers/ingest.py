@@ -1,10 +1,12 @@
 """Ingest API router."""
 from __future__ import annotations
+
 import tempfile
 from typing import Optional
+
+import structlog
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse
-import structlog
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)

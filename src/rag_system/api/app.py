@@ -98,15 +98,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     )
 
     logger.info("api_startup_begin")
-    try:
-        from src.rag_system.pipeline import create_pipeline
-        _pipeline = await create_pipeline()
-        app.state.pipeline = _pipeline
-        logger.info("api_startup_complete")
-    except Exception as exc:
-        logger.error("api_startup_failed", error=str(exc))
-        # Start in degraded mode — health check will report not_ready
-        app.state.pipeline = None
+    if hasattr(app.state, "pipeline"):
+        # Pipeline attribute was pre-set (e.g. a test fixture injecting a
+        # mock, or explicitly None to simulate degraded mode) before the
+        # TestClient context manager triggered this lifespan. Respect it —
+        # skip real construction so the test's intent survives startup.
+        _pipeline = app.state.pipeline
+        logger.info("api_startup_using_preset_pipeline", is_none=_pipeline is None)
+    else:
+        try:
+            from src.rag_system.pipeline import create_pipeline
+            _pipeline = await create_pipeline()
+            app.state.pipeline = _pipeline
+            logger.info("api_startup_complete")
+        except Exception as exc:
+            logger.error("api_startup_failed", error=str(exc))
+            # Start in degraded mode — health check will report not_ready
+            app.state.pipeline = None
 
     yield
 

@@ -3,13 +3,11 @@ from __future__ import annotations
 
 import hashlib
 import os
-from typing import Optional
 
+import structlog
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
-
-import structlog
 
 logger = structlog.get_logger(__name__)
 

@@ -1,8 +1,9 @@
 """Tenant management endpoints (RBAC stub)."""
+from typing import Optional
+
+import structlog
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import Optional
-import structlog
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)
