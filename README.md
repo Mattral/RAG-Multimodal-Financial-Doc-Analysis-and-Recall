@@ -177,6 +177,11 @@ vllm serve Qwen/Qwen2-VL-7B-Instruct --port 8080 --host 0.0.0.0
 
 ## Try It Live
 
+**Interactive notebook**: [`notebooks/quickstart.ipynb`](notebooks/quickstart.ipynb) walks through the
+full pipeline end-to-end — ingestion, hybrid retrieval, vision/chart queries, Program-of-Thought
+calculations, guardrails, and cost tracking — using Tesla's real Q3 2023 Investor Update as the
+example document.
+
 A standalone Gradio demo lives in [`spaces/rag-financial/`](spaces/rag-financial/) — deploy it
 directly to HuggingFace Spaces or run it locally:
 
