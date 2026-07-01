@@ -94,3 +94,16 @@ class AzureBlobConnector(BaseConnector):
                 os.unlink(local)
         except ImportError:
             logger.warning("azure_storage_not_installed")
+
+
+# GCS connector — lazy import so google-cloud-storage is optional
+try:
+    from src.rag_system.components.connectors.gcs_connector import GCSConnector
+except ImportError:
+    GCSConnector = None  # type: ignore[assignment,misc]
+
+__all__ = [
+    "BaseConnector", "DiscoveredDocument",
+    "LocalFilesystemConnector", "S3Connector",
+    "AzureBlobConnector", "GCSConnector",
+]
