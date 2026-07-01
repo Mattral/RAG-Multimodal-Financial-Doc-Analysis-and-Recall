@@ -1,5 +1,9 @@
 # Architecture Overview
 
+![Architecture Pipeline](../assets/architecture_pipeline.png)
+
+*Full ingestion and query pipeline rendered from the actual component graph.*
+
 ```
 PDF/S3/Azure --> Parser --> Layout Grouper --> PII Redactor
                        \--> Vision LLM --------/
