@@ -13,6 +13,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import structlog
 
+from src.rag_system.config import get_config
+
 logger = structlog.get_logger(__name__)
 
 
@@ -97,32 +99,122 @@ class InMemoryGraphStore:
 
 
 class EntityExtractor:
-    """LLM-powered entity/relation extractor stub for v3.0."""
+    """LLM-powered entity and relation extractor for financial documents.
 
-    EXTRACTION_PROMPT = (
-        "Extract all named entities and relationships from this financial document excerpt.\n"
-        "Return JSON with:\n"
-        "- entities: [{id, type, name, value}]  Types: COMPANY, PERSON, METRIC, DATE\n"
-        "- relations: [{subject_id, predicate, object_id}]\n"
-        "  Predicates: SUBSIDIARY_OF, REPORTED_REVENUE, SUPPLIES_TO, CITES, MANAGED_BY\n\n"
-        "Text:\n{text}"
-    )
+    Sends each text chunk to the LLM with a structured-output prompt and
+    parses the JSON response into Entity/Relation objects.
+
+    Extracted entities: COMPANY, PERSON, METRIC, DATE, PRODUCT, LOCATION, REGULATION
+    Extracted relations: SUBSIDIARY_OF, REPORTED_REVENUE, SUPPLIES_TO, CITES,
+                          MANAGED_BY, ISSUED_BY, REGULATED_BY, COMPETES_WITH
+    """
+
+    EXTRACTION_PROMPT = """\
+Extract all named entities and relationships from this financial document excerpt.
+
+Return ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
+{
+  "entities": [
+    {"id": "e1", "type": "COMPANY", "name": "Tesla Inc", "value": null},
+    {"id": "e2", "type": "METRIC",  "name": "Revenue",   "value": "$23.35B"}
+  ],
+  "relations": [
+    {"subject_id": "e1", "predicate": "REPORTED_REVENUE", "object_id": "e2"}
+  ]
+}
+
+Entity types: COMPANY, PERSON, METRIC, DATE, PRODUCT, LOCATION, REGULATION
+Relation predicates: SUBSIDIARY_OF, REPORTED_REVENUE, SUPPLIES_TO, CITES, MANAGED_BY, ISSUED_BY, REGULATED_BY, COMPETES_WITH
+
+Text:
+{text}"""
+
+    def __init__(self, model: str = "gpt-4o-mini") -> None:
+        self._model = model
+
+    def _get_api_key(self) -> str:
+        cfg = get_config()
+        return cfg.get_openai_key()
 
     async def extract(
-        self, text: str, source_document: str, tenant_id: str = "default"
+        self,
+        text: str,
+        source_document: str,
+        tenant_id: str = "default",
     ) -> Tuple[List[Entity], List[Relation]]:
-        logger.info(
-            "knowledge_graph_extraction_stub",
-            note="Full LLM extraction coming in v3.0",
-            source=source_document,
-        )
-        return [], []
+        """Extract entities and relations from text via LLM structured output."""
+        import hashlib
+        import json
+        import re
+        import httpx
+
+        if not text or len(text.strip()) < 50:
+            return [], []
+
+        try:
+            api_key = self._get_api_key()
+            prompt = self.EXTRACTION_PROMPT.format(text=text[:3000])
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    json={
+                        "model": self._model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "max_tokens": 1000,
+                        "temperature": 0.0,
+                        "response_format": {"type": "json_object"},
+                    },
+                )
+                response.raise_for_status()
+                raw = response.json()["choices"][0]["message"]["content"]
+
+            raw = re.sub(r"```json\s*|\s*```", "", raw).strip()
+            data = json.loads(raw)
+
+            entities: List[Entity] = []
+            entity_map: Dict[str, Entity] = {}
+            for e in data.get("entities", []):
+                eid = e.get("id", hashlib.sha256(e.get("name","").encode()).hexdigest()[:8])
+                entity = Entity(
+                    id=f"{source_document}:{eid}",
+                    type=e.get("type", "UNKNOWN"),
+                    name=e.get("name", ""),
+                    source_document=source_document,
+                    value=e.get("value"),
+                    tenant_id=tenant_id,
+                )
+                entities.append(entity)
+                entity_map[eid] = entity
+
+            relations: List[Relation] = []
+            for r in data.get("relations", []):
+                s, o = r.get("subject_id",""), r.get("object_id","")
+                if s in entity_map and o in entity_map:
+                    relations.append(Relation(
+                        subject_id=entity_map[s].id,
+                        predicate=r.get("predicate", "RELATED_TO"),
+                        object_id=entity_map[o].id,
+                        source_document=source_document,
+                        confidence=0.85,
+                    ))
+
+            logger.info("kg_extraction_complete", source=source_document,
+                       num_entities=len(entities), num_relations=len(relations))
+            return entities, relations
+
+        except Exception as exc:
+            logger.warning("kg_extraction_failed", source=source_document, error=str(exc)[:120])
+            return [], []
 
 
 class GraphAugmentedRetriever:
-    """Combines vector search with graph traversal (stub for v3.0).
+    """Combines vector search with graph traversal.
 
-    Falls back to standard vector retrieval if graph is empty.
+    EntityExtractor performs real LLM-based extraction. The graph-traversal
+    augmentation logic itself (merging graph-discovered chunks into base
+    retrieval results) is still v3.0 — falls back to standard vector
+    retrieval until that traversal logic ships.
     """
 
     def __init__(self, graph_store: Optional[InMemoryGraphStore] = None) -> None:
