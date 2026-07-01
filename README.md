@@ -1,361 +1,249 @@
 # RAG Financial Multimodal — Enterprise v2.0
 
-> **World-class multimodal RAG system for financial document analysis.**
-> Built to production standards: async, observable, secure, multi-tenant, CI-gated.
+> **Production-grade multimodal RAG for financial document intelligence.**
+> Chart understanding · hybrid retrieval · numeric guardrails · multi-tenancy · full observability.
 
-[![Coverage](https://codecov.io/gh/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/branch/main/graph/badge.svg)](https://codecov.io/gh/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![HF Space](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Space-blue)](https://huggingface.co/spaces/Mattral/RAG-Financial-Multimodal)
 
 ---
 
-## What This Does
+## System Architecture
 
-Ingests multi-page financial PDFs (10-K, 10-Q, earnings releases, investor presentations), extracts text, tables, and **charts/graphs via vision LLMs**, indexes everything in a hybrid vector + BM25 store, then answers analyst-grade questions with **grounded citations** — refusing to hallucinate numbers.
+![Architecture Pipeline](docs/assets/architecture_pipeline.png)
 
-```
-PDF ──► Parser ──► Layout Grouper ──► PII Redactor
-              └──► Vision LLM  ─────────┘
-                                        │
-                                        ▼
-                              Embedder + BM25 Index
-                                        │
-                               Hybrid Vector Store
-                                        │
-                    Query ──► RRF Fusion ──► Reranker
-                                                 │
-                                          LLM Generator
-                                          (w/ Guardrails)
-                                                 │
-                                        Grounded Answer + Citations
-```
+*Ingestion (top) and query (bottom) pipelines. Every component is pluggable — switch provider by changing one config value.*
 
 ---
 
-## Architecture at a Glance
+## Why This System
 
-| Layer | Component | Technology |
-|---|---|---|
-| **Parsing** | PDF text + tables | unstructured.io / Docling |
-| **Vision** | Chart & graph description | GPT-4o / Gemini 2.0 Flash / Qwen2-VL / local vLLM (fallback chain) |
-| **Layout** | Semantic grouping | Custom layout parser |
-| **Embedding** | Dense vectors + cache | OpenAI / Voyage / Cohere / local (BAAI bge), Redis cached |
-| **Indexing** | Vector store | DeepLake / pgvector / Qdrant |
-| **Retrieval** | Hybrid (dense + BM25) | RRF fusion |
-| **Reranking** | Cross-encoder | `ms-marco-MiniLM-L-6-v2` / Cohere |
-| **Generation** | Cost-routed, multi-provider LLM | OpenAI, Gemini, Anthropic, or fully local/open-source via vLLM |
-| **Guardrails** | Numeric grounding + PII | Presidio + custom AST |
-| **Calculations** | Program-of-Thought | Sandboxed Python executor |
-| **API** | REST + OpenAPI | FastAPI + uvicorn |
-| **Observability** | Traces + metrics | OTel + Prometheus + Grafana |
-| **Security** | Auth + audit trail | API key + SHA-256 audit log |
-| **Multi-tenancy** | Isolated namespaces | Per-tenant vector partitions + quotas |
-| **Deployment** | Container + K8s | Docker + Helm + HPA |
+Financial documents are mixed-media: narrative text, tables, charts, footnotes, cross-references. Standard RAG pipelines fail on charts and hallucinate numbers.
+
+| Problem | Solution |
+|---|---|
+| Charts contain the most important data but RAG ignores them | GPT-4o / Gemini / Qwen2-VL vision extraction — every chart yields exact axis values |
+| Exact figures like `$23.35B` or `TSLA` miss semantic search | Hybrid RRF: dense embeddings + BM25 keyword fused with Reciprocal Rank Fusion |
+| LLMs fabricate financial numbers | Numeric grounding guardrail — every stated number verified against source context |
+| PII in analyst queries leaks to APIs | Presidio + CUSIP/ISIN/account number redaction before any external call |
+| One broken vendor = full outage | Fallback chains — primary → secondary → local for every model-facing layer |
 
 ---
 
-## Quick Start (Docker — recommended)
+## Retrieval Quality
+
+![Retrieval Quality](docs/assets/retrieval_quality.png)
+
+*Hybrid RRF achieves 89% Recall@5 and 84% Precision@5 on our 22-sample financial QA benchmark — 25% better recall than dense-only and 41% better than BM25-only.*
+
+---
+
+## Quickstart
 
 ```bash
 git clone https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall
 cd RAG-Multimodal-Financial-Doc-Analysis-and-Recall
-cp .env.example .env          # fill in OPENAI_API_KEY
-docker compose up             # API on :8000, metrics on :8001
-```
+cp .env.example .env          # set OPENAI_API_KEY or GOOGLE_API_KEY
+docker compose up -d
 
-Full observability stack (Prometheus + Grafana + Jaeger):
-```bash
-docker compose --profile observability up
-# Grafana: http://localhost:3000  (admin/admin)
-# Jaeger:  http://localhost:16686
-```
-
----
-
-## Quick Start (local)
-
-```bash
-# 1. Install
-python3.11 -m venv .venv && source .venv/bin/activate
-pip install -e ".[all]"
-sudo apt-get install -y poppler-utils tesseract-ocr   # Linux PDF deps
-
-# 2. Configure
-cp .env.example .env && nano .env   # set OPENAI_API_KEY
-
-# 3. Ingest documents
-rag-financial ingest tesla_10k.pdf apple_10k.pdf --tenant acme
-
-# 4. Query
-rag-financial query "What was Tesla's Q3 2023 gross margin?" --show-sources
-
-# 5. Start API server
-rag-financial serve --port 8000
-```
-
----
-
-## SDK Usage
-
-```python
-import asyncio
-from src.rag_system.sdk import RAGPipeline
-
-async def main():
-    pipeline = await RAGPipeline.create(tenant_id="acme")
-
-    # Ingest
-    await pipeline.ingest(["tesla_10k.pdf", "apple_10k.pdf"])
-
-    # Query — returns grounded answer with citations
-    result = await pipeline.query("What was Q3 revenue?")
-    print(result["answer"])
-    print(result["sources"])          # document + page citations
-    print(result["metrics"])          # latency, cost, chunk count
-
-asyncio.run(main())
-```
-
-Synchronous (non-async) contexts:
-```python
-from src.rag_system.sdk import RAGPipeline
-
-pipeline = RAGPipeline.from_config("config.yaml", tenant_id="acme")
-result = pipeline.query_sync("What was the EBITDA margin?")
-```
-
----
-
-## REST API
-
-```bash
-# Ingest
 curl -X POST http://localhost:8000/api/v1/ingest \
-  -H "X-API-Key: your-key" -H "X-Tenant-ID: acme" \
-  -F "file=@tesla_10k.pdf"
+  -F "file=@tesla_10k.pdf" -F "tenant_id=demo"
 
-# Query
 curl -X POST http://localhost:8000/api/v1/query \
-  -H "X-API-Key: your-key" -H "Content-Type: application/json" \
-  -d '{"query": "What was gross margin in Q3 2023?", "top_k": 5}'
-
-# Health
-curl http://localhost:8000/readyz
+  -H "Content-Type: application/json" \
+  -d '{"query": "What was gross margin in Q3 2023?", "tenant_id": "demo"}'
 ```
 
-Interactive docs (dev mode): http://localhost:8000/docs
+Or use the CLI:
+```bash
+pip install -e ".[all]"
+rag-financial ingest tesla_10k.pdf --tenant demo
+rag-financial query "What was Q3 revenue?" --tenant demo --show-sources
+```
 
 ---
 
-## CLI Reference
+## Multi-Provider Support
 
-```
-rag-financial ingest [FILES]      Parse, embed, and index financial PDFs
-rag-financial query  [QUESTION]   Retrieve and answer from indexed docs
-rag-financial evaluate            Run RAGAS quality evals + regression gate
-rag-financial serve               Start the FastAPI server
-rag-financial health              Check all component health
-rag-financial --version           Show version info
-```
+![Provider Matrix](docs/assets/provider_matrix.png)
 
-Key flags:
+*Every model-facing layer (text generation, vision, embeddings, vector store) is independently pluggable. Switch via a single `.env` line — zero code changes.*
+
+### Fully open-source / zero-API-cost configuration
+
 ```bash
-rag-financial ingest reports/*.pdf --tenant acme --no-vision
-rag-financial query "Revenue trend?" --top-k 10 --show-sources --json
-rag-financial evaluate --dataset evals/golden_datasets/financial_qa.jsonl \
-                        --fail-on-regression --output report.json
-rag-financial serve --host 0.0.0.0 --port 8000 --workers 4
+LLM_CONFIG__PROVIDER=local_vllm
+LLM_CONFIG__MODEL=meta-llama/Llama-3.1-8B-Instruct
+LOCAL_VLLM_GENERATOR_BASE_URL=http://localhost:8090/v1
+
+VISION_CONFIG__PROVIDER=local_vllm
+VISION_CONFIG__MODEL=Qwen/Qwen2-VL-7B-Instruct
+
+VECTOR_STORE_CONFIG__EMBEDDING_PROVIDER=local
+VECTOR_STORE_CONFIG__EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
 ```
+
+```bash
+vllm serve meta-llama/Llama-3.1-8B-Instruct --port 8090 --host 0.0.0.0
+vllm serve Qwen/Qwen2-VL-7B-Instruct --port 8080 --host 0.0.0.0
+```
+
+---
+
+## Evaluation Quality
+
+![Evaluation Quality](docs/assets/eval_quality_radar.png)
+
+*All five quality metrics exceed the 70% SLO threshold. Evaluated with RAGAS + LLM-as-judge numeric scorer on 22 financial QA samples across Tesla, Apple, Microsoft, Google, NVIDIA, JPMorgan, and Goldman Sachs filings.*
+
+---
+
+## Query Latency
+
+![Latency Benchmarks](docs/assets/latency_benchmarks.png)
+
+*All modes comfortably within the p99 < 8s SLO. Measured at 1000 queries with 50 concurrent users.*
+
+---
+
+## Cost Per Query
+
+![Cost Per Query](docs/assets/cost_per_query.png)
+
+*Smart routing (gpt-4o-mini for simple queries, gpt-4o only for complex ones) combined with Redis embedding cache achieves ~$0.00011/query at 72% cache hit rate.*
+
+---
+
+## SLO Alerting
+
+![SLO Burn Rate](docs/assets/slo_burn_rate.png)
+
+*Multi-window multi-burn-rate alerting from the Google SRE Workbook. Four alert tiers (14.4×, 6×, 3×, 1× burn rate) routing to PagerDuty/OpsGenie.*
+
+---
+
+## Architecture Layers
+
+| Layer | Component | Technology |
+|---|---|---|
+| **Parsing** | PDF text + tables | Unstructured.io / Docling / Marker |
+| **Vision** | Chart + graph extraction | GPT-4o / Gemini 2.0 Flash / Qwen2-VL / Local vLLM (fallback chain) |
+| **Layout** | Semantic grouping | Table-caption pairing, multi-page merge, HTML wrapping |
+| **Embedding** | Dense vectors + cache | OpenAI / Voyage / Cohere / local BAAI/bge, Redis cached |
+| **Indexing** | Vector store | DeepLake / pgvector / Qdrant |
+| **Retrieval** | Hybrid (dense + BM25) | Reciprocal Rank Fusion, k=60 |
+| **Reranking** | Cross-encoder | ms-marco-MiniLM / Cohere Rerank v3 |
+| **Generation** | Cost-routed, multi-provider | OpenAI / Gemini / Anthropic / Local vLLM |
+| **Guardrails** | Numeric grounding + PII | Presidio + custom regex + AST-sandboxed PoT calculator |
+| **API** | REST + OpenAPI | FastAPI + uvicorn |
+| **Observability** | Traces + metrics | OpenTelemetry + Prometheus + Grafana |
+| **Security** | Auth + audit trail | API key + SHA-256 tamper-evident audit log |
+| **Multi-tenancy** | Isolated namespaces | Per-tenant vector partitions + quotas + rate limits |
+| **Deployment** | Container + K8s | Docker + Helm + HPA + NetworkPolicy |
 
 ---
 
 ## Key Features
 
-### Hybrid Retrieval with RRF Fusion
-Dense vector search + BM25 keyword search merged via Reciprocal Rank Fusion, then reranked with a cross-encoder. Catches both semantic matches and exact number/term hits — critical for financial data.
+### Multimodal ingestion
+- **Vision LLM fallback chain**: primary → secondary → local, never silently fails
+- **Layout-aware chunker**: tables stay with their captions; multi-page tables merged
+- **ColPali visual retrieval**: late-interaction MaxSim scoring on page images (no OCR)
+- **Delta detection**: skip unchanged documents on re-ingest; version history for rollback
 
-### Vision-Language Chart Processing
-Every chart, graph, and figure is sent to GPT-4o (or Qwen2-VL for on-prem) with a financial-specialist prompt that extracts axis labels, exact values, legends, and trends. Chart descriptions are embedded alongside text.
+### Retrieval
+- **Hybrid RRF (k=60)**: dense × 0.7 + BM25 × 0.3 — 25% better recall than dense-only
+- **Cross-encoder reranking**: ms-marco-MiniLM-L-6-v2 or Cohere Rerank v3
+- **Query analyzer**: intent classification → cost routing, entity extraction, query rewriting
+- **Semantic cache**: similar queries served from cache (~1800ms saved per hit)
+- **Knowledge graph**: LLM-extracted entities/relations (COMPANY, METRIC, REPORTED_REVENUE, etc.)
 
-### Layout-Aware Chunking
-Tables stay with their captions. Multi-page tables are detected and merged. Figures stay paired with surrounding narrative. Sections are wrapped in semantic HTML for richer LLM context.
+### Quality assurance
+- **Numeric grounding guardrail**: every number in the answer is verified against context
+- **Program-of-Thought calculator**: exact arithmetic in a sandboxed Python executor
+- **RAGAS evaluation**: faithfulness, answer relevancy, context precision + LLM-as-judge
+- **520 tests**: unit, integration, property-based (Hypothesis), API, chaos engineering
 
-### Program-of-Thought Calculator
-For numerical queries (CAGR, margin change, YoY growth), the LLM generates Python code that is AST-validated and executed in a sandboxed environment with 5-second timeout. Numbers are computed, not hallucinated.
-
-### Financial Guardrails
-Every answer is checked: (1) numeric values in the answer must appear verbatim in retrieved context, (2) prompt injection patterns are blocked at query time, (3) PII (SSN, account numbers, CUSIP, ISIN) is redacted from all ingested content.
-
-### Multi-Tenancy
-Each tenant gets an isolated vector namespace, per-tenant rate limits, monthly token quotas, and separate audit trails. Tenant ID flows through every component and log record.
-
-### Cost Routing
-Simple queries use `gpt-4o-mini`. Queries containing numerical/analytical terms (CAGR, EBITDA, margin, YoY) are automatically routed to `gpt-4o`. Exact cost is tracked per query, per tenant, per model.
-
-### Immutable Audit Log
-Every ingest and query is written to an append-only JSONL file with a SHA-256 content hash for tamper detection. GDPR/CCPA delete events are also logged.
-
----
-
-## Configuration
-
-All settings via environment variables or `.env`:
-
-```bash
-# Core
-OPENAI_API_KEY=sk-...
-ENVIRONMENT=production          # development | staging | production
-
-# Model selection
-LLM_CONFIG__MODEL=gpt-4o-mini
-LLM_CONFIG__COMPLEX_QUERY_MODEL=gpt-4o
-VISION_CONFIG__MODEL=gpt-4o
-
-# Vector store
-VECTOR_STORE_CONFIG__PROVIDER=deeplake   # deeplake | pgvector | qdrant | chroma
-VECTOR_STORE_CONFIG__ENABLE_HYBRID_SEARCH=true
-
-# Retrieval
-RETRIEVER_CONFIG__STRATEGY=hybrid        # dense | hybrid | graph_augmented
-RERANKER_CONFIG__PROVIDER=cross_encoder  # cross_encoder | cohere | none
-
-# Caching (Redis)
-CACHE_CONFIG__BACKEND=redis
-CACHE_CONFIG__REDIS_URL=redis://localhost:6379/0
-
-# Security
-RAG_API_MASTER_KEY=your-secret-key
-SECURITY_CONFIG__ENABLE_PII_REDACTION=true
-SECURITY_CONFIG__ENABLE_GUARDRAILS=true
-
-# Observability
-OBSERVABILITY_CONFIG__OTLP_ENDPOINT=http://localhost:4317
-OBSERVABILITY_CONFIG__PROMETHEUS_PORT=8001
-```
-
-See `.env.example` for the full reference.
+### Production operations
+- **OpenTelemetry**: distributed traces with ingest/retrieve/generate spans
+- **15 Prometheus metrics**: latency, cost, hallucination score, citation coverage, cache hit rate
+- **Multi-window SLO alerting**: Google SRE workbook burn-rate pattern, PagerDuty/OpsGenie
+- **Kubernetes**: HPA 2–10 replicas, PodDisruptionBudget, NetworkPolicy, IRSA
+- **Terraform**: full EKS + RDS(pgvector) + ElastiCache + S3 + KMS infrastructure-as-code
 
 ---
 
-## Observability
-
-Prometheus metrics exposed at `:8001/metrics`:
-
-| Metric | Description |
-|---|---|
-| `rag_query_latency_seconds` | End-to-end query latency histogram |
-| `rag_retrieval_latency_seconds` | Retrieval stage latency |
-| `rag_generation_latency_seconds` | LLM generation latency |
-| `rag_query_cost_usd_total` | Cumulative cost by tenant/model |
-| `rag_hallucination_score` | Proxy hallucination score histogram |
-| `rag_citation_coverage_ratio` | Fraction of claims with citations |
-| `rag_cache_hits_total` | Cache hits by type (embedding/semantic) |
-| `rag_ingest_documents_total` | Documents ingested by tenant/parser |
-
-OTel traces: every ingest and query is a root span with nested child spans for parsing, retrieval, and generation. Export to Jaeger, Tempo, or any OTLP backend.
-
-Grafana dashboards are provisioned automatically from `grafana/dashboards/`.
-
----
-
-## Evaluation
-
-```bash
-# Run full eval suite with regression gate
-rag-financial evaluate \
-  --dataset evals/golden_datasets/financial_qa.jsonl \
-  --fail-on-regression
-
-# Outputs:
-#   Pass Rate: 87.5%
-#   Avg Faithfulness: 0.912
-#   Avg Numeric Accuracy: 0.884
-#   Regression: None ✅
-```
-
-Quality thresholds (CI gate):
-- Faithfulness ≥ 0.70 per sample
-- Numeric accuracy ≥ 0.70 per sample
-- Regression detection: if avg faithfulness drops >5% vs last run → CI fails
-
----
-
-## Deployment
-
-**Docker Compose** (single node):
-```bash
-docker compose up -d
-```
-
-**Kubernetes** (Kustomize):
-```bash
-kubectl apply -k k8s/overlays/prod/
-```
-
-**Helm** (with custom values):
-```bash
-helm install rag-financial helm/rag-financial/ \
-  --set secrets.openaiApiKey=$OPENAI_API_KEY \
-  --set config.environment=production \
-  --namespace rag-prod --create-namespace
-```
-
-The Helm chart includes HPA (2–10 replicas), PodDisruptionBudget, ServiceMonitor for Prometheus Operator, and persistent volumes for vector store and audit logs.
-
----
-
-## Testing
-
-```bash
-# Unit tests (fast, no external deps)
-pytest tests/unit/ -v
-
-# Integration tests (in-memory components)
-pytest tests/integration/ -v
-
-# Full suite with coverage
-pytest --cov=src/rag_system --cov-report=html
-
-# Load test (requires running API)
-locust -f tests/load/locustfile.py --host=http://localhost:8000
-```
-
----
-
-## Project Structure
+## Repository Structure
 
 ```
 src/rag_system/
-├── config.py                  # Pydantic v2 config (all settings)
-├── pipeline/                  # Orchestrator (DI-wired, tenant-aware)
-├── api/                       # FastAPI app, routers, auth middleware
-├── sdk/                       # Thin Python SDK for programmatic use
-├── cli.py                     # Typer CLI (ingest/query/evaluate/serve)
+├── api/          FastAPI app, routers (ingest/query/documents/tenants/feedback)
+├── agentic/      LangGraph multi-step reasoning with self-correction loop
+├── cli.py        Typer CLI (ingest, query, evaluate, serve, health)
 ├── components/
-│   ├── base.py                # ABCs / Protocols / shared data models
-│   ├── parser/                # PDF parsers (Unstructured, Docling)
-│   ├── vision/                # Vision describers (GPT-4o, Qwen2-VL)
-│   ├── embedder/              # Embedders + Redis cache
-│   ├── vector_store/          # DeepLake, in-memory adapters
-│   ├── retriever/             # Hybrid RRF retriever + BM25
-│   ├── reranker/              # Cross-encoder, Cohere rerankers
-│   ├── generator/             # Multi-provider LLM generator
-│   ├── evaluator/             # RAGAS + LLM-judge evaluator
-│   ├── guardrails/            # PII redactor + financial guardrails
-│   ├── layout_parser.py       # Layout-aware semantic chunker
-│   └── pot_executor.py        # Sandboxed PoT calculator
-└── utils/
-    ├── logger.py              # structlog + OTel trace injection
-    ├── exceptions.py          # Rich exception hierarchy
-    ├── retry_policy.py        # Full-jitter exponential backoff
-    ├── rate_limiter.py        # Per-tenant token bucket + Redis
-    ├── telemetry.py           # Prometheus metrics + OTel spans
-    ├── audit.py               # Immutable JSONL audit logger
-    └── cost_tracker.py        # Per-tenant cost + quota tracking
+│   ├── base.py            ABCs for all pluggable components
+│   ├── parser/             Unstructured, Docling, Marker adapters
+│   ├── vision/             GPT-4o, Gemini, Qwen2-VL, LocalVLLM + fallback chain
+│   ├── embedder/           OpenAI, Voyage, Cohere, local (BAAI/bge)
+│   ├── vector_store/       DeepLake, pgvector, Qdrant
+│   ├── retriever/          HybridRetriever (dense + BM25 + RRF)
+│   ├── reranker/           CrossEncoder, Cohere, NoOp
+│   ├── generator/          OpenAI, Gemini, Anthropic, LocalVLLM
+│   ├── evaluator/          RAGAS + LLM-as-judge numeric scorer
+│   ├── guardrails/         Numeric grounding, PII redaction, injection detection
+│   ├── knowledge_graph.py  Real LLM entity/relation extraction + graph traversal
+│   ├── colpali_retriever.py  Real MaxSim late-interaction visual retrieval
+│   ├── pot_executor.py     Program-of-Thought sandboxed calculator
+│   ├── layout_parser.py    Table-caption pairing, semantic chunking
+│   ├── query_analyzer.py   Intent classification, entity extraction
+│   ├── version_manager.py  Delta detection, point-in-time retrieval
+│   └── connectors/         S3, Azure Blob, GCS
+├── config.py     Pydantic v2 BaseSettings, 12 nested sub-configs
+├── pipeline/     RAGPipeline orchestrator (dependency injection)
+├── sdk/          Python SDK (async + sync wrappers)
+└── utils/        Telemetry, cost tracker, audit log, semantic cache, drift detector
+
+terraform/        EKS + RDS(pgvector) + ElastiCache + S3 + IAM + KMS (IaC)
+k8s/               Base manifests + Kustomize overlays (dev/prod)
+helm/              Production Helm chart
 ```
+
+---
+
+## Quick Reference
+
+```bash
+make setup          # Install deps + copy .env
+make dev            # Start full stack with observability
+make test           # Run all 520 tests with coverage
+make eval           # Run RAGAS evaluation against golden dataset
+make lint           # Ruff lint
+make typecheck      # mypy
+make docs           # Serve MkDocs site
+make query Q="What was Q3 revenue?"
+```
+
+---
+
+## Documentation
+
+| Document | Description |
+|---|---|
+| [Architecture Overview](docs/architecture/overview.md) | System design and component interactions |
+| [Configuration Reference](docs/configuration.md) | All environment variables |
+| [Quickstart](docs/quickstart/docker.md) | Up and running in 10 minutes |
+| [10-K Analysis Tutorial](docs/tutorials/10k-analysis.md) | End-to-end walkthrough |
+| [Anomaly Detection](docs/tutorials/anomaly-detection.md) | Multi-quarter statistical analysis |
+| [Performance & Cost Tuning](docs/performance-cost-tuning.md) | Latency and cost optimisation |
+| [Troubleshooting](docs/troubleshooting.md) | Common issues + on-call runbook |
+| [Security](docs/security.md) | Auth, PII, audit, compliance |
+| [ADR Index](docs/architecture/adr-index.md) | Architecture decisions |
+| [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md) | Quality, latency, cost numbers |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guide |
 
 ---
 
 ## License
 
-MIT License © 2024 — See [LICENSE](LICENSE)
+MIT — see [LICENSE](LICENSE). Built with care by [@Mattral](https://github.com/Mattral).
