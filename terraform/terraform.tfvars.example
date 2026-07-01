@@ -1,0 +1,10 @@
+# Copy: cp terraform.tfvars.example terraform.tfvars
+environment        = "prod"
+region             = "us-east-1"
+cluster_name       = "rag-financial"
+node_instance_type = "m5.xlarge"
+min_nodes          = 2
+max_nodes          = 10
+db_instance_class  = "db.t3.medium"
+redis_node_type    = "cache.t3.medium"
+openai_api_key     = "sk-REPLACE_ME"
