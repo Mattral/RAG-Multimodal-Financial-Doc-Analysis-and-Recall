@@ -102,10 +102,12 @@ class ObservabilityConfig(BaseModel):
     enable_quality_metrics: bool = True
     slo_p99_latency_ms: float = 8000.0
     shutdown_drain_timeout_seconds: float = Field(
-        30.0, ge=0.0, le=300.0,
+        30.0,
+        ge=0.0,
+        le=300.0,
         description="Max seconds to wait for in-flight requests to drain on SIGTERM "
-                    "before the process exits. Should be set lower than the K8s "
-                    "terminationGracePeriodSeconds to leave headroom for cleanup.",
+        "before the process exits. Should be set lower than the K8s "
+        "terminationGracePeriodSeconds to leave headroom for cleanup.",
     )
     model_config = {"frozen": True}
 
@@ -113,8 +115,13 @@ class ObservabilityConfig(BaseModel):
 class SecurityConfig(BaseModel):
     enable_pii_redaction: bool = True
     pii_entities: List[str] = [
-        "PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER",
-        "US_SSN", "CREDIT_CARD", "IBAN_CODE", "US_BANK_NUMBER",
+        "PERSON",
+        "EMAIL_ADDRESS",
+        "PHONE_NUMBER",
+        "US_SSN",
+        "CREDIT_CARD",
+        "IBAN_CODE",
+        "US_BANK_NUMBER",
     ]
     enable_financial_redaction: bool = True
     enable_audit_log: bool = True
@@ -245,6 +252,7 @@ class Config(BaseSettings):
 
     def get_openai_key(self) -> str:
         from src.rag_system.utils.exceptions import ConfigurationError
+
         if not self.openai_api_key:
             raise ConfigurationError("OPENAI_API_KEY not set", config_key="openai_api_key")
         return self.openai_api_key.get_secret_value()
