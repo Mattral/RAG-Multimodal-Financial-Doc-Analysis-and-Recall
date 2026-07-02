@@ -55,10 +55,13 @@ class QueryAnalysis:
 
 # ── Compiled patterns ─────────────────────────────────────────────────────────
 
+_STRONG_NUMERIC_RE = re.compile(
+    r"\b(calculat|cagr|compound.annual|growth rate)\b", re.I
+)
 _NUMERIC_RE = re.compile(
-    r"\b(calculat|cagr|compound.annual|growth rate|revenue|eps|ebitda|margin|"
+    r"\b(calculat|cagr|compound.annual|growth rate|eps|ebitda|margin|"
     r"return|ratio|percent|increase|decrease|compare|versus|yoy|qoq|basis.point|"
-    r"how much|how many|total|sum|average|mean|median)\b", re.I
+    r"how much|how many|sum|average|mean|median)\b", re.I
 )
 _COMPARATIVE_RE = re.compile(
     r"\b(compare|versus|vs\.?|relative to|difference|between|across segments|"
@@ -163,6 +166,8 @@ class QueryAnalyzer:
     def _classify_intent(self, query: str) -> QueryIntent:
         if _AGENTIC_RE.search(query):
             return QueryIntent.AGENTIC
+        if _STRONG_NUMERIC_RE.search(query):
+            return QueryIntent.NUMERIC
         if _TEMPORAL_RE.search(query):
             return QueryIntent.TEMPORAL
         if _COMPARATIVE_RE.search(query):
