@@ -114,7 +114,7 @@ class AsyncRateLimiter:
             "global_available": self._global_bucket.available_tokens,
         }
 
-    async def __aenter__(self) -> "AsyncRateLimiter":
+    async def __aenter__(self) -> AsyncRateLimiter:
         await self.acquire()
         return self
 

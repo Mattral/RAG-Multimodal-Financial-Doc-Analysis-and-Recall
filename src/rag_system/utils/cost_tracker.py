@@ -8,7 +8,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
-
 # USD per 1M tokens (as of mid-2025)
 _PRICING: Dict[str, Dict[str, float]] = {
     "gpt-4o": {"prompt": 5.0, "completion": 15.0},

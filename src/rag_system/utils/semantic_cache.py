@@ -20,12 +20,11 @@ side-index) behind the same two methods (`get`, `set`).
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import math
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import structlog
 
@@ -35,7 +34,7 @@ logger = structlog.get_logger(__name__)
 def _cosine_similarity(a: List[float], b: List[float]) -> float:
     if not a or not b or len(a) != len(b):
         return 0.0
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=True))
     mag_a = math.sqrt(sum(x * x for x in a))
     mag_b = math.sqrt(sum(x * x for x in b))
     if mag_a == 0.0 or mag_b == 0.0:

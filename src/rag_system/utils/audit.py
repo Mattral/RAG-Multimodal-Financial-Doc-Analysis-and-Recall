@@ -10,8 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -42,7 +41,7 @@ class AuditLogger:
 
     def _write_file(self, event: Dict[str, Any]) -> None:
         """Append event to a daily JSONL file."""
-        day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        day = datetime.now(UTC).strftime("%Y-%m-%d")
         log_file = self._log_path / f"audit_{day}.jsonl"
         line = json.dumps(event, default=str) + "\n"
         with open(log_file, "a", encoding="utf-8") as f:
@@ -57,7 +56,7 @@ class AuditLogger:
         event = {
             "event_type": event_type,
             "service": self.service_name,
-            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "timestamp_utc": datetime.now(UTC).isoformat(),
             "tenant_id": tenant_id,
             **payload,
         }

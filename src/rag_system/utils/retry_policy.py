@@ -9,13 +9,15 @@ import asyncio
 import functools
 import random
 import time
-from typing import Any, Awaitable, Callable, Optional, Sequence, Tuple, Type, TypeVar
+from typing import Any, Awaitable, Callable, Optional, Tuple, Type, TypeVar
 
 import structlog
 
 from src.rag_system.utils.exceptions import (
-    APIRateLimitError, APITimeoutError, MaxRetriesExceededError,
-    RetryableError, is_retryable,
+    APIRateLimitError,
+    APITimeoutError,
+    MaxRetriesExceededError,
+    RetryableError,
 )
 
 logger = structlog.get_logger(__name__)

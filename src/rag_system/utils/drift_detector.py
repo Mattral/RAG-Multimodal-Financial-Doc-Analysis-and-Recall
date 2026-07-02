@@ -11,9 +11,9 @@ Detects:
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 
 import structlog
 
@@ -59,7 +59,7 @@ class EmbeddingDriftDetector:
     @staticmethod
     def _cosine_distance(a: List[float], b: List[float]) -> float:
         import math
-        dot = sum(x * y for x, y in zip(a, b))
+        dot = sum(x * y for x, y in zip(a, b, strict=True))
         mag_a = math.sqrt(sum(x**2 for x in a))
         mag_b = math.sqrt(sum(x**2 for x in b))
         if mag_a == 0 or mag_b == 0:
@@ -76,7 +76,7 @@ class EmbeddingDriftDetector:
             return {"status": "skipped", "reason": "empty_embeddings"}
 
         centroid = self._centroid(embeddings[:1000])  # cap for performance
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         key = f"tenant:{tenant_id}"
 
         drift_detected = False

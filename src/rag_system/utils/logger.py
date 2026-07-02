@@ -10,11 +10,10 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from typing import Any, MutableMapping, Optional
+from typing import Any, Optional
 
 import structlog
 from structlog.types import EventDict, WrappedLogger
-
 
 # ── Custom processors ────────────────────────────────────────────────────────
 
