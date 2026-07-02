@@ -8,8 +8,10 @@ Targets:
   - /healthz       (baseline)
 """
 from __future__ import annotations
+
 import random
-from locust import HttpUser, task, between, events
+
+from locust import HttpUser, between, events, task
 
 SAMPLE_QUERIES = [
     "What was the total revenue in Q3 2024?",
