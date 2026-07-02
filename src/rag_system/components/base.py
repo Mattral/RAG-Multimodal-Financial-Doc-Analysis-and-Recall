@@ -25,7 +25,7 @@ class DocumentElement(BaseModel):
     text: str
     source_document: str
     page_number: Optional[int] = None
-    bbox: Optional[Dict[str, float]] = None          # {x0, y0, x1, y1}
+    bbox: Optional[Dict[str, float]] = None  # {x0, y0, x1, y1}
     ingest_timestamp: Optional[str] = None
     content_hash: Optional[str] = None
     tenant_id: Optional[str] = None
@@ -67,9 +67,7 @@ class BaseParser(abc.ABC):
     """Parse raw documents (PDF, DOCX, HTML) into DocumentElements."""
 
     @abc.abstractmethod
-    async def parse(
-        self, file_path: str, tenant_id: Optional[str] = None
-    ) -> List[DocumentElement]:
+    async def parse(self, file_path: str, tenant_id: Optional[str] = None) -> List[DocumentElement]:
         """Parse a single document."""
         ...
 
@@ -201,8 +199,7 @@ class BaseRetriever(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
 
 class BaseReranker(abc.ABC):
@@ -220,8 +217,7 @@ class BaseReranker(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
 
 class BaseGenerator(abc.ABC):
@@ -240,8 +236,7 @@ class BaseGenerator(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
 
 class BaseEvaluator(abc.ABC):
@@ -259,8 +254,7 @@ class BaseEvaluator(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
 
 # ---------------------------------------------------------------------------
@@ -272,13 +266,11 @@ class BaseEvaluator(abc.ABC):
 class Cacheable(Protocol):
     """Components that support cache invalidation."""
 
-    async def clear_cache(self) -> None:
-        ...
+    async def clear_cache(self) -> None: ...
 
 
 @runtime_checkable
 class HealthCheckable(Protocol):
     """Components that expose a health check."""
 
-    async def health_check(self) -> Dict[str, Any]:
-        ...
+    async def health_check(self) -> Dict[str, Any]: ...
