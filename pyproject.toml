@@ -125,7 +125,7 @@ rag-financial = "src.rag_system.cli:main_cli"
 # ── Tool configs ─────────────────────────────────────────────────────────────
 [tool.black]
 line-length = 100
-target-version = ["py311", "py312"]
+target-version = ["py311"]
 
 [tool.isort]
 profile = "black"
@@ -153,6 +153,9 @@ ignore = ["E501", "B008", "UP006", "UP007", "UP035", "UP045", "UP042"]
 
 [tool.mypy]
 python_version = "3.11"
+plugins = ["pydantic.mypy"]
+mypy_path = "."
+explicit_package_bases = true
 strict = true
 warn_return_any = true
 warn_unused_configs = true
