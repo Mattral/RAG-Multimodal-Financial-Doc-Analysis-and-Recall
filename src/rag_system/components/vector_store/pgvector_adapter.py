@@ -110,7 +110,7 @@ class PGVectorAdapter(BaseVectorStore):
                             e.type,
                             json.dumps(e.metadata),
                         )
-                        for e, vec in zip(elements, embeddings)
+                        for e, vec in zip(elements, embeddings, strict=True)
                     ],
                 )
             logger.info("pgvector_upsert_complete", num_chunks=len(elements), tenant_id=tid)

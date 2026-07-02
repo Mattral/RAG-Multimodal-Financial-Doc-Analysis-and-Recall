@@ -13,8 +13,8 @@ import asyncio
 import json
 import os
 import time
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -124,9 +124,9 @@ class RagasEvaluator(BaseEvaluator):
         answer: GeneratedAnswer,
         ground_truth: Optional[str],
     ) -> Dict[str, float]:
-        from ragas import evaluate
-        from ragas.metrics import faithfulness, answer_relevancy, context_precision
         from datasets import Dataset
+        from ragas import evaluate
+        from ragas.metrics import answer_relevancy, context_precision, faithfulness
 
         contexts = [c.text for c in answer.citations]
         data = {
@@ -158,7 +158,9 @@ class RagasEvaluator(BaseEvaluator):
         fake "borderline" quality scores in eval reports.
         """
         import re
+
         import httpx
+
         from src.rag_system.config import get_config
 
         try:
@@ -197,7 +199,7 @@ class RagasEvaluator(BaseEvaluator):
             # accurate, score 0.95"), the first match wins, not the score.
             # This is judged an acceptable tradeoff given temperature=0.0
             # and an explicit single-number instruction in the prompt.
-            match = re.search(r"(\d*\.?\d+)", raw_content)
+            match = re.search(r"(-?\d*\.?\d+)", raw_content)
             if not match:
                 logger.warning(
                     "numeric_judge_unparseable_response",
@@ -300,7 +302,7 @@ class GoldenDatasetRunner:
         passed_count = sum(1 for r in results if r.passed)
         report = EvalReport(
             run_id=str(uuid.uuid4())[:8],
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             num_samples=num,
             passed=passed_count,
             failed=num - passed_count,

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -77,7 +77,7 @@ class DocumentVersion:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "DocumentVersion":
+    def from_dict(cls, d: Dict[str, Any]) -> DocumentVersion:
         v = cls(
             doc_id=d["doc_id"], version=d["version"],
             source_uri=d["source_uri"], content_hash=d["content_hash"],
@@ -158,7 +158,7 @@ class DocumentVersionManager:
         key = self._tenant_key(tenant_id, doc_id)
         versions = self._registry.get(key, [])
         content_hash = _content_hash(content)
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         prev_version = len(versions)
         new_version = prev_version + 1

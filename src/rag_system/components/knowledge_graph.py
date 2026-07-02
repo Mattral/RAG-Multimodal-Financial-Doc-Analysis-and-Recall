@@ -73,12 +73,10 @@ class InMemoryGraphStore:
             for eid in frontier:
                 for rel in self._relations:
                     if rel.subject_id == eid:
-                        if predicate is None or rel.predicate == predicate:
-                            if rel.object_id not in visited:
-                                next_frontier.add(rel.object_id)
-                    elif rel.object_id == eid:
-                        if rel.subject_id not in visited:
-                            next_frontier.add(rel.subject_id)
+                        if (predicate is None or rel.predicate == predicate) and rel.object_id not in visited:
+                            next_frontier.add(rel.object_id)
+                    elif rel.object_id == eid and rel.subject_id not in visited:
+                        next_frontier.add(rel.subject_id)
             frontier = next_frontier
             visited.update(frontier)
         return [self._entities[eid] for eid in visited - {entity_id} if eid in self._entities]
@@ -146,6 +144,7 @@ Text:
         import hashlib
         import json
         import re
+
         import httpx
 
         if not text or len(text.strip()) < 50:
@@ -153,7 +152,11 @@ Text:
 
         try:
             api_key = self._get_api_key()
-            prompt = self.EXTRACTION_PROMPT.format(text=text[:3000])
+            # NOTE: EXTRACTION_PROMPT embeds a literal JSON example with its
+            # own braces, so .format(text=...) would raise KeyError trying
+            # to interpret those braces as placeholders. Use a direct
+            # string replace of the single {text} marker instead.
+            prompt = self.EXTRACTION_PROMPT.replace("{text}", text[:3000])
             async with httpx.AsyncClient(timeout=30) as client:
                 response = await client.post(
                     "https://api.openai.com/v1/chat/completions",

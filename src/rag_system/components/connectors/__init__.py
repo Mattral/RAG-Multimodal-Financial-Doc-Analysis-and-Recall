@@ -1,11 +1,16 @@
 """Enterprise document connectors — S3, Azure Blob, local filesystem."""
 from __future__ import annotations
-import asyncio, os, tempfile
+
+import asyncio
+import os
+import tempfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import AsyncIterator, List, Optional
+
 import structlog
+
 logger = structlog.get_logger(__name__)
 
 @dataclass
@@ -48,7 +53,8 @@ class S3Connector(BaseConnector):
             return [f"s3://{self._bucket}/{obj['Key']}" for page in paginator.paginate(Bucket=self._bucket, Prefix=self._prefix)
                     for obj in page.get("Contents", []) if any(obj["Key"].endswith(e) for e in self._extensions)]
         except Exception as exc:
-            logger.error("s3_list_failed", error=str(exc)); return []
+            logger.error("s3_list_failed", error=str(exc))
+            return []
     async def stream(self, tenant_id: str = "default") -> AsyncIterator[DiscoveredDocument]:
         try:
             import boto3
@@ -77,14 +83,16 @@ class AzureBlobConnector(BaseConnector):
             return [f"az://{self._container}/{b.name}" for b in client.get_container_client(self._container).list_blobs(name_starts_with=self._prefix)
                     if any(b.name.endswith(e) for e in self._extensions)]
         except ImportError:
-            logger.warning("azure_storage_not_installed"); return []
+            logger.warning("azure_storage_not_installed")
+            return []
     async def stream(self, tenant_id: str = "default") -> AsyncIterator[DiscoveredDocument]:
         try:
             from azure.storage.blob import BlobServiceClient
             client = BlobServiceClient.from_connection_string(self._conn_str)
             cc = client.get_container_client(self._container)
             for blob in cc.list_blobs(name_starts_with=self._prefix):
-                if not any(blob.name.endswith(e) for e in self._extensions): continue
+                if not any(blob.name.endswith(e) for e in self._extensions):
+                    continue
                 with tempfile.NamedTemporaryFile(suffix=Path(blob.name).suffix, delete=False) as tmp:
                     tmp.write(await asyncio.to_thread(cc.get_blob_client(blob.name).download_blob().readall))
                     local = tmp.name

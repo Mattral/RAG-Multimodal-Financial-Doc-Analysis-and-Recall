@@ -105,12 +105,13 @@ def build_vision_fallback_chain(
         FallbackVisionDescriber wrapping all providers in order
     """
     from src.rag_system.components.vision import (
-        OpenAIVisionDescriber, Qwen2VLDescriber, build_vision_describer,
+        OpenAIVisionDescriber,
+        Qwen2VLDescriber,
     )
     from src.rag_system.components.vision.gemini_adapter import GeminiVisionDescriber
     from src.rag_system.components.vision.local_vllm_adapter import LocalVLLMDescriber
 
-    _PROVIDER_MAP = {
+    provider_map = {
         "openai": lambda: OpenAIVisionDescriber(),
         "gemini": lambda: GeminiVisionDescriber(),
         "qwen2-vl": lambda: Qwen2VLDescriber(),
@@ -121,18 +122,18 @@ def build_vision_fallback_chain(
     }
 
     all_providers = [primary] + (fallbacks or [])
-    providers = []
+    resolved_providers = []
     for name in all_providers:
-        factory = _PROVIDER_MAP.get(name)
+        factory = provider_map.get(name)
         if factory:
             try:
-                providers.append(factory())
+                resolved_providers.append(factory())
             except Exception as exc:
                 logger.warning("vision_provider_init_failed", provider=name, error=str(exc))
         else:
             logger.warning("unknown_vision_provider", provider=name)
 
-    if not providers:
-        providers = [OpenAIVisionDescriber()]  # Safe default
+    if not resolved_providers:
+        resolved_providers = [OpenAIVisionDescriber()]  # Safe default
 
-    return FallbackVisionDescriber(providers)
+    return FallbackVisionDescriber(resolved_providers)

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import UTC
 from typing import Any, Dict, List, Optional, Tuple
 
 import structlog
@@ -158,15 +159,18 @@ class LayoutAwareParser:
             # Text: collect into a section chunk
             text_group, consumed = self._collect_text_group(elements, i)
             merged_text = " ".join(e.text for e in text_group)
-            html = _wrap_section(merged_text, heading=current_heading)
-            chunks.append(LayoutChunk(
-                text=merged_text, html=html,
-                element_types=["text"],
-                source_document=elem.source_document,
-                page_start=text_group[0].page_number,
-                page_end=text_group[-1].page_number,
-                heading=current_heading,
-            ))
+
+            for piece_idx, piece_text in enumerate(self._split_text_to_limit(merged_text)):
+                html = _wrap_section(piece_text, heading=current_heading)
+                chunks.append(LayoutChunk(
+                    text=piece_text, html=html,
+                    element_types=["text"],
+                    source_document=elem.source_document,
+                    page_start=text_group[0].page_number,
+                    page_end=text_group[-1].page_number,
+                    heading=current_heading,
+                    is_continuation=piece_idx > 0,
+                ))
             i += consumed
 
         logger.info(
@@ -191,6 +195,33 @@ class LayoutAwareParser:
             group.append(elements[j])
             j += 1
         return group
+
+    def _split_text_to_limit(self, text: str) -> List[str]:
+        """Split text into pieces no longer than self._max_chars, on word boundaries.
+
+        Returns [text] unchanged if it already fits — this is the common case
+        and must not alter existing chunk output for normal-sized text.
+        """
+        if len(text) <= self._max_chars:
+            return [text]
+
+        words = text.split(" ")
+        pieces: List[str] = []
+        current: List[str] = []
+        current_len = 0
+        for word in words:
+            # +1 accounts for the joining space
+            added_len = len(word) + (1 if current else 0)
+            if current_len + added_len > self._max_chars and current:
+                pieces.append(" ".join(current))
+                current = []
+                current_len = 0
+                added_len = len(word)
+            current.append(word)
+            current_len += added_len
+        if current:
+            pieces.append(" ".join(current))
+        return pieces
 
     def _collect_text_group(
         self, elements: List[DocumentElement], start: int
@@ -217,10 +248,10 @@ class LayoutAwareParser:
         self, chunks: List[LayoutChunk], tenant_id: Optional[str] = None
     ) -> List[DocumentElement]:
         """Convert LayoutChunks back to DocumentElements for the pipeline."""
-        from datetime import datetime, timezone
         import hashlib
+        from datetime import datetime
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         result = []
         for chunk in chunks:
             # Embed HTML into metadata for richer LLM context

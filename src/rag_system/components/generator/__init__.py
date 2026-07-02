@@ -232,11 +232,13 @@ class GeminiGenerator(BaseGenerator):
         }
 
         start = time.perf_counter()
-        async with async_trace_span("llm_generation", {"model": model, "tenant_id": tenant_id or ""}):
-            async with httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client:
-                response = await client.post(url, json=payload)
-                response.raise_for_status()
-                data = response.json()
+        async with (
+            async_trace_span("llm_generation", {"model": model, "tenant_id": tenant_id or ""}),
+            httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client,
+        ):
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+            data = response.json()
         latency_ms = (time.perf_counter() - start) * 1000
 
         answer_text = data["candidates"][0]["content"]["parts"][0]["text"]
@@ -331,14 +333,16 @@ class AnthropicGenerator(BaseGenerator):
         }
 
         start = time.perf_counter()
-        async with async_trace_span("llm_generation", {"model": model, "tenant_id": tenant_id or ""}):
-            async with httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client:
-                response = await client.post(
-                    "https://api.anthropic.com/v1/messages",
-                    headers=headers, json=payload,
-                )
-                response.raise_for_status()
-                data = response.json()
+        async with (
+            async_trace_span("llm_generation", {"model": model, "tenant_id": tenant_id or ""}),
+            httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client,
+        ):
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers=headers, json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
         latency_ms = (time.perf_counter() - start) * 1000
 
         answer_text = "".join(
@@ -432,16 +436,15 @@ class LocalVLLMGenerator(BaseGenerator):
         try:
             async with async_trace_span(
                 "llm_generation", {"model": self._cfg.model, "tenant_id": tenant_id or ""}
-            ):
-                async with httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client:
-                    response = await client.post(
-                        f"{self._base_url}/chat/completions",
-                        headers={"Authorization": f"Bearer {self._api_key}"},
-                        json=payload,
-                    )
-                    response.raise_for_status()
-                    data = response.json()
-        except httpx.ConnectError as exc:
+            ), httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client:
+                response = await client.post(
+                    f"{self._base_url}/chat/completions",
+                    headers={"Authorization": f"Bearer {self._api_key}"},
+                    json=payload,
+                )
+                response.raise_for_status()
+                data = response.json()
+        except httpx.ConnectError:
             logger.error(
                 "local_vllm_generator_connection_failed",
                 base_url=self._base_url,
@@ -481,7 +484,7 @@ def build_generator(provider: Optional[str] = None) -> BaseGenerator:
     cfg = get_config().llm_config
     name = (provider or cfg.provider).lower()
 
-    _PROVIDERS = {
+    providers = {
         "openai": OpenAIGenerator,
         "azure_openai": OpenAIGenerator,  # same wire protocol; point base URL via env if needed
         "gemini": GeminiGenerator,
@@ -493,11 +496,11 @@ def build_generator(provider: Optional[str] = None) -> BaseGenerator:
         "together": LocalVLLMGenerator,  # Together exposes an OpenAI-compatible endpoint too
     }
 
-    generator_cls = _PROVIDERS.get(name)
+    generator_cls = providers.get(name)
     if generator_cls is None:
         logger.warning(
             "unknown_llm_provider", provider=name, fallback="openai",
-            available=sorted(set(_PROVIDERS.keys())),
+            available=sorted(set(providers.keys())),
         )
         generator_cls = OpenAIGenerator
 

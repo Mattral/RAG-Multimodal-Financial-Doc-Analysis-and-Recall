@@ -17,9 +17,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
-import time
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import UTC, datetime
 from typing import List, Optional
 
 import httpx
@@ -122,7 +120,7 @@ class OpenAIVisionDescriber(BaseVisionDescriber):
                     type="graph",
                     text=description,
                     source_document=source_document,
-                    ingest_timestamp=datetime.now(timezone.utc).isoformat(),
+                    ingest_timestamp=datetime.now(UTC).isoformat(),
                     content_hash=hashlib.sha256(description.encode()).hexdigest()[:12],
                     tenant_id=tenant_id,
                     metadata={"vision_model": self._cfg.model, "image_path": image_path},
@@ -197,7 +195,7 @@ class Qwen2VLDescriber(BaseVisionDescriber):
                 description = resp.json()["choices"][0]["message"]["content"]
             return DocumentElement(
                 type="graph", text=description, source_document=source_document,
-                ingest_timestamp=datetime.now(timezone.utc).isoformat(),
+                ingest_timestamp=datetime.now(UTC).isoformat(),
                 content_hash=hashlib.sha256(description.encode()).hexdigest()[:12],
                 tenant_id=tenant_id,
                 metadata={"vision_model": self._model, "image_path": image_path},
@@ -227,14 +225,14 @@ def build_vision_describer(
     With use_fallback_chain=True (default), wraps in FallbackVisionDescriber
     so failures automatically try the next provider.
     """
+    from src.rag_system.components.vision.fallback_chain import FallbackVisionDescriber
     from src.rag_system.components.vision.gemini_adapter import GeminiVisionDescriber
     from src.rag_system.components.vision.local_vllm_adapter import LocalVLLMDescriber
-    from src.rag_system.components.vision.fallback_chain import FallbackVisionDescriber
 
     cfg = get_config().vision_config
     name = provider or cfg.provider
 
-    _PROVIDERS = {
+    providers = {
         "openai": OpenAIVisionDescriber,
         "gemini": GeminiVisionDescriber,
         "qwen2-vl": Qwen2VLDescriber,
@@ -242,7 +240,7 @@ def build_vision_describer(
         "local_vllm": LocalVLLMDescriber,
     }
 
-    primary_cls = _PROVIDERS.get(name, OpenAIVisionDescriber)
+    primary_cls = providers.get(name, OpenAIVisionDescriber)
     primary = primary_cls()
 
     if use_fallback_chain and cfg.fallback_model:

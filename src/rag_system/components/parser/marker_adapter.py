@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -80,7 +80,7 @@ class MarkerParser(BaseParser):
             full_text, images, metadata = convert_single_pdf(file_path, models)
 
             source = Path(file_path).name
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
             elements: List[DocumentElement] = []
 
             # Split on double newlines (paragraph boundaries)
@@ -146,7 +146,7 @@ class MarkerParser(BaseParser):
         tasks = [self.parse(fp, tenant_id=tenant_id) for fp in file_paths]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         elements: List[DocumentElement] = []
-        for fp, result in zip(file_paths, results):
+        for fp, result in zip(file_paths, results, strict=True):
             if isinstance(result, Exception):
                 logger.error("marker_batch_file_failed", file=fp, error=str(result))
             else:

@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -30,13 +29,13 @@ def _maxsim(query_vecs: List[List[float]], doc_vecs: List[List[float]]) -> float
         return 0.0
     try:
         import numpy as np
-        Q = np.array(query_vecs, dtype=np.float32)
-        D = np.array(doc_vecs,  dtype=np.float32)
-        return float(np.sum(np.max(Q @ D.T, axis=1)))
+        q_mat = np.array(query_vecs, dtype=np.float32)
+        d_mat = np.array(doc_vecs,  dtype=np.float32)
+        return float(np.sum(np.max(q_mat @ d_mat.T, axis=1)))
     except ImportError:
         total = 0.0
         for qv in query_vecs:
-            best = max(sum(a * b for a, b in zip(qv, dv)) for dv in doc_vecs)
+            best = max(sum(a * b for a, b in zip(qv, dv, strict=True)) for dv in doc_vecs)
             total += best
         return total
 
@@ -196,9 +195,8 @@ class ColPaliRetriever(BaseRetriever):
 
         scored: List[Tuple[float, PageEmbedding]] = []
         for pe in self._index:
-            if filters and "source_document" in filters:
-                if pe.source_document != filters["source_document"]:
-                    continue
+            if filters and "source_document" in filters and pe.source_document != filters["source_document"]:
+                continue
             scored.append((_maxsim(qvecs, pe.patch_embeddings), pe))
 
         scored.sort(key=lambda x: x[0], reverse=True)

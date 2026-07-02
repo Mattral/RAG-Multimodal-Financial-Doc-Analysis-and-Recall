@@ -59,7 +59,7 @@ class CrossEncoderReranker(BaseReranker):
         scores = await asyncio.to_thread(model.predict, pairs)
 
         scored = sorted(
-            zip(scores, chunks), key=lambda x: x[0], reverse=True
+            zip(scores, chunks, strict=True), key=lambda x: x[0], reverse=True
         )
         return [
             RetrievedChunk(**{**chunk.model_dump(), "score": float(score)})
@@ -78,6 +78,7 @@ class CohereReranker(BaseReranker):
         if self._client is None:
             try:
                 import cohere
+
                 from src.rag_system.config import get_config
                 api_key = get_config().cohere_api_key
                 if api_key:

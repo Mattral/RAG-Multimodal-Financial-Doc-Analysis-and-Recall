@@ -6,10 +6,9 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 import structlog
 
@@ -40,8 +39,8 @@ class UnstructuredParser(BaseParser):
 
     def _parse_sync(self, file_path: str, tenant_id: Optional[str]) -> List[DocumentElement]:
         try:
-            from unstructured.partition.pdf import partition_pdf
             from unstructured.chunking.title import chunk_by_title
+            from unstructured.partition.pdf import partition_pdf
         except ImportError:
             logger.warning("unstructured_not_installed", detail="pip install 'unstructured[all-docs]'")
             return self._fallback_parse(file_path, tenant_id)
@@ -59,7 +58,7 @@ class UnstructuredParser(BaseParser):
                 new_after_n_chars=self._cfg.new_after_n_chars,
                 combine_text_under_n_chars=self._cfg.combine_text_under_n_chars,
             )
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
             source = Path(file_path).name
             elements = []
             for chunk in chunks:
@@ -95,7 +94,7 @@ class UnstructuredParser(BaseParser):
         try:
             import pypdf
             source = Path(file_path).name
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
             elements = []
             with open(file_path, "rb") as f:
                 reader = pypdf.PdfReader(f)
@@ -117,7 +116,7 @@ class UnstructuredParser(BaseParser):
         tasks = [self.parse(fp, tenant_id=tenant_id) for fp in file_paths]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         elements: List[DocumentElement] = []
-        for fp, result in zip(file_paths, results):
+        for fp, result in zip(file_paths, results, strict=True):
             if isinstance(result, Exception):
                 logger.error("batch_parse_file_failed", file=fp, error=str(result))
             else:
@@ -146,7 +145,7 @@ class DoclingParser(BaseParser):
 
         converter = DocumentConverter()
         result = converter.convert(file_path)
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         source = Path(file_path).name
         elements = []
         for page in result.pages:
@@ -168,7 +167,7 @@ class DoclingParser(BaseParser):
         tasks = [self.parse(fp, tenant_id=tenant_id) for fp in file_paths]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         elements: List[DocumentElement] = []
-        for fp, result in zip(file_paths, results):
+        for fp, result in zip(file_paths, results, strict=True):
             if isinstance(result, Exception):
                 logger.error("docling_batch_file_failed", file=fp, error=str(result))
             else:

@@ -9,8 +9,7 @@ from __future__ import annotations
 import abc
 from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 
-from pydantic import BaseModel
-
+from pydantic import BaseModel, ConfigDict
 
 # ---------------------------------------------------------------------------
 # Shared data models
@@ -19,6 +18,8 @@ from pydantic import BaseModel
 
 class DocumentElement(BaseModel):
     """Structured document element with full provenance metadata."""
+
+    model_config = ConfigDict(frozen=True)
 
     type: str  # "text" | "table" | "graph" | "image"
     text: str
@@ -30,9 +31,6 @@ class DocumentElement(BaseModel):
     tenant_id: Optional[str] = None
     doc_version: Optional[str] = None
     metadata: Dict[str, Any] = {}
-
-    class Config:
-        frozen = True
 
 
 class RetrievedChunk(BaseModel):

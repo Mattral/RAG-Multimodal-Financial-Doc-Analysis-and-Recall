@@ -5,6 +5,7 @@ All implement BaseEmbedder with Redis caching and batch support.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import json
 from typing import List, Optional
@@ -54,10 +55,8 @@ class RedisEmbeddingCache:
         if not client:
             return
         key = f"embed:{model}:{hashlib.sha256(text.encode()).hexdigest()}"
-        try:
+        with contextlib.suppress(Exception):
             await client.setex(key, self._ttl, json.dumps(vector))
-        except Exception:
-            pass
 
 
 class OpenAIEmbedder(BaseEmbedder):
@@ -104,9 +103,9 @@ class OpenAIEmbedder(BaseEmbedder):
             uncached_texts.append(text)
 
         # Batch embed uncached texts (max 100 per request)
-        BATCH = 100
-        for batch_start in range(0, len(uncached_texts), BATCH):
-            batch = uncached_texts[batch_start:batch_start + BATCH]
+        batch_size = 100
+        for batch_start in range(0, len(uncached_texts), batch_size):
+            batch = uncached_texts[batch_start:batch_start + batch_size]
             async with httpx.AsyncClient(timeout=60) as client:
                 resp = await client.post(
                     "https://api.openai.com/v1/embeddings",
@@ -214,9 +213,9 @@ class VoyageEmbedder(BaseEmbedder):
             uncached_indices.append(i)
             uncached_texts.append(text)
 
-        BATCH = 128
-        for batch_start in range(0, len(uncached_texts), BATCH):
-            batch = uncached_texts[batch_start:batch_start + BATCH]
+        batch_size = 128
+        for batch_start in range(0, len(uncached_texts), batch_size):
+            batch = uncached_texts[batch_start:batch_start + batch_size]
             async with httpx.AsyncClient(timeout=60) as client:
                 resp = await client.post(
                     "https://api.voyageai.com/v1/embeddings",
@@ -327,17 +326,17 @@ def build_embedder(provider: Optional[str] = None) -> BaseEmbedder:
         else:
             name = "openai"
 
-    _PROVIDERS = {
+    providers = {
         "openai": OpenAIEmbedder,
         "local": LocalEmbedder,
         "voyage": VoyageEmbedder,
         "cohere": CohereEmbedder,
     }
-    embedder_cls = _PROVIDERS.get(name)
+    embedder_cls = providers.get(name)
     if embedder_cls is None:
         logger.warning(
             "unknown_embedder_provider", provider=name, fallback="openai",
-            available=sorted(_PROVIDERS.keys()),
+            available=sorted(providers.keys()),
         )
         embedder_cls = OpenAIEmbedder
 

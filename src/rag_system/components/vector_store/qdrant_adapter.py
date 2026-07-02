@@ -81,7 +81,7 @@ class QdrantAdapter(BaseVectorStore):
             raise
 
     async def _ensure_collection(self, tenant_id: Optional[str]) -> None:
-        from qdrant_client.models import Distance, VectorParams, HnswConfigDiff
+        from qdrant_client.models import Distance, HnswConfigDiff, VectorParams
         client = self._get_async_client()
         collection = self._collection_name(tenant_id)
         dim = self._cfg.embedding_dim
@@ -120,7 +120,7 @@ class QdrantAdapter(BaseVectorStore):
                     "metadata": elem.metadata or {},
                 },
             )
-            for i, (elem, vec) in enumerate(zip(elements, embeddings))
+            for i, (elem, vec) in enumerate(zip(elements, embeddings, strict=True))
         ]
         for i in range(0, len(points), 256):
             await client.upsert(collection_name=collection, points=points[i:i+256])
@@ -135,7 +135,7 @@ class QdrantAdapter(BaseVectorStore):
     ) -> List[RetrievedChunk]:
         if not self._check_deps():
             return []
-        from qdrant_client.models import Filter, FieldCondition, MatchValue
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
         client = self._get_async_client()
         collection = self._collection_name(tenant_id)
         qdrant_filter = None
@@ -172,7 +172,7 @@ class QdrantAdapter(BaseVectorStore):
     async def delete(self, doc_ids: List[str], tenant_id: Optional[str] = None) -> None:
         if not self._check_deps():
             return
-        from qdrant_client.models import Filter, FieldCondition, MatchAny
+        from qdrant_client.models import FieldCondition, Filter, MatchAny
         client = self._get_async_client()
         collection = self._collection_name(tenant_id)
         try:

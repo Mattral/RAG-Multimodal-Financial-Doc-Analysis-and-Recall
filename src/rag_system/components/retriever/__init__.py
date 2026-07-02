@@ -104,7 +104,7 @@ class BM25Index:
         q_tokens = self._tokenise(query)
         scores = []
 
-        for i, (chunk, tf) in enumerate(zip(self._docs, self._tf)):
+        for i, (_chunk, tf) in enumerate(zip(self._docs, self._tf, strict=True)):
             dl = sum(tf.values())
             score = 0.0
             for term in q_tokens:

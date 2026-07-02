@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -125,7 +125,7 @@ class GeminiVisionDescriber(BaseVisionDescriber):
                 type="graph",
                 text=description,
                 source_document=source_document,
-                ingest_timestamp=datetime.now(timezone.utc).isoformat(),
+                ingest_timestamp=datetime.now(UTC).isoformat(),
                 content_hash=hashlib.sha256(description.encode()).hexdigest()[:12],
                 tenant_id=tenant_id,
                 metadata={

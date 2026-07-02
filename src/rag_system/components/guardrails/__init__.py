@@ -23,6 +23,18 @@ _FINANCIAL_PATTERNS: Dict[str, re.Pattern] = {
     "TICKER": re.compile(r"\b\$[A-Z]{1,5}\b"),  # $AAPL style
 }
 
+# Core PII regex patterns — used when Presidio is unavailable. Without these,
+# the "regex-only fallback" claimed by _try_init_presidio()'s warning message
+# would silently redact nothing for SSN/email/phone/credit-card/IBAN, since
+# _FINANCIAL_PATTERNS above only covers financial identifiers, not personal PII.
+_PII_FALLBACK_PATTERNS: Dict[str, re.Pattern] = {
+    "US_SSN": re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
+    "EMAIL_ADDRESS": re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
+    "PHONE_NUMBER": re.compile(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b"),
+    "CREDIT_CARD": re.compile(r"\b\d{4}[\s-]\d{4}[\s-]\d{4}[\s-]\d{4}\b"),
+    "IBAN_CODE": re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{4}\d{7}[A-Z0-9]{1,3}\b"),
+}
+
 
 def _redact_with_regex(text: str, entity_map: Dict[str, str]) -> Tuple[str, List[str]]:
     """Apply regex-based redaction for financial entities."""
@@ -96,12 +108,17 @@ class PIIRedactor:
                     language=self.language,
                 )
                 if results:
-                    from presidio_anonymizer import AnonymizerEngine
                     anonymized = self._anonymizer.anonymize(text=text, analyzer_results=results)
                     text = anonymized.text
                     found_entities = [r.entity_type for r in results]
             except Exception as exc:
                 logger.warning("presidio_redaction_failed", error=str(exc))
+        else:
+            # Presidio unavailable: apply regex-based PII fallback so core
+            # entity types (SSN, email, phone, credit card, IBAN) are still
+            # protected, not silently skipped.
+            text, pii_entities_found = _redact_with_regex(text, _PII_FALLBACK_PATTERNS)
+            found_entities.extend(pii_entities_found)
 
         # --- Financial regex pass ---
         if self.enable_financial:

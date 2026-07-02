@@ -128,7 +128,7 @@ class InMemoryVectorStore(BaseVectorStore):
     async def upsert(self, elements: List[DocumentElement], embeddings: List[List[float]], tenant_id: Optional[str] = None) -> None:
         key = tenant_id or "default"
         self._data.setdefault(key, [])
-        for elem, vec in zip(elements, embeddings):
+        for elem, vec in zip(elements, embeddings, strict=True):
             self._data[key].append({"element": elem, "vector": vec})
 
     async def search(self, query_vector: List[float], top_k: int = 10, filters: Optional[Dict[str, Any]] = None, tenant_id: Optional[str] = None) -> List[RetrievedChunk]:
@@ -138,7 +138,7 @@ class InMemoryVectorStore(BaseVectorStore):
         scored = []
         for item in data:
             v = item["vector"]
-            dot = sum(a * b for a, b in zip(query_vector, v))
+            dot = sum(a * b for a, b in zip(query_vector, v, strict=True))
             norm_q = math.sqrt(sum(x**2 for x in query_vector))
             norm_v = math.sqrt(sum(x**2 for x in v))
             score = dot / (norm_q * norm_v + 1e-9)

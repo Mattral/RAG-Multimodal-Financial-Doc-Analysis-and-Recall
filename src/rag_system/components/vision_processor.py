@@ -4,10 +4,10 @@ The canonical vision describer is now in `components/vision/__init__.py`.
 This module re-exports for backward compatibility.
 """
 from src.rag_system.components.vision import (
+    FINANCIAL_CHART_PROMPT,
     OpenAIVisionDescriber,
     Qwen2VLDescriber,
     build_vision_describer,
-    FINANCIAL_CHART_PROMPT,
 )
 from src.rag_system.components.vision.gemini_adapter import GeminiVisionDescriber
 

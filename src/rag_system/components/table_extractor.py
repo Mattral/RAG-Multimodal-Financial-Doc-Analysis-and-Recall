@@ -12,7 +12,6 @@ Handles: markdown pipe tables, HTML <table> elements, whitespace-delimited.
 """
 from __future__ import annotations
 
-import io
 import json
 import re
 from dataclasses import dataclass, field
@@ -42,7 +41,7 @@ class ExtractedTable:
                 "page_number": self.page_number,
                 "caption": self.caption,
                 "headers": self.headers,
-                "data": [dict(zip(self.headers, row)) for row in self.rows],
+                "data": [dict(zip(self.headers, row, strict=False)) for row in self.rows],
             },
             indent=2,
         )
@@ -237,7 +236,7 @@ class TableExtractor:
             "data = [",
         ]
         for row in table.rows[:max_rows]:
-            lines.append(f"    {dict(zip(table.headers, row))},")
+            lines.append(f"    {dict(zip(table.headers, row, strict=False))},")
         if len(table.rows) > max_rows:
             lines.append(f"    # ... {len(table.rows) - max_rows} more rows truncated")
         lines.append("]")
