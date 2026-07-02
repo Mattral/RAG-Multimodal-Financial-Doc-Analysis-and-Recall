@@ -12,6 +12,7 @@ Flow:
 The agent can self-correct: if Verify finds numeric discrepancies, it
 loops back to Retrieve with refined filters.
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, TypedDict
@@ -23,6 +24,7 @@ logger = structlog.get_logger(__name__)
 
 class AgentState(TypedDict):
     """Mutable state threaded through all LangGraph nodes."""
+
     query: str
     tenant_id: str
     intent: str
@@ -56,6 +58,7 @@ def _build_graph(pipeline: Any) -> Any:
     async def node_analyze(state: AgentState) -> AgentState:
         """Classify query intent and extract metadata filters."""
         from src.rag_system.components.query_analyzer import QueryAnalyzer
+
         analyzer = QueryAnalyzer()
         analysis = analyzer.analyze(state["query"], tenant_id=state["tenant_id"])
         if analysis.is_injection:
@@ -95,11 +98,10 @@ def _build_graph(pipeline: Any) -> Any:
         if state.get("error") or not state.get("draft_answer"):
             return state
         from src.rag_system.components.guardrails import FinancialGuardrails
+
         g = FinancialGuardrails()
         context_texts = [c.get("text_preview", "") for c in state["retrieved_chunks"]]
-        passed, ungrounded = g.check_numeric_grounding(
-            state["draft_answer"], context_texts
-        )
+        passed, ungrounded = g.check_numeric_grounding(state["draft_answer"], context_texts)
         state["guardrail_passed"] = passed
         if not passed:
             logger.warning(
@@ -108,9 +110,9 @@ def _build_graph(pipeline: Any) -> Any:
                 iteration=state["iterations"],
             )
             # Signal retrieval loop to retry with refined query
-            state["metadata"]["refine_query"] = (
-                f"{state['query']} Focus specifically on: {', '.join(ungrounded[:3])}"
-            )
+            state["metadata"][
+                "refine_query"
+            ] = f"{state['query']} Focus specifically on: {', '.join(ungrounded[:3])}"
         return state
 
     async def node_calculate(state: AgentState) -> AgentState:
@@ -119,6 +121,7 @@ def _build_graph(pipeline: Any) -> Any:
             return state
         try:
             from src.rag_system.components.pot_executor import PoTExecutor
+
             executor = PoTExecutor()
             if state.get("draft_answer"):
                 pot_result = await executor.execute_from_llm_response(state["draft_answer"])
@@ -167,11 +170,15 @@ def _build_graph(pipeline: Any) -> Any:
     graph.set_entry_point("analyze")
     graph.add_edge("analyze", "retrieve")
     graph.add_edge("retrieve", "verify")
-    graph.add_conditional_edges("verify", should_retry, {
-        "retrieve": "retrieve",
-        "calculate": "calculate",
-        "synthesize": "synthesize",
-    })
+    graph.add_conditional_edges(
+        "verify",
+        should_retry,
+        {
+            "retrieve": "retrieve",
+            "calculate": "calculate",
+            "synthesize": "synthesize",
+        },
+    )
     graph.add_edge("calculate", "synthesize")
     graph.add_edge("synthesize", END)
 
