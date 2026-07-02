@@ -1,7 +1,9 @@
 """Tests for the GCS document connector."""
 from __future__ import annotations
+
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, call
 
 
 class TestGCSConnectorInit:
@@ -38,9 +40,14 @@ class TestGCSConnectorListUris:
         from src.rag_system.components.connectors.gcs_connector import GCSConnector
         c = GCSConnector(bucket="filings", extensions=[".pdf"])
 
-        blob_pdf = MagicMock(); blob_pdf.name = "10k/tesla.pdf"; blob_pdf.size = 512
-        blob_txt = MagicMock(); blob_txt.name = "notes/readme.txt"; blob_txt.size = 10
-        blob_dir = MagicMock(); blob_dir.name = "10k/"
+        blob_pdf = MagicMock()
+        blob_pdf.name = "10k/tesla.pdf"
+        blob_pdf.size = 512
+        blob_txt = MagicMock()
+        blob_txt.name = "notes/readme.txt"
+        blob_txt.size = 10
+        blob_dir = MagicMock()
+        blob_dir.name = "10k/"
 
         mock_client = MagicMock()
         mock_client.list_blobs.return_value = [blob_pdf, blob_txt, blob_dir]

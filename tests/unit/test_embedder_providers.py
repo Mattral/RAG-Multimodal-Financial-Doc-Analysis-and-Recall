@@ -6,17 +6,18 @@ pipeline code changes -- just VECTOR_STORE_CONFIG__EMBEDDING_PROVIDER in .env.
 """
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from src.rag_system.components.embedder import (
-    OpenAIEmbedder,
-    LocalEmbedder,
-    VoyageEmbedder,
     CohereEmbedder,
+    LocalEmbedder,
+    OpenAIEmbedder,
+    VoyageEmbedder,
     build_embedder,
 )
-
+from src.rag_system.utils.exceptions import ConfigurationError
 
 # ── Factory: explicit provider argument ───────────────────────────────────────
 
@@ -101,7 +102,7 @@ class TestVoyageEmbedder:
         from src.rag_system.config import reset_config
         reset_config()
         emb = VoyageEmbedder()
-        with pytest.raises(Exception):
+        with pytest.raises(ConfigurationError):
             emb._get_api_key()
         reset_config()
 
@@ -173,7 +174,7 @@ class TestCohereEmbedder:
         from src.rag_system.config import reset_config
         reset_config()
         emb = CohereEmbedder()
-        with pytest.raises(Exception):
+        with pytest.raises(ConfigurationError):
             emb._get_api_key()
         reset_config()
 

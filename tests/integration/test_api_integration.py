@@ -5,11 +5,12 @@ with in-memory components (no real OpenAI calls).
 """
 from __future__ import annotations
 
+import os
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
 
-import os
 os.environ.setdefault("OPENAI_API_KEY", "sk-test")
 os.environ.setdefault("ENVIRONMENT", "testing")
 os.environ.setdefault("VECTOR_STORE_CONFIG__PROVIDER", "memory")
@@ -56,7 +57,11 @@ def client(mock_pipeline):
     from src.rag_system.api.app import create_app
     app = create_app()
     app.state.pipeline = mock_pipeline
-    return TestClient(app)
+    # TestClient must be used as a context manager for FastAPI lifespan
+    # (startup/shutdown) events to fire — otherwise app.state.shutdown is
+    # never set, and every endpoint touching it raises AttributeError.
+    with TestClient(app) as c:
+        yield c
 
 
 class TestHealthEndpoints:
@@ -79,9 +84,9 @@ class TestHealthEndpoints:
         from src.rag_system.api.app import create_app
         app = create_app()
         app.state.pipeline = None
-        c = TestClient(app)
-        resp = c.get("/readyz")
-        assert resp.status_code == 503
+        with TestClient(app) as c:
+            resp = c.get("/readyz")
+            assert resp.status_code == 503
 
 
 class TestQueryEndpoint:
@@ -112,9 +117,9 @@ class TestQueryEndpoint:
         from src.rag_system.api.app import create_app
         app = create_app()
         app.state.pipeline = None
-        c = TestClient(app)
-        resp = c.post("/api/v1/query", json={"query": "test"})
-        assert resp.status_code == 503
+        with TestClient(app) as c:
+            resp = c.post("/api/v1/query", json={"query": "test"})
+            assert resp.status_code == 503
 
 
 class TestDocumentsEndpoint:

@@ -1,8 +1,13 @@
 """Unit tests for DocumentVersionManager — versioning, delta detection, soft-delete."""
-import json
+from datetime import UTC
+
 import pytest
+
 from src.rag_system.components.version_manager import (
-    DocumentVersionManager, DocumentVersion, _doc_id, _content_hash,
+    DocumentVersion,
+    DocumentVersionManager,
+    _content_hash,
+    _doc_id,
 )
 
 
@@ -117,10 +122,12 @@ class TestDocumentVersionManager:
         assert dv.page_count == 142
 
     def test_get_version_at_timestamp(self, manager):
+        import time
+        from datetime import datetime
+
         manager.register("s3://b/f.pdf", "v1", "t1")
-        import time; time.sleep(0.01)
-        from datetime import datetime, timezone
-        mid = datetime.now(timezone.utc).isoformat()
+        time.sleep(0.01)
+        mid = datetime.now(UTC).isoformat()
         time.sleep(0.01)
         manager.register("s3://b/f.pdf", "v2", "t1")
         v_at = manager.get_version_at("s3://b/f.pdf", "t1", mid)

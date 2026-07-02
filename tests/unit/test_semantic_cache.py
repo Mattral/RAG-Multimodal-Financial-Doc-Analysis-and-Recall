@@ -10,12 +10,9 @@ import pytest
 
 from src.rag_system.utils.semantic_cache import (
     SemanticQueryCache,
-    SemanticCacheResult,
-    SemanticCacheEntry,
     _cosine_similarity,
     build_semantic_cache,
 )
-
 
 # ── Cosine similarity helper ───────────────────────────────────────────────────
 

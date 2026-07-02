@@ -1,9 +1,12 @@
 """Tests for the Qdrant vector store adapter (mocked HTTP, no live instance)."""
 from __future__ import annotations
-import pytest
+
 from unittest.mock import AsyncMock, MagicMock, patch
-from src.rag_system.components.vector_store.qdrant_adapter import QdrantAdapter
+
+import pytest
+
 from src.rag_system.components.base import DocumentElement
+from src.rag_system.components.vector_store.qdrant_adapter import QdrantAdapter
 
 
 @pytest.fixture

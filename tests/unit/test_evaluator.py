@@ -17,9 +17,9 @@ import pytest
 
 from src.rag_system.components.base import GeneratedAnswer, RetrievedChunk
 from src.rag_system.components.evaluator import (
-    EvalSample,
-    EvalResult,
     EvalReport,
+    EvalResult,
+    EvalSample,
     RagasEvaluator,
 )
 

@@ -1,9 +1,11 @@
 """Unit tests for the sandboxed Program-of-Thought executor."""
 import pytest
-from src.rag_system.components.pot_executor import (
-    ASTSandboxValidator, PoTExecutor, PoTResult, FINANCIAL_TEMPLATES,
-)
 
+from src.rag_system.components.pot_executor import (
+    ASTSandboxValidator,
+    PoTExecutor,
+    PoTResult,
+)
 
 # ── AST Validator ─────────────────────────────────────────────────────────────
 

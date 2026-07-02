@@ -1,11 +1,17 @@
 """Tests for knowledge graph — InMemoryGraphStore and real LLM EntityExtractor."""
 from __future__ import annotations
+
 import json
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 from src.rag_system.components.knowledge_graph import (
-    Entity, Relation, InMemoryGraphStore,
-    EntityExtractor, GraphAugmentedRetriever,
+    Entity,
+    EntityExtractor,
+    GraphAugmentedRetriever,
+    InMemoryGraphStore,
+    Relation,
 )
 
 
@@ -93,7 +99,8 @@ class TestEntityExtractorReal:
             c.post = AsyncMock(return_value=mock_resp)
             mock_cls.return_value.__aenter__.return_value = c
             entities, relations = await EntityExtractor().extract(
-                "Tesla reported $23.35B revenue in Q3 2023.", "tesla.pdf"
+                "Tesla reported total revenue of $23.35B for the third quarter of fiscal year 2023.",
+                "tesla.pdf",
             )
         assert len(entities) == 2
         assert any(e.name == "Tesla" for e in entities)

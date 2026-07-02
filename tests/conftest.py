@@ -10,11 +10,9 @@ from __future__ import annotations
 
 import asyncio
 import os
-from typing import AsyncGenerator, Generator
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-import pytest_asyncio
 
 # ── Environment setup before any imports ─────────────────────────────────────
 os.environ.setdefault("OPENAI_API_KEY", "sk-test-key-for-unit-tests")
@@ -155,8 +153,8 @@ def bm25_index(sample_chunks):
 @pytest.fixture
 async def minimal_pipeline():
     """Minimal pipeline with in-memory components — no external deps."""
-    from src.rag_system.pipeline import RAGPipeline
     from src.rag_system.components.vector_store import InMemoryVectorStore
+    from src.rag_system.pipeline import RAGPipeline
 
     store = InMemoryVectorStore()
     await store.initialize("test_tenant")

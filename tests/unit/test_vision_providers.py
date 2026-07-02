@@ -1,10 +1,12 @@
 """Unit tests for vision provider adapters and fallback chain."""
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from src.rag_system.components.vision.fallback_chain import (
-    FallbackVisionDescriber, build_vision_fallback_chain,
-)
+
 from src.rag_system.components.base import DocumentElement
+from src.rag_system.components.vision.fallback_chain import (
+    FallbackVisionDescriber,
+)
 
 
 class TestFallbackVisionDescriber:
@@ -86,7 +88,8 @@ class TestFallbackVisionDescriber:
     async def test_describe_batch_filters_none(self, tmp_path):
         imgs = [str(tmp_path / f"img{i}.png") for i in range(3)]
         for img in imgs:
-            open(img, "wb").write(b"PNG")
+            with open(img, "wb") as f:
+                f.write(b"PNG")
 
         elem = self._make_element()
         provider = self._make_provider("p1")

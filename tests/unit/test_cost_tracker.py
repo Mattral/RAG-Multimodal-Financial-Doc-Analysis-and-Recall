@@ -12,18 +12,17 @@ already covered in test_property_based.py. This file covers:
 """
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from src.rag_system.utils.cost_tracker import (
+    _PRICING,
     CostRecord,
     CostTracker,
     TenantCostAccumulator,
     get_cost_tracker,
-    _PRICING,
 )
-
 
 # ── CostRecord pricing ─────────────────────────────────────────────────────────
 
@@ -56,7 +55,7 @@ class TestCostRecordPricing:
         assert rec.cost_usd == 0.0
 
     def test_pricing_table_has_no_negative_rates(self):
-        for model, rates in _PRICING.items():
+        for _model, rates in _PRICING.items():
             assert rates["prompt"] >= 0.0
             assert rates["completion"] >= 0.0
 

@@ -6,19 +6,21 @@ code changes -- just LLM_CONFIG__PROVIDER in .env.
 """
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from src.rag_system.components.base import RetrievedChunk
 from src.rag_system.components.generator import (
-    OpenAIGenerator,
-    GeminiGenerator,
     AnthropicGenerator,
+    GeminiGenerator,
     LocalVLLMGenerator,
-    build_generator,
-    _is_complex_query,
+    OpenAIGenerator,
     _build_context_block,
+    _is_complex_query,
+    build_generator,
 )
+from src.rag_system.utils.exceptions import ConfigurationError
 
 
 @pytest.fixture
@@ -167,7 +169,7 @@ class TestGeminiGenerator:
     def test_missing_api_key_raises(self, monkeypatch):
         monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
         gen = GeminiGenerator()
-        with pytest.raises(Exception):
+        with pytest.raises(ConfigurationError):
             gen._get_api_key()
 
     @pytest.mark.asyncio
@@ -210,7 +212,7 @@ class TestAnthropicGenerator:
         from src.rag_system.config import reset_config
         reset_config()
         gen = AnthropicGenerator()
-        with pytest.raises(Exception):
+        with pytest.raises(ConfigurationError):
             gen._get_api_key()
         reset_config()
 

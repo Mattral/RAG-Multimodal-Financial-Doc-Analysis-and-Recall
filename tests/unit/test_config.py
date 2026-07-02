@@ -1,6 +1,7 @@
 """Config validation and env override tests."""
-import os
 import pytest
+from pydantic import ValidationError
+
 from src.rag_system.config import Config, reset_config
 
 
@@ -22,7 +23,7 @@ def test_env_override_environment(monkeypatch):
 
 def test_nested_config_frozen():
     cfg = Config()
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         cfg.llm_config.model = "hacked"  # type: ignore
 
 

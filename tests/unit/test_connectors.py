@@ -1,9 +1,11 @@
 """Unit tests for enterprise document connectors."""
-import os
-import pytest
 from pathlib import Path
+
+import pytest
+
 from src.rag_system.components.connectors import (
-    LocalFilesystemConnector, DiscoveredDocument,
+    DiscoveredDocument,
+    LocalFilesystemConnector,
 )
 
 
@@ -23,7 +25,11 @@ class TestLocalFilesystemConnector:
 
     @pytest.mark.asyncio
     async def test_lists_all_pdfs(self, populated_dir):
-        connector = LocalFilesystemConnector(str(populated_dir))
+        # Explicit extensions=[".pdf"]: the connector's default extension
+        # list also includes .docx/.txt (by design, for non-PDF ingestion),
+        # and populated_dir includes a notes.txt fixture file — so testing
+        # "all PDFs" specifically requires scoping to just .pdf here.
+        connector = LocalFilesystemConnector(str(populated_dir), extensions=[".pdf"])
         uris = await connector.list_uris()
         assert len(uris) == 3  # 2 top-level + 1 nested
         assert all(u.endswith(".pdf") for u in uris)
@@ -37,7 +43,8 @@ class TestLocalFilesystemConnector:
 
     @pytest.mark.asyncio
     async def test_stream_yields_discovered_documents(self, populated_dir):
-        connector = LocalFilesystemConnector(str(populated_dir))
+        # Scoped to .pdf only — see test_lists_all_pdfs for why.
+        connector = LocalFilesystemConnector(str(populated_dir), extensions=[".pdf"])
         docs = []
         async for doc in connector.stream(tenant_id="test"):
             docs.append(doc)

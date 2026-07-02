@@ -19,7 +19,6 @@ import pytest
 
 from src.rag_system.api.app import ShutdownState
 
-
 # ── ShutdownState core behavior ───────────────────────────────────────────────
 
 class TestShutdownStateBasics:
@@ -145,6 +144,7 @@ class TestReadinessProbeDuringShutdown:
         os.environ.setdefault("ENVIRONMENT", "testing")
 
         from fastapi.testclient import TestClient
+
         from src.rag_system.api.app import create_app
 
         app = create_app()
@@ -172,6 +172,7 @@ class TestReadinessProbeDuringShutdown:
         os.environ.setdefault("ENVIRONMENT", "testing")
 
         from fastapi.testclient import TestClient
+
         from src.rag_system.api.app import create_app
 
         app = create_app()
@@ -192,19 +193,20 @@ class TestReadinessProbeDuringShutdown:
         """Liveness probes should keep reporting alive during the drain
         window — only readiness should flip, so Kubernetes doesn't think
         the container itself crashed (which could trigger a restart loop)."""
-        import os
         import asyncio as _asyncio
+        import os
         os.environ.setdefault("OPENAI_API_KEY", "sk-test")
         os.environ.setdefault("ENVIRONMENT", "testing")
 
         from fastapi.testclient import TestClient
+
         from src.rag_system.api.app import create_app
 
         app = create_app()
         state = ShutdownState()
         app.state.shutdown = state
         app.state.pipeline = None
-        _asyncio.get_event_loop().run_until_complete(state.begin_shutdown())
+        _asyncio.run(state.begin_shutdown())
 
         client = TestClient(app)
         assert client.get("/health").status_code == 200

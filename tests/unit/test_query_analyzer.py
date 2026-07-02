@@ -1,8 +1,13 @@
 """Unit tests for QueryAnalyzer — intent, complexity, filters, injection, rewrite."""
 import pytest
+
 from src.rag_system.components.query_analyzer import (
-    QueryAnalyzer, QueryIntent, QueryComplexity, QueryAnalysis,
+    QueryAnalysis,
+    QueryAnalyzer,
+    QueryComplexity,
+    QueryIntent,
 )
+
 
 @pytest.fixture
 def analyzer():

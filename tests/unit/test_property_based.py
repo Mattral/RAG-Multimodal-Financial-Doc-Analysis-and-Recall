@@ -9,21 +9,18 @@ Guideline §5: 'Property-based testing with Hypothesis for edge cases
 from __future__ import annotations
 
 import math
-import re
 import string
 
-import pytest
-from hypothesis import given, settings, HealthCheck
+from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from src.rag_system.components.query_analyzer import QueryAnalyzer
-from src.rag_system.components.guardrails import FinancialGuardrails
-from src.rag_system.components.pot_executor import ASTSandboxValidator, PoTExecutor
-from src.rag_system.components.layout_parser import LayoutAwareParser
 from src.rag_system.components.base import DocumentElement, RetrievedChunk
-from src.rag_system.utils.cost_tracker import CostRecord, CostTracker
+from src.rag_system.components.guardrails import FinancialGuardrails
+from src.rag_system.components.layout_parser import LayoutAwareParser
+from src.rag_system.components.pot_executor import ASTSandboxValidator
+from src.rag_system.components.query_analyzer import QueryAnalyzer
 from src.rag_system.components.retriever import BM25Index
-
+from src.rag_system.utils.cost_tracker import CostRecord, CostTracker
 
 # ── Strategies ────────────────────────────────────────────────────────────────
 

@@ -1,13 +1,12 @@
 """Unit tests for the RAG pipeline with mocked components."""
 from __future__ import annotations
-import asyncio
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from pydantic import ValidationError
 
-from src.rag_system.components.base import DocumentElement, RetrievedChunk, GeneratedAnswer
+from src.rag_system.components.base import DocumentElement, GeneratedAnswer, RetrievedChunk
 from src.rag_system.components.guardrails import FinancialGuardrails, PIIRedactor
-from src.rag_system.utils.cost_tracker import CostTracker, CostRecord
-
+from src.rag_system.utils.cost_tracker import CostRecord, CostTracker
 
 # ── Fixtures ──────────────────────────────────────────────────────────────
 
@@ -37,8 +36,13 @@ def sample_answer(sample_chunk):
 
 # ── Config Tests ───────────────────────────────────────────────────────────
 
-def test_config_defaults():
+def test_config_defaults(monkeypatch):
     from src.rag_system.config import Config
+    # conftest.py sets ENVIRONMENT=testing and disables PII redaction
+    # session-wide for test speed; clear both here to verify the schema's
+    # true default values in isolation.
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    monkeypatch.delenv("SECURITY_CONFIG__ENABLE_PII_REDACTION", raising=False)
     cfg = Config()
     assert cfg.environment == "development"
     assert cfg.batch_size == 10
@@ -46,8 +50,11 @@ def test_config_defaults():
     assert cfg.retriever_config.strategy == "hybrid"
     assert cfg.security_config.enable_pii_redaction is True
 
-def test_config_vector_store_defaults():
+def test_config_vector_store_defaults(monkeypatch):
     from src.rag_system.config import Config
+    # conftest.py sets VECTOR_STORE_CONFIG__PROVIDER=memory session-wide;
+    # clear it here to verify the schema's true default value in isolation.
+    monkeypatch.delenv("VECTOR_STORE_CONFIG__PROVIDER", raising=False)
     cfg = Config()
     assert cfg.vector_store_config.provider == "deeplake"
     assert cfg.vector_store_config.enable_hybrid_search is True
@@ -57,9 +64,12 @@ def test_config_is_production():
     cfg = Config(environment="production")
     assert cfg.is_production is True
 
-def test_config_missing_api_key_raises():
+def test_config_missing_api_key_raises(monkeypatch):
     from src.rag_system.config import Config
     from src.rag_system.utils.exceptions import ConfigurationError
+    # conftest.py sets OPENAI_API_KEY session-wide for the rest of the
+    # suite; clear it here to verify the genuinely-missing-key path.
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     cfg = Config()
     with pytest.raises(ConfigurationError):
         cfg.get_openai_key()
@@ -68,7 +78,7 @@ def test_config_missing_api_key_raises():
 # ── DocumentElement Tests ──────────────────────────────────────────────────
 
 def test_document_element_immutable(sample_element):
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         sample_element.text = "mutated"  # type: ignore
 
 def test_document_element_serialization(sample_element):

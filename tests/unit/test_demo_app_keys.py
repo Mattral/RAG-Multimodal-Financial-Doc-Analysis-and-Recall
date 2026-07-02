@@ -77,7 +77,7 @@ class TestExampleButtonKeySource:
         )
 
     def test_example_buttons_loop_uses_enumerate(self, demo_app_source: str):
-        assert "enumerate(zip(cols, examples))" in demo_app_source, (
+        assert "enumerate(zip(cols, examples, strict=True))" in demo_app_source, (
             "Expected the example-button loop to enumerate over "
             "zip(cols, examples) so an index is available for the widget key."
         )
@@ -111,7 +111,8 @@ class TestExampleButtonKeyUniqueness:
     def test_current_examples_list_produces_unique_keys(self, examples_list: list[str]):
         """The actual production examples list must never collide under the
         fixed (index-based) key scheme."""
-        fixed_key_fn = lambda i, ex: f"ex_{i}"
+        def fixed_key_fn(i, ex):
+            return f"ex_{i}"
         _simulate_streamlit_render(examples_list, fixed_key_fn)  # must not raise
 
     def test_index_based_keys_never_collide_regardless_of_content(self):
@@ -124,7 +125,8 @@ class TestExampleButtonKeyUniqueness:
             ["What was Q3 2023 revenue?", "What was Q3 2023 margin?"],  # PR #9's actual collision
             [f"Question variant number {i} about quarterly results" for i in range(50)],
         ]
-        fixed_key_fn = lambda i, ex: f"ex_{i}"
+        def fixed_key_fn(i, ex):
+            return f"ex_{i}"
         for case in pathological_cases:
             _simulate_streamlit_render(case, fixed_key_fn)  # must not raise for any case
 
@@ -139,7 +141,8 @@ class TestExampleButtonKeyUniqueness:
         ]
         assert colliding_questions[0][:10] == colliding_questions[1][:10]
 
-        buggy_key_fn = lambda i, ex: f"ex_{ex[:10]}"
+        def buggy_key_fn(i, ex):
+            return f"ex_{ex[:10]}"
         with pytest.raises(DuplicateElementKeyError):
             _simulate_streamlit_render(colliding_questions, buggy_key_fn)
 
@@ -154,6 +157,7 @@ class TestExampleButtonKeyUniqueness:
             "What was the gross margin in Q3?",  # same first 10 chars as above
         ]
         assert realistic_extension[0][:10] == realistic_extension[1][:10]
-        buggy_key_fn = lambda i, ex: f"ex_{ex[:10]}"
+        def buggy_key_fn(i, ex):
+            return f"ex_{ex[:10]}"
         with pytest.raises(DuplicateElementKeyError):
             _simulate_streamlit_render(realistic_extension, buggy_key_fn)

@@ -1,11 +1,15 @@
 """Tests for ColPali late-interaction visual retriever — MaxSim and index."""
 from __future__ import annotations
-import json
+
 import math
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
+
 from src.rag_system.components.colpali_retriever import (
-    ColPaliRetriever, PageEmbedding, _maxsim,
+    ColPaliRetriever,
+    PageEmbedding,
+    _maxsim,
 )
 
 
@@ -123,12 +127,12 @@ class TestColPaliRetriever:
         assert r2._index[0].patch_embeddings == [[0.1, 0.9]]
         assert r2._index[0].thumbnail_path == "t.png"
 
-    def test_retrieve_result_metadata(self):
-        import asyncio
+    @pytest.mark.asyncio
+    async def test_retrieve_result_metadata(self):
         r = ColPaliRetriever(index_path=None)
         r._index = [PageEmbedding("doc.pdf", 7, [[1.0, 0.0]])]
         with patch.object(r, "_load_model", return_value=True), \
              patch("asyncio.to_thread", new=AsyncMock(return_value=[[1.0, 0.0]])):
-            results = asyncio.get_event_loop().run_until_complete(r.retrieve("q", top_k=1))
+            results = await r.retrieve("q", top_k=1)
         assert results[0].page_number == 7
         assert results[0].metadata["method"] == "colpali_maxsim"

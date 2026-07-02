@@ -1,12 +1,15 @@
 """Unit tests for structured table extraction."""
 import json
-import pytest
-from src.rag_system.components.table_extractor import (
-    TableExtractor, ExtractedTable,
-    _parse_markdown_table, _parse_html_table,
-)
-from src.rag_system.components.base import DocumentElement
 
+import pytest
+
+from src.rag_system.components.base import DocumentElement
+from src.rag_system.components.table_extractor import (
+    ExtractedTable,
+    TableExtractor,
+    _parse_html_table,
+    _parse_markdown_table,
+)
 
 # ── Markdown parser tests ─────────────────────────────────────────────────────
 
@@ -139,13 +142,12 @@ class TestExtractedTable:
         assert result is None or hasattr(result, "shape")
 
     def test_to_dataframe_shape(self, table):
-        try:
-            import pandas as pd
-            df = table.to_dataframe()
-            assert df is not None
-            assert df.shape == (3, 3)
-        except ImportError:
+        import importlib.util
+        if importlib.util.find_spec("pandas") is None:
             pytest.skip("pandas not installed")
+        df = table.to_dataframe()
+        assert df is not None
+        assert df.shape == (3, 3)
 
 
 # ── TableExtractor tests ──────────────────────────────────────────────────────

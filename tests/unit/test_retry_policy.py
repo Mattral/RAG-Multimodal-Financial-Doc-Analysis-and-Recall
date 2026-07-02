@@ -1,9 +1,14 @@
 """Unit tests for the exponential backoff retry policy."""
-import asyncio
+from unittest.mock import AsyncMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, call
-from src.rag_system.utils.retry_policy import RetryPolicy, with_retry, DEFAULT_POLICY
-from src.rag_system.utils.exceptions import MaxRetriesExceededError, RetryableError, APIRateLimitError
+
+from src.rag_system.utils.exceptions import (
+    APIRateLimitError,
+    MaxRetriesExceededError,
+    RetryableError,
+)
+from src.rag_system.utils.retry_policy import RetryPolicy, with_retry
 
 
 @pytest.mark.asyncio

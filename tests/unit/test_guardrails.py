@@ -1,5 +1,6 @@
 """Extended guardrail and PII redaction tests with financial patterns."""
 import pytest
+
 from src.rag_system.components.guardrails import FinancialGuardrails, PIIRedactor
 
 

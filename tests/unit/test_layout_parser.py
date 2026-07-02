@@ -1,9 +1,12 @@
 """Unit tests for the layout-aware semantic chunker."""
-import pytest
-from src.rag_system.components.layout_parser import (
-    LayoutAwareParser, LayoutChunk, _wrap_table, _wrap_figure, _wrap_section,
-)
 from src.rag_system.components.base import DocumentElement
+from src.rag_system.components.layout_parser import (
+    LayoutAwareParser,
+    LayoutChunk,
+    _wrap_figure,
+    _wrap_section,
+    _wrap_table,
+)
 
 
 def _make_elem(text, etype="text", page=1, source="doc.pdf"):

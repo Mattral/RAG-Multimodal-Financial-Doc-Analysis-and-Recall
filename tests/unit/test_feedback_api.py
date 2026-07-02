@@ -1,8 +1,8 @@
 """Unit tests for the human feedback API router."""
-import json
 import pytest
-from fastapi.testclient import TestClient
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
 from src.rag_system.api.routers.feedback import router
 
 

@@ -1,7 +1,7 @@
 """Unit tests for drift detection utilities."""
-import pytest
 from src.rag_system.utils.drift_detector import (
-    EmbeddingDriftDetector, QueryPatternDriftDetector,
+    EmbeddingDriftDetector,
+    QueryPatternDriftDetector,
 )
 
 
