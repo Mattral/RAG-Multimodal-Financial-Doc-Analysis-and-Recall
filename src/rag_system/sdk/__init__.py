@@ -35,7 +35,7 @@ class RAGPipeline:
         tenant_id: str = "default",
         config: Optional[Config] = None,
         **component_overrides,
-    ) -> "RAGPipeline":
+    ) -> RAGPipeline:
         """Create a fully-wired pipeline (async)."""
         pipeline = await _RAGPipeline.create(config=config, **component_overrides)
         return cls(pipeline, tenant_id=tenant_id)
@@ -45,7 +45,7 @@ class RAGPipeline:
         cls,
         config_path: Union[str, Path],
         tenant_id: str = "default",
-    ) -> "RAGPipeline":
+    ) -> RAGPipeline:
         """Synchronous factory loading config from YAML. Runs event loop internally."""
         cfg_path = Path(config_path)
         if cfg_path.exists():
@@ -104,4 +104,4 @@ class RAGPipeline:
         return await self._pipeline.health_check()
 
 
-__all__ = ["RAGPipeline"]
+__all__ = ["RAGPipeline", "get_config"]

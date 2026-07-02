@@ -1,12 +1,21 @@
 """Configuration tests — upgraded for v2.0 Pydantic v2 BaseSettings."""
-import os
 import pytest
 from pydantic import ValidationError
+
 from src.rag_system.config import (
-    Config, VisionConfig, PDFParsingConfig, VectorStoreConfig,
-    RateLimitConfig, LoggingConfig, LLMConfig, SecurityConfig,
-    MultiTenancyConfig, CacheConfig, RetrieverConfig, RerankerConfig,
-    get_config, reset_config,
+    CacheConfig,
+    Config,
+    LLMConfig,
+    MultiTenancyConfig,
+    PDFParsingConfig,
+    RateLimitConfig,
+    RerankerConfig,
+    RetrieverConfig,
+    SecurityConfig,
+    VectorStoreConfig,
+    VisionConfig,
+    get_config,
+    reset_config,
 )
 
 
@@ -34,7 +43,7 @@ class TestVisionConfig:
 
     def test_frozen(self):
         c = VisionConfig()
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             c.model = "mutated"  # type: ignore
 
     def test_fallback_model_optional(self):
@@ -159,7 +168,10 @@ class TestLLMConfig:
 
 
 class TestMainConfig:
-    def test_defaults(self):
+    def test_defaults(self, monkeypatch):
+        # conftest.py sets ENVIRONMENT=testing session-wide; clear it here to
+        # verify the schema's true default value in isolation.
+        monkeypatch.delenv("ENVIRONMENT", raising=False)
         c = Config()
         assert c.environment == "development"
         assert c.batch_size == 10
@@ -178,8 +190,11 @@ class TestMainConfig:
         c = Config(environment="development")
         assert c.is_debug is True
 
-    def test_missing_api_key_raises(self):
+    def test_missing_api_key_raises(self, monkeypatch):
         from src.rag_system.utils.exceptions import ConfigurationError
+        # conftest.py sets OPENAI_API_KEY session-wide for the rest of the
+        # suite; clear it here to verify the genuinely-missing-key path.
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         c = Config()
         with pytest.raises(ConfigurationError):
             c.get_openai_key()

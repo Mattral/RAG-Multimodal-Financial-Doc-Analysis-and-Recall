@@ -12,19 +12,17 @@ from __future__ import annotations
 
 import asyncio
 import json
-import sys
 from pathlib import Path
-from typing import List, Optional, Annotated
+from typing import Annotated, List, Optional
 
+import structlog
 import typer
 from rich.console import Console
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
-from rich.table import Table
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.syntax import Syntax
-import structlog
+from rich.table import Table
 
-from src.rag_system.config import get_config
 from src.rag_system.utils.logger import setup_logging
 
 app = typer.Typer(
@@ -84,7 +82,8 @@ def ingest(
 
     result = asyncio.run(_run())
     table = Table(title="✅ Ingest Summary", show_header=True, header_style="bold green")
-    table.add_column("Metric"); table.add_column("Value", style="cyan")
+    table.add_column("Metric")
+    table.add_column("Value", style="cyan")
     table.add_row("Status", result.get("status", "?"))
     table.add_row("Tenant", result.get("tenant_id", "?"))
     table.add_row("Files", str(result.get("num_files", 0)))
@@ -132,8 +131,11 @@ def query(
 
     if show_sources and result.get("sources"):
         table = Table(title="📚 Sources", show_header=True, header_style="bold blue")
-        table.add_column("#"); table.add_column("Document"); table.add_column("Page")
-        table.add_column("Score", justify="right"); table.add_column("Preview")
+        table.add_column("#")
+        table.add_column("Document")
+        table.add_column("Page")
+        table.add_column("Score", justify="right")
+        table.add_column("Preview")
         for i, src in enumerate(result["sources"], 1):
             table.add_row(str(i), src["document"], str(src.get("page") or "?"),
                           f"{src.get('score', 0):.3f}", src.get("text_preview", "")[:60] + "…")
@@ -160,8 +162,8 @@ def evaluate(
 ):
     """📊 Run quality evaluation against the golden dataset."""
     async def _run():
+        from src.rag_system.components.evaluator import GoldenDatasetRunner, RagasEvaluator
         from src.rag_system.pipeline import create_pipeline
-        from src.rag_system.components.evaluator import RagasEvaluator, GoldenDatasetRunner
         pipeline = await create_pipeline()
         evaluator = RagasEvaluator()
         runner = GoldenDatasetRunner(pipeline=pipeline, evaluator=evaluator, golden_dataset_path=dataset)
@@ -172,7 +174,8 @@ def evaluate(
         report = asyncio.run(_run())
 
     table = Table(title="📊 Eval Report", show_header=True, header_style="bold magenta")
-    table.add_column("Metric"); table.add_column("Value", style="cyan")
+    table.add_column("Metric")
+    table.add_column("Value", style="cyan")
     table.add_row("Run ID", report.run_id)
     table.add_row("Samples", str(report.num_samples))
     table.add_row("Pass Rate", f"{report.pass_rate:.1%}")
@@ -219,7 +222,7 @@ def serve(
         )
     except ImportError:
         console.print("[red]uvicorn not installed. Run: pip install uvicorn[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 # ─────────────────────────────────────────────────────────────────────────────

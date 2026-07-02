@@ -6,7 +6,7 @@ secrets management, and all enterprise features.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -39,7 +39,7 @@ class PDFParsingConfig(BaseModel):
 
 
 class VectorStoreConfig(BaseModel):
-    provider: Literal["deeplake", "pgvector", "qdrant", "milvus", "chroma"] = "deeplake"
+    provider: Literal["deeplake", "pgvector", "qdrant", "milvus", "chroma", "memory"] = "deeplake"
     dataset_path: Optional[str] = None
     connection_string: Optional[str] = None
     collection_name: str = "rag_financial"
@@ -197,7 +197,7 @@ class Config(BaseSettings):
     query_mode: Literal["simple", "hybrid", "agentic"] = "hybrid"
 
     # Environment
-    environment: Literal["development", "staging", "production"] = "development"
+    environment: Literal["development", "testing", "staging", "production"] = "development"
     debug_mode: bool = False
 
     # Feature flags

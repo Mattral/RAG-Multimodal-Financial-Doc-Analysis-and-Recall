@@ -5,18 +5,29 @@ utility modules work correctly as a system, replacing the legacy v1
 component-specific tests.
 """
 import pytest
+from pydantic import ValidationError
+
 from src.rag_system.components.base import (
-    DocumentElement, RetrievedChunk, GeneratedAnswer,
-    BaseParser, BaseEmbedder, BaseVectorStore, BaseRetriever,
-    BaseReranker, BaseGenerator,
-)
-from src.rag_system.components.pot_executor import (
-    PoTExecutor, ASTSandboxValidator, PoTResult, FINANCIAL_TEMPLATES,
+    BaseEmbedder,
+    BaseGenerator,
+    BaseParser,
+    BaseReranker,
+    BaseRetriever,
+    BaseVectorStore,
+    DocumentElement,
+    GeneratedAnswer,
+    RetrievedChunk,
 )
 from src.rag_system.components.layout_parser import (
-    LayoutAwareParser, LayoutChunk, _wrap_table, _wrap_figure,
+    LayoutAwareParser,
+    _wrap_figure,
+    _wrap_table,
 )
-
+from src.rag_system.components.pot_executor import (
+    FINANCIAL_TEMPLATES,
+    ASTSandboxValidator,
+    PoTExecutor,
+)
 
 # ── Data Model Tests ─────────────────────────────────────────────────────────
 
@@ -37,7 +48,7 @@ class TestDocumentElement:
 
     def test_immutable(self):
         e = DocumentElement(type="text", text="x", source_document="d.pdf")
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             e.text = "mutated"  # type: ignore
 
     def test_roundtrip(self):
@@ -154,13 +165,19 @@ async def test_pot_executor_basic():
 async def test_pot_executor_all_templates():
     ex = PoTExecutor()
     for name in FINANCIAL_TEMPLATES:
-        # Each template should at least parse successfully (validation passes)
         template_code = FINANCIAL_TEMPLATES[name]
         # Replace placeholders with dummy values
         import re
         dummy_code = re.sub(r'\{[^}]+\}', '10.0', template_code)
+
+        # Validation passes...
         err = ASTSandboxValidator().validate(dummy_code.strip())
         assert err is None, f"Template {name} failed validation: {err}"
+
+        # ...and the template actually executes successfully end-to-end
+        result = await ex.execute_code(dummy_code.strip())
+        assert result.success, f"Template {name} failed execution: {result.error}"
+        assert result.result is not None, f"Template {name} produced no result"
 
 
 # ── Layout Parser Component Tests ────────────────────────────────────────────

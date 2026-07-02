@@ -45,7 +45,7 @@ def _build_graph(pipeline: Any) -> Any:
     Returns None if langgraph is not installed — falls back to standard pipeline.
     """
     try:
-        from langgraph.graph import StateGraph, END
+        from langgraph.graph import END, StateGraph
     except ImportError:
         logger.warning(
             "langgraph_not_installed",

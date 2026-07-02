@@ -14,10 +14,9 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import structlog
-
 from src.rag_system.components.guardrails import FinancialGuardrails, PIIRedactor
-from src.rag_system.components.query_analyzer import QueryAnalyzer, QueryIntent
+from src.rag_system.components.query_analyzer import QueryAnalyzer
+from src.rag_system.components.query_analyzer import QueryIntent as QueryIntent
 from src.rag_system.components.version_manager import DocumentVersionManager
 from src.rag_system.config import get_config
 from src.rag_system.utils.audit import AuditLogger
@@ -25,7 +24,11 @@ from src.rag_system.utils.cost_tracker import get_cost_tracker
 from src.rag_system.utils.logger import get_logger, setup_logging
 from src.rag_system.utils.semantic_cache import build_semantic_cache
 from src.rag_system.utils.telemetry import (
-    async_trace_span, record_cache_hit, record_ingest, record_query, setup_telemetry,
+    async_trace_span,
+    record_cache_hit,
+    record_ingest,
+    record_query,
+    setup_telemetry,
 )
 
 logger = get_logger(__name__)
@@ -106,17 +109,17 @@ class RAGPipeline:
         logger.info("RAGPipeline initialised", environment=self._config.environment)
 
     @classmethod
-    async def create(cls, config=None, **kwargs) -> "RAGPipeline":
+    async def create(cls, config=None, **kwargs) -> RAGPipeline:
         """Factory that wires default components from config."""
         cfg = config or get_config()
         try:
-            from src.rag_system.components.parser import UnstructuredParser, build_parser
-            from src.rag_system.components.vision import OpenAIVisionDescriber, build_vision_describer
-            from src.rag_system.components.embedder import OpenAIEmbedder, build_embedder
-            from src.rag_system.components.vector_store import DeepLakeVectorStoreAdapter, build_vector_store
-            from src.rag_system.components.retriever import HybridRetriever, BM25Index
-            from src.rag_system.components.reranker import build_reranker
+            from src.rag_system.components.embedder import build_embedder
             from src.rag_system.components.generator import build_generator
+            from src.rag_system.components.parser import build_parser
+            from src.rag_system.components.reranker import build_reranker
+            from src.rag_system.components.retriever import BM25Index, HybridRetriever
+            from src.rag_system.components.vector_store import build_vector_store
+            from src.rag_system.components.vision import build_vision_describer
 
             embedder = kwargs.get("embedder") or build_embedder(cfg.vector_store_config.embedding_provider)
             vector_store = kwargs.get("vector_store") or build_vector_store(cfg.vector_store_config.provider)
@@ -236,7 +239,7 @@ class RAGPipeline:
         texts = [e.text for e in elements]
         redacted_pairs = self._pii_redactor.redact_batch(texts)
         result = []
-        for elem, (redacted_text, found) in zip(elements, redacted_pairs):
+        for elem, (redacted_text, found) in zip(elements, redacted_pairs, strict=True):
             d = elem.model_dump()
             d["text"] = redacted_text
             d["metadata"] = {**d.get("metadata", {}), "pii_redacted": found}

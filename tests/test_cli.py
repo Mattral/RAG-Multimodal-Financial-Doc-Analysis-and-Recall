@@ -1,6 +1,6 @@
 """CLI tests — upgraded for v2.0 enterprise CLI."""
-import pytest
 from typer.testing import CliRunner
+
 from src.rag_system.cli import app
 
 runner = CliRunner()
