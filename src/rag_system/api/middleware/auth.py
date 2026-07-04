@@ -1,4 +1,5 @@
 """API Key authentication middleware with hashed key storage."""
+
 from __future__ import annotations
 
 import hashlib
@@ -35,7 +36,11 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         provided_hash = hashlib.sha256(api_key.encode()).hexdigest()
         expected_hash = hashlib.sha256(master_key.encode()).hexdigest()
         if provided_hash != expected_hash:
-            logger.warning("invalid_api_key", path=path, ip=request.client.host if request.client else "unknown")
+            logger.warning(
+                "invalid_api_key",
+                path=path,
+                ip=request.client.host if request.client else "unknown",
+            )
             return JSONResponse(status_code=403, content={"error": "Invalid API key"})
 
         # Attach tenant from header or default

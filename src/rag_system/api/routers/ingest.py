@@ -1,4 +1,5 @@
 """Ingest API router."""
+
 from __future__ import annotations
 
 import tempfile
@@ -10,6 +11,7 @@ from fastapi.responses import JSONResponse
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)
+
 
 @router.post("/ingest", summary="Ingest a financial document")
 async def ingest_document(

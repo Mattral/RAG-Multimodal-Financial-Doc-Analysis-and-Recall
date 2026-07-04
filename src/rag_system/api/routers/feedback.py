@@ -3,6 +3,7 @@
 Guideline §3: 'Human-in-the-Loop / Feedback Loop: thumbs up/down + free-text
 feedback stored with query_id, used later for fine-tuning reranker or reward model.'
 """
+
 from __future__ import annotations
 
 import json
@@ -25,9 +26,7 @@ class FeedbackRequest(BaseModel):
     query_id: str = Field(..., description="Query ID from the /query response")
     query_text: str = Field(..., max_length=2000)
     answer_text: str = Field(..., max_length=10000)
-    rating: Literal["thumbs_up", "thumbs_down", "neutral"] = Field(
-        ..., description="Quick rating"
-    )
+    rating: Literal["thumbs_up", "thumbs_down", "neutral"] = Field(..., description="Quick rating")
     comment: Optional[str] = Field(None, max_length=2000, description="Optional free-text")
     tenant_id: Optional[str] = None
     model_used: Optional[str] = None
@@ -89,7 +88,7 @@ async def submit_feedback(request: Request, body: FeedbackRequest):
         status="saved",
         feedback_id=feedback_id,
         message=f"Thank you for your feedback ({body.rating}). "
-                f"It will be used to improve answer quality.",
+        f"It will be used to improve answer quality.",
     )
 
 

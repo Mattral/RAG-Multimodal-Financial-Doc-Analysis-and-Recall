@@ -1,4 +1,5 @@
 """Query API router."""
+
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
@@ -11,11 +12,13 @@ from pydantic import BaseModel, Field
 router = APIRouter()
 logger = structlog.get_logger(__name__)
 
+
 class QueryRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=2000, description="Question to answer")
     tenant_id: Optional[str] = Field(None, description="Tenant identifier")
     top_k: int = Field(5, ge=1, le=20, description="Number of chunks to retrieve")
     filters: Optional[Dict[str, Any]] = Field(None, description="Metadata filters")
+
 
 class QueryResponse(BaseModel):
     status: str
@@ -25,6 +28,7 @@ class QueryResponse(BaseModel):
     guardrails: Dict[str, Any]
     metrics: Dict[str, Any]
     tenant_id: str
+
 
 @router.post("/query", response_model=QueryResponse, summary="Query ingested documents")
 async def query_documents(request: Request, body: QueryRequest):

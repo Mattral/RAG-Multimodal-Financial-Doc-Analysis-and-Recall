@@ -3,6 +3,7 @@
 Guideline §3.1: 'GDPR/CCPA-style data subject access/deletion (delete by tenant/doc),
 consent/versioning, data residency controls.'
 """
+
 from __future__ import annotations
 
 from typing import Optional

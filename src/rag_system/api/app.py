@@ -15,6 +15,7 @@ this pod within one probe interval, (2) the process keeps serving requests
 already in flight, (3) after a bounded drain window OR all requests complete
 (whichever is first), the process exits cleanly.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -108,6 +109,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     else:
         try:
             from src.rag_system.pipeline import create_pipeline
+
             _pipeline = await create_pipeline()
             app.state.pipeline = _pipeline
             logger.info("api_startup_complete")
