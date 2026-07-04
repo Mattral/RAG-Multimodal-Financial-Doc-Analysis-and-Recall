@@ -8,6 +8,7 @@ Commands:
   health   — Check system/component health
   version  — Show version info
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -44,7 +45,9 @@ def _version_callback(value: bool):
 
 @app.callback()
 def main(
-    version: bool = typer.Option(None, "--version", "-v", callback=_version_callback, is_eager=True),
+    version: bool = typer.Option(
+        None, "--version", "-v", callback=_version_callback, is_eager=True
+    ),
 ):
     pass
 
@@ -53,11 +56,14 @@ def main(
 # INGEST
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @app.command()
 def ingest(
     files: Annotated[List[str], typer.Argument(help="PDF file paths to ingest")],
     tenant: Annotated[str, typer.Option("--tenant", "-t", help="Tenant ID")] = "default",
-    no_vision: Annotated[bool, typer.Option("--no-vision", help="Skip vision/chart processing")] = False,
+    no_vision: Annotated[
+        bool, typer.Option("--no-vision", help="Skip vision/chart processing")
+    ] = False,
     verbose: Annotated[bool, typer.Option("--verbose", help="Verbose logging")] = False,
 ):
     """📄 Ingest and index financial PDF documents."""
@@ -70,8 +76,14 @@ def ingest(
 
     async def _run():
         from src.rag_system.pipeline import create_pipeline
-        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
-                      BarColumn(), TimeElapsedColumn(), console=console) as prog:
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TimeElapsedColumn(),
+            console=console,
+        ) as prog:
             t = prog.add_task(f"[cyan]Ingesting {len(files)} file(s)…", total=None)
             pipeline = await create_pipeline()
             result = await pipeline.ingest(
@@ -96,6 +108,7 @@ def ingest(
 # QUERY
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @app.command()
 def query(
     question: Annotated[str, typer.Argument(help="Question to ask")],
@@ -110,6 +123,7 @@ def query(
 
     async def _run():
         from src.rag_system.pipeline import create_pipeline
+
         with Progress(SpinnerColumn(), TextColumn("[cyan]Querying…"), console=console) as prog:
             prog.add_task("", total=None)
             pipeline = await create_pipeline()
@@ -121,13 +135,20 @@ def query(
         console.print(Syntax(json.dumps(result, indent=2, default=str), "json", theme="monokai"))
         return
 
-    console.print(Panel(f"[bold]{result.get('answer', 'No answer generated')}[/bold]",
-                        title="💡 Answer", border_style="cyan"))
+    console.print(
+        Panel(
+            f"[bold]{result.get('answer', 'No answer generated')}[/bold]",
+            title="💡 Answer",
+            border_style="cyan",
+        )
+    )
 
     m = result.get("metrics", {})
-    console.print(f"[dim]Latency: {m.get('total_latency_ms', 0):.0f}ms  "
-                  f"Cost: ${m.get('cost_usd', 0):.5f}  "
-                  f"Chunks: {m.get('num_chunks', 0)}[/dim]")
+    console.print(
+        f"[dim]Latency: {m.get('total_latency_ms', 0):.0f}ms  "
+        f"Cost: ${m.get('cost_usd', 0):.5f}  "
+        f"Chunks: {m.get('num_chunks', 0)}[/dim]"
+    )
 
     if show_sources and result.get("sources"):
         table = Table(title="📚 Sources", show_header=True, header_style="bold blue")
@@ -137,39 +158,56 @@ def query(
         table.add_column("Score", justify="right")
         table.add_column("Preview")
         for i, src in enumerate(result["sources"], 1):
-            table.add_row(str(i), src["document"], str(src.get("page") or "?"),
-                          f"{src.get('score', 0):.3f}", src.get("text_preview", "")[:60] + "…")
+            table.add_row(
+                str(i),
+                src["document"],
+                str(src.get("page") or "?"),
+                f"{src.get('score', 0):.3f}",
+                src.get("text_preview", "")[:60] + "…",
+            )
         console.print(table)
 
     guards = result.get("guardrails", {})
     if guards and not guards.get("overall_passed", True):
-        console.print(Panel(
-            f"[yellow]⚠ Guardrail warning:[/yellow] {guards}",
-            title="Guardrails", border_style="yellow"
-        ))
+        console.print(
+            Panel(
+                f"[yellow]⚠ Guardrail warning:[/yellow] {guards}",
+                title="Guardrails",
+                border_style="yellow",
+            )
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # EVALUATE
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @app.command()
 def evaluate(
-    dataset: Annotated[str, typer.Option("--dataset", "-d")] = "evals/golden_datasets/financial_qa.jsonl",
+    dataset: Annotated[
+        str, typer.Option("--dataset", "-d")
+    ] = "evals/golden_datasets/financial_qa.jsonl",
     tenant: Annotated[str, typer.Option("--tenant", "-t")] = "eval",
     fail_on_regression: Annotated[bool, typer.Option("--fail-on-regression")] = True,
     output: Annotated[Optional[str], typer.Option("--output", "-o")] = None,
 ):
     """📊 Run quality evaluation against the golden dataset."""
+
     async def _run():
         from src.rag_system.components.evaluator import GoldenDatasetRunner, RagasEvaluator
         from src.rag_system.pipeline import create_pipeline
+
         pipeline = await create_pipeline()
         evaluator = RagasEvaluator()
-        runner = GoldenDatasetRunner(pipeline=pipeline, evaluator=evaluator, golden_dataset_path=dataset)
+        runner = GoldenDatasetRunner(
+            pipeline=pipeline, evaluator=evaluator, golden_dataset_path=dataset
+        )
         return await runner.run(tenant_id=tenant)
 
-    with Progress(SpinnerColumn(), TextColumn("[cyan]Running evals…"), TimeElapsedColumn(), console=console) as prog:
+    with Progress(
+        SpinnerColumn(), TextColumn("[cyan]Running evals…"), TimeElapsedColumn(), console=console
+    ) as prog:
         prog.add_task("", total=None)
         report = asyncio.run(_run())
 
@@ -188,11 +226,17 @@ def evaluate(
     console.print(table)
 
     if output:
-        Path(output).write_text(json.dumps(
-            {"run_id": report.run_id, "pass_rate": report.pass_rate,
-             "avg_faithfulness": report.avg_faithfulness,
-             "regression_detected": report.regression_detected}, indent=2
-        ))
+        Path(output).write_text(
+            json.dumps(
+                {
+                    "run_id": report.run_id,
+                    "pass_rate": report.pass_rate,
+                    "avg_faithfulness": report.avg_faithfulness,
+                    "regression_detected": report.regression_detected,
+                },
+                indent=2,
+            )
+        )
         console.print(f"[dim]Report saved to {output}[/dim]")
 
     if fail_on_regression and report.regression_detected:
@@ -204,6 +248,7 @@ def evaluate(
 # SERVE
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @app.command()
 def serve(
     host: Annotated[str, typer.Option("--host")] = "0.0.0.0",
@@ -214,11 +259,15 @@ def serve(
     """🚀 Start the FastAPI server."""
     try:
         import uvicorn
+
         console.print(f"[green]Starting RAG Financial API on {host}:{port}[/green]")
         uvicorn.run(
             "src.rag_system.api.app:create_app",
-            host=host, port=port, workers=workers,
-            reload=reload, factory=True,
+            host=host,
+            port=port,
+            workers=workers,
+            reload=reload,
+            factory=True,
         )
     except ImportError:
         console.print("[red]uvicorn not installed. Run: pip install uvicorn[/red]")
@@ -229,21 +278,26 @@ def serve(
 # HEALTH
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @app.command()
 def health():
     """🏥 Check system and component health."""
+
     async def _run():
         from src.rag_system.pipeline import create_pipeline
+
         pipeline = await create_pipeline()
         return await pipeline.health_check()
 
     result = asyncio.run(_run())
     color = "green" if result["status"] == "healthy" else "yellow"
-    console.print(Panel(
-        json.dumps(result, indent=2),
-        title=f"[{color}]System Health: {result['status'].upper()}[/{color}]",
-        border_style=color,
-    ))
+    console.print(
+        Panel(
+            json.dumps(result, indent=2),
+            title=f"[{color}]System Health: {result['status'].upper()}[/{color}]",
+            border_style=color,
+        )
+    )
 
 
 def main_cli():
