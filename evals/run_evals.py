@@ -9,6 +9,7 @@ Exit codes:
     1  — quality regression detected (fails CI gate)
     2  — eval run error
 """
+
 from __future__ import annotations
 
 import argparse
@@ -60,18 +61,25 @@ async def _run(args):
         print(f"\nFailed samples ({len(failures)}):")
         for r in failures[:5]:
             print(f"  Q: {r.question[:80]}")
-            print(f"     faithfulness={r.faithfulness:.2f}, numeric_accuracy={r.numeric_accuracy:.2f}")
+            print(
+                f"     faithfulness={r.faithfulness:.2f}, numeric_accuracy={r.numeric_accuracy:.2f}"
+            )
 
     # Save JSON report
     if args.output:
-        Path(args.output).write_text(json.dumps({
-            "run_id": report.run_id,
-            "pass_rate": report.pass_rate,
-            "avg_faithfulness": report.avg_faithfulness,
-            "avg_numeric_accuracy": report.avg_numeric_accuracy,
-            "regression_detected": report.regression_detected,
-            "num_samples": report.num_samples,
-        }, indent=2))
+        Path(args.output).write_text(
+            json.dumps(
+                {
+                    "run_id": report.run_id,
+                    "pass_rate": report.pass_rate,
+                    "avg_faithfulness": report.avg_faithfulness,
+                    "avg_numeric_accuracy": report.avg_numeric_accuracy,
+                    "regression_detected": report.regression_detected,
+                    "num_samples": report.num_samples,
+                },
+                indent=2,
+            )
+        )
         print(f"\nReport written to {args.output}")
 
     return report
