@@ -10,6 +10,35 @@
 
 ---
 
+
+## 🎬 Live Demo — Hugging Face Space
+
+<div align="center">
+
+<video 
+  src="docs/assets/hf-space-demo.mp4" 
+  width="100%" 
+  controls 
+  loop 
+  muted 
+  playsinline
+>
+  Your browser does not support the video tag.
+  <a href="docs/assets/hf-space-demo.mp4">Download the 14-second demo</a>
+</video>
+
+<p><em>14-second screen recording of the Gradio demo. Upload a financial PDF (Tesla Q3 2023 Investor Update shown here), run multimodal ingestion, ask a natural-language question about revenue trends, and explore the grounded answer, retrieved sources with hybrid RRF scores, complete pipeline transparency, numeric guardrails, and performance metrics.</em></p>
+
+</div>
+
+**Scope note:** The Hugging Face Space is a **lightweight, self-contained Gradio demo** that showcases the *core* multimodal RAG capabilities (PDF/table ingestion, hybrid retrieval, numeric grounding guardrails, and full pipeline observability). 
+
+The repository you are currently viewing contains the **complete production-grade enterprise system**, including multi-tenancy, OpenTelemetry + Prometheus + SLO alerting, Kubernetes/Helm/Terraform deployment, Program-of-Thought calculator, ColPali visual retrieval, LangGraph agentic workflows, semantic caching, knowledge graph, 520+ tests, local vLLM fallback chains, and full CI/CD + security hardening. The demo intentionally focuses on the end-user experience and transparency so anyone can try the core value proposition instantly.
+
+[→ Try the live Space](https://huggingface.co/spaces/Mattral/RAG-Financial-Multimodal) (Gemini free tier supported)
+
+---
+
 ## System Architecture
 
 ![Architecture Pipeline](docs/assets/architecture_pipeline.png)
