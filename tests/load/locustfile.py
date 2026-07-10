@@ -7,6 +7,7 @@ Targets:
   - /api/v1/query  (primary — simulate 100 concurrent analysts)
   - /healthz       (baseline)
 """
+
 from __future__ import annotations
 
 import random
@@ -77,4 +78,4 @@ def on_test_stop(environment, **kwargs):
     p99 = total.get_response_time_percentile(0.99)
     slo_passed = p99 < 8000 and total.fail_ratio < 0.01
     print(f"SLO (p99<8s, <1% errors): {'✅ PASSED' if slo_passed else '❌ FAILED'}")
-    print('='*60)
+    print("=" * 60)
