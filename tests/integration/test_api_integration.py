@@ -3,6 +3,7 @@
 Tests the full request→middleware→router→pipeline→response cycle
 with in-memory components (no real OpenAI calls).
 """
+
 from __future__ import annotations
 
 import os
@@ -20,41 +21,70 @@ os.environ.setdefault("CACHE_CONFIG__BACKEND", "memory")
 @pytest.fixture
 def mock_pipeline():
     pipeline = MagicMock()
-    pipeline.health_check = AsyncMock(return_value={
-        "status": "healthy",
-        "components": {"vector_store": "ok", "retriever": "ok"},
-    })
-    pipeline.query = AsyncMock(return_value={
-        "status": "success",
-        "tenant_id": "test",
-        "query": "What was revenue?",
-        "answer": "Revenue was $23.35B [Source: tesla.pdf, Page 4].",
-        "answer_obj": None,
-        "sources": [{"document": "tesla.pdf", "page": 4, "score": 0.92,
-                     "text_preview": "Revenue was $23.35B."}],
-        "guardrails": {"overall_passed": True},
-        "metrics": {"total_latency_ms": 1200, "cost_usd": 0.0001, "num_chunks": 3},
-        "analysis": {"intent": "factual", "complexity": "simple", "use_pot": False,
-                     "rewritten_query": "What was revenue?", "filters_applied": {}},
-        "pot_result": None,
-    })
-    pipeline.ingest = AsyncMock(return_value={
-        "status": "success", "tenant_id": "test",
-        "num_files": 1, "num_chunks": 42, "skipped": 0, "latency_s": 3.2,
-    })
-    pipeline.list_documents = AsyncMock(return_value=[
-        {"source_uri": "file://test.pdf", "filename": "test.pdf",
-         "version": 1, "content_hash": "abc123", "is_deleted": False},
-    ])
-    pipeline.delete_document = AsyncMock(return_value={
-        "status": "deleted", "source_uri": "file://test.pdf"
-    })
+    pipeline.health_check = AsyncMock(
+        return_value={
+            "status": "healthy",
+            "components": {"vector_store": "ok", "retriever": "ok"},
+        }
+    )
+    pipeline.query = AsyncMock(
+        return_value={
+            "status": "success",
+            "tenant_id": "test",
+            "query": "What was revenue?",
+            "answer": "Revenue was $23.35B [Source: tesla.pdf, Page 4].",
+            "answer_obj": None,
+            "sources": [
+                {
+                    "document": "tesla.pdf",
+                    "page": 4,
+                    "score": 0.92,
+                    "text_preview": "Revenue was $23.35B.",
+                }
+            ],
+            "guardrails": {"overall_passed": True},
+            "metrics": {"total_latency_ms": 1200, "cost_usd": 0.0001, "num_chunks": 3},
+            "analysis": {
+                "intent": "factual",
+                "complexity": "simple",
+                "use_pot": False,
+                "rewritten_query": "What was revenue?",
+                "filters_applied": {},
+            },
+            "pot_result": None,
+        }
+    )
+    pipeline.ingest = AsyncMock(
+        return_value={
+            "status": "success",
+            "tenant_id": "test",
+            "num_files": 1,
+            "num_chunks": 42,
+            "skipped": 0,
+            "latency_s": 3.2,
+        }
+    )
+    pipeline.list_documents = AsyncMock(
+        return_value=[
+            {
+                "source_uri": "file://test.pdf",
+                "filename": "test.pdf",
+                "version": 1,
+                "content_hash": "abc123",
+                "is_deleted": False,
+            },
+        ]
+    )
+    pipeline.delete_document = AsyncMock(
+        return_value={"status": "deleted", "source_uri": "file://test.pdf"}
+    )
     return pipeline
 
 
 @pytest.fixture
 def client(mock_pipeline):
     from src.rag_system.api.app import create_app
+
     app = create_app()
     app.state.pipeline = mock_pipeline
     # TestClient must be used as a context manager for FastAPI lifespan
@@ -82,6 +112,7 @@ class TestHealthEndpoints:
 
     def test_readiness_without_pipeline(self):
         from src.rag_system.api.app import create_app
+
         app = create_app()
         app.state.pipeline = None
         with TestClient(app) as c:
@@ -91,10 +122,13 @@ class TestHealthEndpoints:
 
 class TestQueryEndpoint:
     def test_query_success(self, client):
-        resp = client.post("/api/v1/query", json={
-            "query": "What was revenue in Q3 2023?",
-            "top_k": 5,
-        })
+        resp = client.post(
+            "/api/v1/query",
+            json={
+                "query": "What was revenue in Q3 2023?",
+                "top_k": 5,
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "success"
@@ -115,6 +149,7 @@ class TestQueryEndpoint:
 
     def test_query_without_pipeline_returns_503(self):
         from src.rag_system.api.app import create_app
+
         app = create_app()
         app.state.pipeline = None
         with TestClient(app) as c:
@@ -140,13 +175,17 @@ class TestDocumentsEndpoint:
 class TestFeedbackEndpoint:
     def test_submit_feedback(self, client, tmp_path, monkeypatch):
         import src.rag_system.api.routers.feedback as fb
+
         monkeypatch.setattr(fb, "_FEEDBACK_PATH", tmp_path / "fb.jsonl")
-        resp = client.post("/api/v1/feedback", json={
-            "query_id": "q001",
-            "query_text": "What was revenue?",
-            "answer_text": "Revenue was $23.35B.",
-            "rating": "thumbs_up",
-        })
+        resp = client.post(
+            "/api/v1/feedback",
+            json={
+                "query_id": "q001",
+                "query_text": "What was revenue?",
+                "answer_text": "Revenue was $23.35B.",
+                "rating": "thumbs_up",
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["status"] == "saved"
 

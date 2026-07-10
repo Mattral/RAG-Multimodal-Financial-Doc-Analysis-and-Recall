@@ -1,4 +1,5 @@
 """Integration tests for the full RAG pipeline with in-memory components."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
@@ -24,11 +25,17 @@ def mock_embedder():
 def mock_generator():
     gen = MagicMock()
     gen.name = "mock_generator"
-    gen.generate = AsyncMock(return_value=GeneratedAnswer(
-        answer="Revenue was $42.3M [Source: test.pdf, Page 5].",
-        citations=[], model_used="mock", prompt_tokens=100,
-        completion_tokens=30, estimated_cost_usd=0.0001, latency_ms=500.0,
-    ))
+    gen.generate = AsyncMock(
+        return_value=GeneratedAnswer(
+            answer="Revenue was $42.3M [Source: test.pdf, Page 5].",
+            citations=[],
+            model_used="mock",
+            prompt_tokens=100,
+            completion_tokens=30,
+            estimated_cost_usd=0.0001,
+            latency_ms=500.0,
+        )
+    )
     return gen
 
 
@@ -36,14 +43,26 @@ def mock_generator():
 def mock_parser():
     parser = MagicMock()
     parser.name = "mock_parser"
-    parser.parse_batch = AsyncMock(return_value=[
-        DocumentElement(type="text", text="Revenue was $42.3M in Q3 2024.",
-                        source_document="test.pdf", page_number=5,
-                        content_hash="h1", tenant_id="test"),
-        DocumentElement(type="table", text="Q3 Revenue: $42.3M | Q2: $38.1M",
-                        source_document="test.pdf", page_number=6,
-                        content_hash="h2", tenant_id="test"),
-    ])
+    parser.parse_batch = AsyncMock(
+        return_value=[
+            DocumentElement(
+                type="text",
+                text="Revenue was $42.3M in Q3 2024.",
+                source_document="test.pdf",
+                page_number=5,
+                content_hash="h1",
+                tenant_id="test",
+            ),
+            DocumentElement(
+                type="table",
+                text="Q3 Revenue: $42.3M | Q2: $38.1M",
+                source_document="test.pdf",
+                page_number=6,
+                content_hash="h2",
+                tenant_id="test",
+            ),
+        ]
+    )
     return parser
 
 
@@ -73,12 +92,18 @@ async def test_query_returns_answer(mock_embedder, mock_generator):
     await vector_store.initialize("test")
 
     # Pre-populate store
-    elem = DocumentElement(type="text", text="Revenue was $42.3M in Q3.",
-                           source_document="test.pdf", page_number=5,
-                           content_hash="h1", tenant_id="test")
+    elem = DocumentElement(
+        type="text",
+        text="Revenue was $42.3M in Q3.",
+        source_document="test.pdf",
+        page_number=5,
+        content_hash="h1",
+        tenant_id="test",
+    )
     await vector_store.upsert([elem], [[0.1, 0.9, 0.2]], tenant_id="test")
 
     from src.rag_system.components.retriever import BM25Index, HybridRetriever
+
     retriever = HybridRetriever(
         vector_store=vector_store, embedder=mock_embedder, bm25_index=BM25Index()
     )
@@ -111,12 +136,19 @@ async def test_pii_redaction_applied(mock_parser, mock_embedder, monkeypatch):
     # for test speed; this test specifically verifies redaction, so opt back in.
     monkeypatch.setenv("SECURITY_CONFIG__ENABLE_PII_REDACTION", "true")
     from unittest.mock import AsyncMock
-    mock_parser.parse_batch = AsyncMock(return_value=[
-        DocumentElement(type="text",
-                        text="John Smith SSN 123-45-6789 invested in Tesla.",
-                        source_document="report.pdf", page_number=1,
-                        content_hash="h_pii", tenant_id="test"),
-    ])
+
+    mock_parser.parse_batch = AsyncMock(
+        return_value=[
+            DocumentElement(
+                type="text",
+                text="John Smith SSN 123-45-6789 invested in Tesla.",
+                source_document="report.pdf",
+                page_number=1,
+                content_hash="h_pii",
+                tenant_id="test",
+            ),
+        ]
+    )
     captured_texts = []
 
     async def capture_embed(texts):
@@ -128,7 +160,9 @@ async def test_pii_redaction_applied(mock_parser, mock_embedder, monkeypatch):
     await vector_store.initialize("test")
 
     pipeline = RAGPipeline(
-        parser=mock_parser, embedder=mock_embedder, vector_store=vector_store,
+        parser=mock_parser,
+        embedder=mock_embedder,
+        vector_store=vector_store,
     )
     await pipeline.ingest(["report.pdf"], tenant_id="test", process_vision=False)
 
