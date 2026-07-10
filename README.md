@@ -15,19 +15,10 @@
 
 <div align="center">
 
-<video 
-  src="docs/assets/hf-space-demo.mp4" 
-  width="100%" 
-  controls 
-  loop 
-  muted 
-  playsinline
->
-  Your browser does not support the video tag.
-  <a href="docs/assets/hf-space-demo.mp4">Download the 14-second demo</a>
-</video>
+https://github.com/user-attachments/assets/4fb1cac4-69f7-4faf-b7f0-90cc1bbcfe88
 
-<p><em>14-second screen recording of the Gradio demo. Upload a financial PDF (Tesla Q3 2023 Investor Update shown here), run multimodal ingestion, ask a natural-language question about revenue trends, and explore the grounded answer, retrieved sources with hybrid RRF scores, complete pipeline transparency, numeric guardrails, and performance metrics.</em></p>
+**14-second screen recording** of the Gradio demo.  
+Upload a financial PDF → multimodal processing → ask a revenue question → explore grounded answer, sources with RRF scores, full pipeline transparency, numeric guardrails, and performance metrics.
 
 </div>
 
