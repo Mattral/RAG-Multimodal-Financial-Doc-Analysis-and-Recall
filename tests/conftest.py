@@ -6,6 +6,7 @@ Provides:
   - Sample documents and elements
   - Async event loop configuration
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -34,6 +35,7 @@ def event_loop_policy():
 @pytest.fixture(autouse=True)
 def reset_config():
     from src.rag_system.config import reset_config as _reset
+
     _reset()
     yield
     _reset()
@@ -43,6 +45,7 @@ def reset_config():
 @pytest.fixture
 def sample_document_element():
     from src.rag_system.components.base import DocumentElement
+
     return DocumentElement(
         type="text",
         text="Tesla's Q3 2023 revenue was $23.35 billion, up 9% year-over-year.",
@@ -57,6 +60,7 @@ def sample_document_element():
 @pytest.fixture
 def sample_table_element():
     from src.rag_system.components.base import DocumentElement
+
     return DocumentElement(
         type="table",
         text="| Metric | Q3 2023 | Q3 2022 | YoY |\n|---|---|---|---|\n| Revenue | $23.35B | $21.45B | +9% |\n| Gross Margin | 17.9% | 25.1% | -720bps |",
@@ -70,6 +74,7 @@ def sample_table_element():
 @pytest.fixture
 def sample_graph_element():
     from src.rag_system.components.base import DocumentElement
+
     return DocumentElement(
         type="graph",
         text="Bar chart titled 'Quarterly Revenue 2020-2023'. X-axis: quarters Q1-Q4. Y-axis: Revenue in billions USD. Q3 2023 bar shows $23.35B. Clear upward trend from $6B in Q1 2020 to $23.35B in Q3 2023.",
@@ -84,16 +89,36 @@ def sample_graph_element():
 @pytest.fixture
 def sample_chunks():
     from src.rag_system.components.base import RetrievedChunk
+
     return [
-        RetrievedChunk(text="Q3 revenue was $23.35B.", score=0.92, source_document="tesla_10q_q3_2023.pdf", page_number=4, chunk_id="c1"),
-        RetrievedChunk(text="Gross margin was 17.9% in Q3 2023.", score=0.87, source_document="tesla_10q_q3_2023.pdf", page_number=5, chunk_id="c2"),
-        RetrievedChunk(text="Vehicle deliveries reached 435,059 units in Q3 2023.", score=0.81, source_document="tesla_10q_q3_2023.pdf", page_number=3, chunk_id="c3"),
+        RetrievedChunk(
+            text="Q3 revenue was $23.35B.",
+            score=0.92,
+            source_document="tesla_10q_q3_2023.pdf",
+            page_number=4,
+            chunk_id="c1",
+        ),
+        RetrievedChunk(
+            text="Gross margin was 17.9% in Q3 2023.",
+            score=0.87,
+            source_document="tesla_10q_q3_2023.pdf",
+            page_number=5,
+            chunk_id="c2",
+        ),
+        RetrievedChunk(
+            text="Vehicle deliveries reached 435,059 units in Q3 2023.",
+            score=0.81,
+            source_document="tesla_10q_q3_2023.pdf",
+            page_number=3,
+            chunk_id="c3",
+        ),
     ]
 
 
 @pytest.fixture
 def sample_generated_answer(sample_chunks):
     from src.rag_system.components.base import GeneratedAnswer
+
     return GeneratedAnswer(
         answer="Tesla's Q3 2023 revenue was $23.35 billion [Source: tesla_10q_q3_2023.pdf, Page 4], with a gross margin of 17.9% [Source: tesla_10q_q3_2023.pdf, Page 5].",
         citations=sample_chunks[:2],
@@ -137,6 +162,7 @@ def mock_parser(sample_document_element, sample_table_element):
 @pytest.fixture
 async def in_memory_vector_store():
     from src.rag_system.components.vector_store import InMemoryVectorStore
+
     store = InMemoryVectorStore()
     await store.initialize(tenant_id="test_tenant")
     return store
@@ -145,6 +171,7 @@ async def in_memory_vector_store():
 @pytest.fixture
 def bm25_index(sample_chunks):
     from src.rag_system.components.retriever import BM25Index
+
     idx = BM25Index()
     idx.build(sample_chunks)
     return idx

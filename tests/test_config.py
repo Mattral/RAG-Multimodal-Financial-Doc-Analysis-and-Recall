@@ -1,4 +1,5 @@
 """Configuration tests — upgraded for v2.0 Pydantic v2 BaseSettings."""
+
 import pytest
 from pydantic import ValidationError
 
@@ -192,6 +193,7 @@ class TestMainConfig:
 
     def test_missing_api_key_raises(self, monkeypatch):
         from src.rag_system.utils.exceptions import ConfigurationError
+
         # conftest.py sets OPENAI_API_KEY session-wide for the rest of the
         # suite; clear it here to verify the genuinely-missing-key path.
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)

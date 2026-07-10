@@ -7,6 +7,7 @@ Provides a clean, importable interface for programmatic use:
     await pipeline.ingest(["report.pdf"])
     answer = await pipeline.query("What was Q3 revenue?")
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -52,6 +53,7 @@ class RAGPipeline:
             with open(cfg_path) as f:
                 data = yaml.safe_load(f)
             import os
+
             for k, v in data.items():
                 os.environ.setdefault(k.upper(), str(v))
             reset_config()

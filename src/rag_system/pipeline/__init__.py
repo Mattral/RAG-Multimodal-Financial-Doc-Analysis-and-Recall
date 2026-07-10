@@ -6,6 +6,7 @@ Orchestrates pluggable components end-to-end:
 
 Integrates: multi-tenancy, versioning, cost tracking, OTel tracing, audit log.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -90,7 +91,8 @@ class RAGPipeline:
         self._version_manager = version_manager or DocumentVersionManager()
         self._cost_tracker = get_cost_tracker()
         self._semantic_cache = (
-            semantic_cache if semantic_cache is not None
+            semantic_cache
+            if semantic_cache is not None
             else build_semantic_cache(self._config.cache_config)
         )
 
@@ -121,12 +123,18 @@ class RAGPipeline:
             from src.rag_system.components.vector_store import build_vector_store
             from src.rag_system.components.vision import build_vision_describer
 
-            embedder = kwargs.get("embedder") or build_embedder(cfg.vector_store_config.embedding_provider)
-            vector_store = kwargs.get("vector_store") or build_vector_store(cfg.vector_store_config.provider)
+            embedder = kwargs.get("embedder") or build_embedder(
+                cfg.vector_store_config.embedding_provider
+            )
+            vector_store = kwargs.get("vector_store") or build_vector_store(
+                cfg.vector_store_config.provider
+            )
             reranker = kwargs.get("reranker") or build_reranker(cfg.reranker_config.provider)
             retriever = kwargs.get("retriever") or HybridRetriever(
-                vector_store=vector_store, embedder=embedder,
-                reranker=reranker, bm25_index=BM25Index(),
+                vector_store=vector_store,
+                embedder=embedder,
+                reranker=reranker,
+                bm25_index=BM25Index(),
             )
             pipeline = cls(
                 parser=kwargs.get("parser") or build_parser(),
@@ -139,7 +147,9 @@ class RAGPipeline:
                 config=cfg,
             )
         except ImportError as exc:
-            logger.warning("component_import_failed", error=str(exc), detail="Using minimal pipeline")
+            logger.warning(
+                "component_import_failed", error=str(exc), detail="Using minimal pipeline"
+            )
             pipeline = cls(config=cfg)
 
         if pipeline._vector_store:
@@ -161,24 +171,35 @@ class RAGPipeline:
         batch_size = batch_size or self._config.batch_size
         start = time.perf_counter()
 
-        async with async_trace_span("ingest_pipeline", {"tenant_id": tenant_id, "num_files": len(file_paths)}):
+        async with async_trace_span(
+            "ingest_pipeline", {"tenant_id": tenant_id, "num_files": len(file_paths)}
+        ):
             # Delta detection — skip unchanged documents
             to_process, skipped = [], []
             for fp in file_paths:
                 try:
                     content_preview = Path(fp).read_bytes()[:4096].decode(errors="ignore")
-                    if skip_unchanged and not self._version_manager.needs_reindex(fp, content_preview, tenant_id):
+                    if skip_unchanged and not self._version_manager.needs_reindex(
+                        fp, content_preview, tenant_id
+                    ):
                         skipped.append(fp)
-                        logger.info("ingest_skipped_unchanged", file=Path(fp).name, tenant_id=tenant_id)
+                        logger.info(
+                            "ingest_skipped_unchanged", file=Path(fp).name, tenant_id=tenant_id
+                        )
                         continue
                     to_process.append(fp)
                 except Exception:
                     to_process.append(fp)
 
             if not to_process:
-                return {"status": "success", "tenant_id": tenant_id,
-                        "num_files": 0, "num_chunks": 0, "skipped": len(skipped),
-                        "latency_s": round(time.perf_counter() - start, 2)}
+                return {
+                    "status": "success",
+                    "tenant_id": tenant_id,
+                    "num_files": 0,
+                    "num_chunks": 0,
+                    "skipped": len(skipped),
+                    "latency_s": round(time.perf_counter() - start, 2),
+                }
 
             all_elements: List[Any] = []
 
@@ -196,7 +217,9 @@ class RAGPipeline:
             if process_vision and self._vision:
                 image_paths = await self._collect_images(to_process)
                 if image_paths:
-                    vision_elements = await self._process_vision_batched(image_paths, batch_size, tenant_id)
+                    vision_elements = await self._process_vision_batched(
+                        image_paths, batch_size, tenant_id
+                    )
                     all_elements.extend(vision_elements)
                     logger.info("vision_complete", num_graph_elements=len(vision_elements))
 
@@ -211,14 +234,20 @@ class RAGPipeline:
                 try:
                     content_preview = Path(fp).read_bytes()[:4096].decode(errors="ignore")
                     self._version_manager.register(
-                        fp, content_preview, tenant_id,
-                        page_count=sum(1 for e in all_elements if e.source_document == Path(fp).name),
+                        fp,
+                        content_preview,
+                        tenant_id,
+                        page_count=sum(
+                            1 for e in all_elements if e.source_document == Path(fp).name
+                        ),
                     )
                 except Exception:
                     pass
                 self._audit.log_ingest(
-                    tenant_id=tenant_id, source_doc=Path(fp).name,
-                    num_chunks=len(all_elements), doc_hash=_sha256(fp),
+                    tenant_id=tenant_id,
+                    source_doc=Path(fp).name,
+                    num_chunks=len(all_elements),
+                    doc_hash=_sha256(fp),
                     parser=getattr(self._parser, "name", "unknown"),
                 )
 
@@ -226,13 +255,18 @@ class RAGPipeline:
             record_ingest(
                 tenant_id=tenant_id,
                 parser=getattr(self._parser, "name", "unknown"),
-                status="success", num_docs=len(to_process),
-                num_chunks=len(all_elements), latency_s=latency_s,
+                status="success",
+                num_docs=len(to_process),
+                num_chunks=len(all_elements),
+                latency_s=latency_s,
             )
             return {
-                "status": "success", "tenant_id": tenant_id,
-                "num_files": len(to_process), "num_chunks": len(all_elements),
-                "skipped": len(skipped), "latency_s": round(latency_s, 2),
+                "status": "success",
+                "tenant_id": tenant_id,
+                "num_files": len(to_process),
+                "num_chunks": len(all_elements),
+                "skipped": len(skipped),
+                "latency_s": round(latency_s, 2),
             }
 
     async def _redact_elements(self, elements: List[Any]) -> List[Any]:
@@ -254,12 +288,14 @@ class RAGPipeline:
                 images.extend([str(p) for p in img_dir.glob("*.png")])
         return images
 
-    async def _process_vision_batched(self, image_paths: List[str], batch_size: int, tenant_id: str) -> List[Any]:
+    async def _process_vision_batched(
+        self, image_paths: List[str], batch_size: int, tenant_id: str
+    ) -> List[Any]:
         if not self._vision:
             return []
         results: List[Any] = []
         for i in range(0, len(image_paths), batch_size):
-            batch = image_paths[i: i + batch_size]
+            batch = image_paths[i : i + batch_size]
             elements = await self._vision.describe_batch(batch, "vision_batch", tenant_id)
             results.extend(e for e in elements if e is not None)
             if i + batch_size < len(image_paths):
@@ -284,13 +320,20 @@ class RAGPipeline:
         if not self._cost_tracker.check_quota(
             tenant_id, self._config.multi_tenancy_config.default_tokens_per_month
         ):
-            return {"status": "error", "error": "Monthly token quota exceeded", "tenant_id": tenant_id}
+            return {
+                "status": "error",
+                "error": "Monthly token quota exceeded",
+                "tenant_id": tenant_id,
+            }
 
         # Query analysis — intent, filters, injection, rewrite
         analysis = self._query_analyzer.analyze(query_text, tenant_id=tenant_id)
         if analysis.is_injection:
-            return {"status": "error", "error": f"Query blocked: {analysis.injection_reason}",
-                    "tenant_id": tenant_id}
+            return {
+                "status": "error",
+                "error": f"Query blocked: {analysis.injection_reason}",
+                "tenant_id": tenant_id,
+            }
 
         # Merge analysis-derived filters with caller-supplied filters
         effective_filters = {**(filters or {}), **analysis.metadata_filters}
@@ -326,17 +369,23 @@ class RAGPipeline:
                 logger.warning("semantic_cache_check_failed", error=str(exc))
                 query_embedding = None
 
-        async with async_trace_span("query_pipeline", {
-            "tenant_id": tenant_id, "intent": analysis.intent.value,
-            "complexity": analysis.complexity.value,
-        }):
+        async with async_trace_span(
+            "query_pipeline",
+            {
+                "tenant_id": tenant_id,
+                "intent": analysis.intent.value,
+                "complexity": analysis.complexity.value,
+            },
+        ):
             # Retrieve
             t0 = time.perf_counter()
             chunks: List[Any] = []
             if self._retriever:
                 chunks = await self._retriever.retrieve(
-                    query=effective_query, top_k=effective_top_k,
-                    filters=effective_filters, tenant_id=tenant_id,
+                    query=effective_query,
+                    top_k=effective_top_k,
+                    filters=effective_filters,
+                    tenant_id=tenant_id,
                 )
             retrieval_latency_s = time.perf_counter() - t0
 
@@ -345,6 +394,7 @@ class RAGPipeline:
             if analysis.use_pot and chunks:
                 try:
                     from src.rag_system.components.pot_executor import PoTExecutor
+
                     pot_executor = PoTExecutor()
                     context_text = " ".join(c.text for c in chunks[:3])
                     # Attempt to extract and run any code from context
@@ -362,8 +412,10 @@ class RAGPipeline:
                     pot_note = f"\n\nCalculated value (exact): {pot_result.formatted(2)}"
                     effective_system = (system_prompt or "") + pot_note
                 answer = await self._generator.generate(
-                    query=effective_query, context=chunks,
-                    tenant_id=tenant_id, system_prompt=effective_system,
+                    query=effective_query,
+                    context=chunks,
+                    tenant_id=tenant_id,
+                    system_prompt=effective_system,
                 )
             generation_latency_s = time.perf_counter() - t1
             total_latency_s = time.perf_counter() - start
@@ -372,24 +424,29 @@ class RAGPipeline:
             guardrail_results: Dict[str, Any] = {}
             if answer and self._config.security_config.enable_guardrails:
                 guardrail_results = self._guardrails.run_all_checks(
-                    query=query_text, answer=answer.answer,
+                    query=query_text,
+                    answer=answer.answer,
                     context_chunks=[c.text for c in chunks],
                 )
 
             # Audit
             if answer:
                 self._audit.log_query(
-                    tenant_id=tenant_id, query_hash=_sha256(query_text),
+                    tenant_id=tenant_id,
+                    query_hash=_sha256(query_text),
                     answer_hash=_sha256(answer.answer),
                     sources_cited=[c.source_document for c in answer.citations],
-                    model=answer.model_used, latency_ms=total_latency_s * 1000,
+                    model=answer.model_used,
+                    latency_ms=total_latency_s * 1000,
                     cost_usd=answer.estimated_cost_usd,
                     guardrail_passed=guardrail_results.get("overall_passed", True),
                 )
 
             record_query(
-                tenant_id=tenant_id, query_mode=self._config.query_mode,
-                status="success", total_latency_s=total_latency_s,
+                tenant_id=tenant_id,
+                query_mode=self._config.query_mode,
+                status="success",
+                total_latency_s=total_latency_s,
                 retrieval_latency_s=retrieval_latency_s,
                 generation_latency_s=generation_latency_s,
                 cost_usd=answer.estimated_cost_usd if answer else 0.0,
@@ -400,7 +457,8 @@ class RAGPipeline:
             )
 
             response_payload = {
-                "status": "success", "tenant_id": tenant_id,
+                "status": "success",
+                "tenant_id": tenant_id,
                 "query": query_text,
                 "analysis": {
                     "intent": analysis.intent.value,
@@ -411,10 +469,18 @@ class RAGPipeline:
                 },
                 "answer": answer.answer if answer else None,
                 "answer_obj": answer,
-                "pot_result": {"result": pot_result.result, "code": pot_result.code} if pot_result and pot_result.success else None,
+                "pot_result": (
+                    {"result": pot_result.result, "code": pot_result.code}
+                    if pot_result and pot_result.success
+                    else None
+                ),
                 "sources": [
-                    {"document": c.source_document, "page": c.page_number,
-                     "score": c.score, "text_preview": c.text[:200]}
+                    {
+                        "document": c.source_document,
+                        "page": c.page_number,
+                        "score": c.score,
+                        "text_preview": c.text[:200],
+                    }
                     for c in chunks
                 ],
                 "guardrails": guardrail_results,
@@ -432,11 +498,15 @@ class RAGPipeline:
             # a guardrail-flagged or empty answer, since a future "similar"
             # query would then silently inherit the same problem.
             if (
-                self._semantic_cache and query_embedding and answer
+                self._semantic_cache
+                and query_embedding
+                and answer
                 and guardrail_results.get("overall_passed", True)
             ):
                 try:
-                    cacheable_payload = {k: v for k, v in response_payload.items() if k != "answer_obj"}
+                    cacheable_payload = {
+                        k: v for k, v in response_payload.items() if k != "answer_obj"
+                    }
                     await self._semantic_cache.set(
                         query_text=effective_query,
                         query_embedding=query_embedding,
@@ -454,12 +524,22 @@ class RAGPipeline:
         """List all ingested documents and their version info for a tenant."""
         tenant_id = tenant_id or self._config.multi_tenancy_config.default_tenant
         docs = self._version_manager.get_all_docs(tenant_id)
-        return [{"source_uri": d.source_uri, "filename": Path(d.source_uri).name,
-                 "version": d.version, "content_hash": d.content_hash,
-                 "ingest_timestamp": d.ingest_timestamp, "page_count": d.page_count,
-                 "is_deleted": d.is_deleted} for d in docs]
+        return [
+            {
+                "source_uri": d.source_uri,
+                "filename": Path(d.source_uri).name,
+                "version": d.version,
+                "content_hash": d.content_hash,
+                "ingest_timestamp": d.ingest_timestamp,
+                "page_count": d.page_count,
+                "is_deleted": d.is_deleted,
+            }
+            for d in docs
+        ]
 
-    async def delete_document(self, source_uri: str, tenant_id: Optional[str] = None) -> Dict[str, Any]:
+    async def delete_document(
+        self, source_uri: str, tenant_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         """GDPR/CCPA soft-delete a document."""
         tenant_id = tenant_id or self._config.multi_tenancy_config.default_tenant
         found = self._version_manager.soft_delete(source_uri, tenant_id)
@@ -473,8 +553,10 @@ class RAGPipeline:
         """Return component health for K8s liveness/readiness probes."""
         checks: Dict[str, str] = {}
         for name, component in [
-            ("parser", self._parser), ("vision", self._vision),
-            ("vector_store", self._vector_store), ("retriever", self._retriever),
+            ("parser", self._parser),
+            ("vision", self._vision),
+            ("vector_store", self._vector_store),
+            ("retriever", self._retriever),
             ("generator", self._generator),
         ]:
             if component is None:

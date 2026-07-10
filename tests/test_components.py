@@ -4,6 +4,7 @@ These tests ensure the new pluggable component ABCs, data models, and
 utility modules work correctly as a system, replacing the legacy v1
 component-specific tests.
 """
+
 import pytest
 from pydantic import ValidationError
 
@@ -31,6 +32,7 @@ from src.rag_system.components.pot_executor import (
 
 # ── Data Model Tests ─────────────────────────────────────────────────────────
 
+
 class TestDocumentElement:
     def test_creation_minimal(self):
         e = DocumentElement(type="text", text="Revenue was $42B.", source_document="doc.pdf")
@@ -39,8 +41,12 @@ class TestDocumentElement:
 
     def test_creation_full(self):
         e = DocumentElement(
-            type="table", text="| A | B |", source_document="10k.pdf",
-            page_number=12, content_hash="abc123", tenant_id="acme",
+            type="table",
+            text="| A | B |",
+            source_document="10k.pdf",
+            page_number=12,
+            content_hash="abc123",
+            tenant_id="acme",
             metadata={"parser": "docling"},
         )
         assert e.page_number == 12
@@ -63,7 +69,9 @@ class TestRetrievedChunk:
         assert c.score == 0.91
 
     def test_roundtrip(self):
-        c = RetrievedChunk(text="x", score=0.5, source_document="d.pdf", page_number=7, chunk_id="c1")
+        c = RetrievedChunk(
+            text="x", score=0.5, source_document="d.pdf", page_number=7, chunk_id="c1"
+        )
         d = c.model_dump()
         assert d["chunk_id"] == "c1"
 
@@ -72,15 +80,20 @@ class TestGeneratedAnswer:
     def test_creation(self):
         c = RetrievedChunk(text="Revenue $42B.", score=0.9, source_document="doc.pdf")
         a = GeneratedAnswer(
-            answer="Revenue was $42B.", citations=[c],
-            model_used="gpt-4o-mini", prompt_tokens=200, completion_tokens=50,
-            estimated_cost_usd=0.0001, latency_ms=1200.0,
+            answer="Revenue was $42B.",
+            citations=[c],
+            model_used="gpt-4o-mini",
+            prompt_tokens=200,
+            completion_tokens=50,
+            estimated_cost_usd=0.0001,
+            latency_ms=1200.0,
         )
         assert len(a.citations) == 1
         assert a.estimated_cost_usd > 0
 
 
 # ── ABC Enforcement Tests ─────────────────────────────────────────────────────
+
 
 class TestAbstractBaseClasses:
     """Verify ABCs cannot be instantiated and require implementation."""
@@ -112,8 +125,12 @@ class TestAbstractBaseClasses:
     def test_incomplete_implementation_raises(self):
         class IncompleteParser(BaseParser):
             @property
-            def name(self): return "incomplete"
-            async def parse(self, file_path, tenant_id=None): return []
+            def name(self):
+                return "incomplete"
+
+            async def parse(self, file_path, tenant_id=None):
+                return []
+
             # Missing parse_batch — should raise TypeError at instantiation
 
         with pytest.raises(TypeError):
@@ -122,15 +139,21 @@ class TestAbstractBaseClasses:
     def test_complete_implementation_works(self):
         class MinimalParser(BaseParser):
             @property
-            def name(self): return "minimal"
-            async def parse(self, file_path, tenant_id=None): return []
-            async def parse_batch(self, file_paths, tenant_id=None): return []
+            def name(self):
+                return "minimal"
+
+            async def parse(self, file_path, tenant_id=None):
+                return []
+
+            async def parse_batch(self, file_paths, tenant_id=None):
+                return []
 
         p = MinimalParser()
         assert p.name == "minimal"
 
 
 # ── PoT Executor Component Tests ──────────────────────────────────────────────
+
 
 class TestASTSandboxValidator:
     def test_blocks_import(self):
@@ -161,6 +184,7 @@ async def test_pot_executor_basic():
     assert r.success
     assert r.result == 1024.0
 
+
 @pytest.mark.asyncio
 async def test_pot_executor_all_templates():
     ex = PoTExecutor()
@@ -168,7 +192,8 @@ async def test_pot_executor_all_templates():
         template_code = FINANCIAL_TEMPLATES[name]
         # Replace placeholders with dummy values
         import re
-        dummy_code = re.sub(r'\{[^}]+\}', '10.0', template_code)
+
+        dummy_code = re.sub(r"\{[^}]+\}", "10.0", template_code)
 
         # Validation passes...
         err = ASTSandboxValidator().validate(dummy_code.strip())
@@ -181,6 +206,7 @@ async def test_pot_executor_all_templates():
 
 
 # ── Layout Parser Component Tests ────────────────────────────────────────────
+
 
 class TestLayoutParserComponents:
     def test_wrap_table_html_structure(self):
@@ -199,11 +225,18 @@ class TestLayoutParserComponents:
 
     def test_parser_handles_all_element_types(self):
         from src.rag_system.components.base import DocumentElement
+
         elements = [
-            DocumentElement(type="text", text="Narrative text.", source_document="d.pdf", page_number=1),
+            DocumentElement(
+                type="text", text="Narrative text.", source_document="d.pdf", page_number=1
+            ),
             DocumentElement(type="table", text="| X | Y |", source_document="d.pdf", page_number=2),
-            DocumentElement(type="graph", text="Chart: bar chart.", source_document="d.pdf", page_number=3),
-            DocumentElement(type="image", text="Photo of facility.", source_document="d.pdf", page_number=4),
+            DocumentElement(
+                type="graph", text="Chart: bar chart.", source_document="d.pdf", page_number=3
+            ),
+            DocumentElement(
+                type="image", text="Photo of facility.", source_document="d.pdf", page_number=4
+            ),
         ]
         parser = LayoutAwareParser()
         chunks = parser.parse(elements)
@@ -214,8 +247,11 @@ class TestLayoutParserComponents:
 
     def test_to_document_elements_has_html_in_text(self):
         from src.rag_system.components.base import DocumentElement
+
         elements = [
-            DocumentElement(type="table", text="| Revenue | $42B |", source_document="d.pdf", page_number=1),
+            DocumentElement(
+                type="table", text="| Revenue | $42B |", source_document="d.pdf", page_number=1
+            ),
         ]
         parser = LayoutAwareParser()
         chunks = parser.parse(elements)
