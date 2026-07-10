@@ -10,6 +10,7 @@ HPA scale-down:
   4. The readiness probe reports 503/"shutting_down" the instant shutdown
      begins, independent of pipeline health or remaining in-flight count.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,6 +21,7 @@ import pytest
 from src.rag_system.api.app import ShutdownState
 
 # ── ShutdownState core behavior ───────────────────────────────────────────────
+
 
 class TestShutdownStateBasics:
     def test_starts_not_shutting_down(self):
@@ -70,6 +72,7 @@ class TestShutdownStateBasics:
 
 
 # ── Drain behavior ─────────────────────────────────────────────────────────────
+
 
 class TestShutdownStateDrain:
     @pytest.mark.asyncio
@@ -136,10 +139,12 @@ class TestShutdownStateDrain:
 
 # ── Integration with FastAPI app (readiness probe + middleware) ─────────────
 
+
 class TestReadinessProbeDuringShutdown:
     @pytest.mark.asyncio
     async def test_readyz_reports_shutting_down_immediately(self):
         import os
+
         os.environ.setdefault("OPENAI_API_KEY", "sk-test")
         os.environ.setdefault("ENVIRONMENT", "testing")
 
@@ -168,6 +173,7 @@ class TestReadinessProbeDuringShutdown:
     @pytest.mark.asyncio
     async def test_readyz_reports_in_flight_count_during_shutdown(self):
         import os
+
         os.environ.setdefault("OPENAI_API_KEY", "sk-test")
         os.environ.setdefault("ENVIRONMENT", "testing")
 
@@ -195,6 +201,7 @@ class TestReadinessProbeDuringShutdown:
         the container itself crashed (which could trigger a restart loop)."""
         import asyncio as _asyncio
         import os
+
         os.environ.setdefault("OPENAI_API_KEY", "sk-test")
         os.environ.setdefault("ENVIRONMENT", "testing")
 

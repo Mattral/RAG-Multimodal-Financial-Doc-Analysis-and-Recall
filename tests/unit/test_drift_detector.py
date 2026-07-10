@@ -1,4 +1,5 @@
 """Unit tests for drift detection utilities."""
+
 from src.rag_system.utils.drift_detector import (
     EmbeddingDriftDetector,
     QueryPatternDriftDetector,
@@ -21,9 +22,7 @@ class TestEmbeddingDriftDetector:
         assert result["cosine_distance"] < 0.01
 
     def test_orthogonal_embeddings_high_drift(self, tmp_path):
-        d = EmbeddingDriftDetector(
-            state_path=str(tmp_path / "drift.json"), threshold=0.05
-        )
+        d = EmbeddingDriftDetector(state_path=str(tmp_path / "drift.json"), threshold=0.05)
         d.snapshot([[1.0, 0.0, 0.0]] * 10, tenant_id="t1")
         result = d.snapshot([[0.0, 1.0, 0.0]] * 10, tenant_id="t1")
         assert result["drift_detected"] is True
@@ -35,9 +34,7 @@ class TestEmbeddingDriftDetector:
         assert result["status"] == "skipped"
 
     def test_tenant_isolation(self, tmp_path):
-        d = EmbeddingDriftDetector(
-            state_path=str(tmp_path / "drift.json"), threshold=0.05
-        )
+        d = EmbeddingDriftDetector(state_path=str(tmp_path / "drift.json"), threshold=0.05)
         d.snapshot([[1.0, 0.0]] * 5, tenant_id="t1")
         d.snapshot([[1.0, 0.0]] * 5, tenant_id="t2")
         # t2 has different history than t1 — should not cross-contaminate

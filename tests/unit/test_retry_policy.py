@@ -1,4 +1,5 @@
 """Unit tests for the exponential backoff retry policy."""
+
 from unittest.mock import AsyncMock
 
 import pytest
@@ -50,10 +51,7 @@ async def test_non_retryable_propagates_immediately():
 @pytest.mark.asyncio
 async def test_rate_limit_error_retried():
     policy = RetryPolicy(max_attempts=3, base_delay=0.01)
-    func = AsyncMock(side_effect=[
-        APIRateLimitError("429", retry_after=0),
-        "ok"
-    ])
+    func = AsyncMock(side_effect=[APIRateLimitError("429", retry_after=0), "ok"])
     result = await policy.execute(func)
     assert result == "ok"
 
@@ -80,6 +78,7 @@ def test_get_delay_increases_with_attempts():
 @pytest.mark.asyncio
 async def test_on_retry_callback_called():
     calls = []
+
     async def on_retry(attempt, exc, delay):
         calls.append((attempt, str(exc)))
 
@@ -94,11 +93,13 @@ async def test_on_retry_callback_called():
 def test_execute_sync_succeeds():
     policy = RetryPolicy(max_attempts=3, base_delay=0.01)
     call_count = {"n": 0}
+
     def sync_fn():
         call_count["n"] += 1
         if call_count["n"] < 3:
             raise RetryableError("fail")
         return "done"
+
     result = policy.execute_sync(sync_fn)
     assert result == "done"
     assert call_count["n"] == 3
@@ -123,6 +124,7 @@ async def test_with_retry_decorator():
 @pytest.mark.asyncio
 async def test_strict_policy_no_retries():
     from src.rag_system.utils.retry_policy import STRICT_POLICY
+
     func = AsyncMock(side_effect=RetryableError("fail"))
     with pytest.raises(MaxRetriesExceededError):
         await STRICT_POLICY.execute(func)

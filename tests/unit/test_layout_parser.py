@@ -1,4 +1,5 @@
 """Unit tests for the layout-aware semantic chunker."""
+
 from src.rag_system.components.base import DocumentElement
 from src.rag_system.components.layout_parser import (
     LayoutAwareParser,
@@ -11,20 +12,36 @@ from src.rag_system.components.layout_parser import (
 
 def _make_elem(text, etype="text", page=1, source="doc.pdf"):
     return DocumentElement(
-        type=etype, text=text, source_document=source,
-        page_number=page, content_hash=str(hash(text))[:8],
+        type=etype,
+        text=text,
+        source_document=source,
+        page_number=page,
+        content_hash=str(hash(text))[:8],
     )
 
 
 class TestLayoutChunk:
     def test_page_range_single_page(self):
-        c = LayoutChunk(text="x", html="x", element_types=["text"],
-                        source_document="d.pdf", page_start=5, page_end=5)
+        c = LayoutChunk(
+            text="x",
+            html="x",
+            element_types=["text"],
+            source_document="d.pdf",
+            page_start=5,
+            page_end=5,
+        )
         assert c.page_range == "5"
 
     def test_page_range_multi_page(self):
-        c = LayoutChunk(text="x", html="x", element_types=["table"],
-                        source_document="d.pdf", page_start=3, page_end=7, is_continuation=True)
+        c = LayoutChunk(
+            text="x",
+            html="x",
+            element_types=["table"],
+            source_document="d.pdf",
+            page_start=3,
+            page_end=7,
+            is_continuation=True,
+        )
         assert c.page_range == "3-7"
 
     def test_page_range_no_page(self):
@@ -104,7 +121,9 @@ class TestLayoutAwareParser:
     def test_parse_heading_sets_section_heading(self):
         elems = [
             _make_elem("RISK FACTORS", etype="text", page=10),
-            _make_elem("We face intense competition from legacy automakers.", etype="text", page=10),
+            _make_elem(
+                "We face intense competition from legacy automakers.", etype="text", page=10
+            ),
         ]
         chunks = self.parser.parse(elems)
         text_chunks = [c for c in chunks if "text" in c.element_types]

@@ -1,4 +1,5 @@
 """Unit tests for enterprise document connectors."""
+
 from pathlib import Path
 
 import pytest
@@ -112,7 +113,9 @@ class TestDiscoveredDocument:
 
     def test_metadata_default_empty(self):
         doc = DiscoveredDocument(
-            source_uri="file:///a.pdf", local_path="/a.pdf",
-            filename="a.pdf", size_bytes=100,
+            source_uri="file:///a.pdf",
+            local_path="/a.pdf",
+            filename="a.pdf",
+            size_bytes=100,
         )
         assert isinstance(doc.metadata, dict)

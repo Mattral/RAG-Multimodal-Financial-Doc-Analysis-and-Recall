@@ -1,4 +1,5 @@
 """Tests for ColPali late-interaction visual retriever — MaxSim and index."""
+
 from __future__ import annotations
 
 import math
@@ -78,9 +79,11 @@ class TestColPaliRetriever:
     @pytest.mark.asyncio
     async def test_retrieve_respects_top_k(self):
         r = ColPaliRetriever(index_path=None)
-        r._index = [PageEmbedding("doc.pdf", i+1, [[float(i+1), 0.0]]) for i in range(10)]
-        with patch.object(r, "_load_model", return_value=True), \
-             patch("asyncio.to_thread", new=AsyncMock(return_value=[[1.0, 0.0]])):
+        r._index = [PageEmbedding("doc.pdf", i + 1, [[float(i + 1), 0.0]]) for i in range(10)]
+        with (
+            patch.object(r, "_load_model", return_value=True),
+            patch("asyncio.to_thread", new=AsyncMock(return_value=[[1.0, 0.0]])),
+        ):
             results = await r.retrieve("revenue", top_k=3)
         assert len(results) == 3
 
@@ -92,8 +95,10 @@ class TestColPaliRetriever:
             PageEmbedding("d.pdf", 2, [[0.0, 1.0]]),
             PageEmbedding("d.pdf", 3, [[0.7, 0.3]]),
         ]
-        with patch.object(r, "_load_model", return_value=True), \
-             patch("asyncio.to_thread", new=AsyncMock(return_value=[[1.0, 0.0]])):
+        with (
+            patch.object(r, "_load_model", return_value=True),
+            patch("asyncio.to_thread", new=AsyncMock(return_value=[[1.0, 0.0]])),
+        ):
             results = await r.retrieve("query", top_k=3)
         scores = [res.score for res in results]
         assert scores == sorted(scores, reverse=True)
@@ -106,8 +111,10 @@ class TestColPaliRetriever:
             PageEmbedding("apple.pdf", 2, [[0.9, 0.1]]),
             PageEmbedding("tesla.pdf", 3, [[0.8, 0.2]]),
         ]
-        with patch.object(r, "_load_model", return_value=True), \
-             patch("asyncio.to_thread", new=AsyncMock(return_value=[[1.0, 0.0]])):
+        with (
+            patch.object(r, "_load_model", return_value=True),
+            patch("asyncio.to_thread", new=AsyncMock(return_value=[[1.0, 0.0]])),
+        ):
             results = await r.retrieve("q", filters={"source_document": "tesla.pdf"})
         assert all(res.source_document == "tesla.pdf" for res in results)
         assert len(results) == 2
@@ -131,8 +138,10 @@ class TestColPaliRetriever:
     async def test_retrieve_result_metadata(self):
         r = ColPaliRetriever(index_path=None)
         r._index = [PageEmbedding("doc.pdf", 7, [[1.0, 0.0]])]
-        with patch.object(r, "_load_model", return_value=True), \
-             patch("asyncio.to_thread", new=AsyncMock(return_value=[[1.0, 0.0]])):
+        with (
+            patch.object(r, "_load_model", return_value=True),
+            patch("asyncio.to_thread", new=AsyncMock(return_value=[[1.0, 0.0]])),
+        ):
             results = await r.retrieve("q", top_k=1)
         assert results[0].page_number == 7
         assert results[0].metadata["method"] == "colpali_maxsim"

@@ -8,6 +8,7 @@ tests pin down the corrected behaviour: genuine infra failures still return
 0.5 (by design — neutral, not a false negative on quality), but they must
 go through the explicit except branches, not happen to survive by luck.
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -29,7 +30,9 @@ def sample_chunks():
     return [
         RetrievedChunk(
             text="Q3 2023 revenue was $23.35 billion, up 9% year-over-year.",
-            score=0.9, source_document="tesla.pdf", page_number=4,
+            score=0.9,
+            source_document="tesla.pdf",
+            page_number=4,
         ),
     ]
 
@@ -38,9 +41,12 @@ def sample_chunks():
 def sample_answer(sample_chunks):
     return GeneratedAnswer(
         answer="Revenue was $23.35 billion [Source: tesla.pdf, Page 4].",
-        citations=sample_chunks, model_used="gpt-4o-mini",
-        prompt_tokens=200, completion_tokens=40,
-        estimated_cost_usd=0.0001, latency_ms=1200.0,
+        citations=sample_chunks,
+        model_used="gpt-4o-mini",
+        prompt_tokens=200,
+        completion_tokens=40,
+        estimated_cost_usd=0.0001,
+        latency_ms=1200.0,
     )
 
 
@@ -48,9 +54,7 @@ def _mock_response(content: str, status_code: int = 200) -> MagicMock:
     """Build a mock httpx.Response that mimics the OpenAI chat completions shape."""
     resp = MagicMock()
     resp.status_code = status_code
-    resp.json.return_value = {
-        "choices": [{"message": {"content": content}}]
-    }
+    resp.json.return_value = {"choices": [{"message": {"content": content}}]}
     if status_code >= 400:
         resp.raise_for_status.side_effect = httpx.HTTPStatusError(
             "error", request=MagicMock(), response=resp
@@ -62,6 +66,7 @@ def _mock_response(content: str, status_code: int = 200) -> MagicMock:
 
 
 # ── Data model sanity ───────────────────────────────────────────────────────────
+
 
 class TestEvalDataModels:
     def test_eval_sample_defaults(self):
@@ -76,15 +81,23 @@ class TestEvalDataModels:
 
     def test_eval_report_results_default_empty_list(self):
         report = EvalReport(
-            run_id="r1", timestamp="2024-01-01", num_samples=0,
-            passed=0, failed=0, pass_rate=0.0,
-            avg_faithfulness=0.0, avg_answer_relevancy=0.0,
-            avg_numeric_accuracy=0.0, avg_latency_ms=0.0, total_cost_usd=0.0,
+            run_id="r1",
+            timestamp="2024-01-01",
+            num_samples=0,
+            passed=0,
+            failed=0,
+            pass_rate=0.0,
+            avg_faithfulness=0.0,
+            avg_answer_relevancy=0.0,
+            avg_numeric_accuracy=0.0,
+            avg_latency_ms=0.0,
+            total_cost_usd=0.0,
         )
         assert report.results == []
 
 
 # ── RagasEvaluator basic wiring ────────────────────────────────────────────────
+
 
 class TestRagasEvaluatorWiring:
     def test_name_property(self):
@@ -110,9 +123,13 @@ class TestRagasEvaluatorWiring:
         ev = RagasEvaluator(openai_api_key="sk-test")
         ev._ragas_available = False
         answer_no_citations = GeneratedAnswer(
-            answer="No sources found.", citations=[], model_used="gpt-4o-mini",
-            prompt_tokens=50, completion_tokens=10,
-            estimated_cost_usd=0.0, latency_ms=500.0,
+            answer="No sources found.",
+            citations=[],
+            model_used="gpt-4o-mini",
+            prompt_tokens=50,
+            completion_tokens=10,
+            estimated_cost_usd=0.0,
+            latency_ms=500.0,
         )
         metrics = await ev.evaluate("test query", answer_no_citations)
         assert metrics["numeric_accuracy"] == 0.0  # default, judge never called
@@ -120,11 +137,13 @@ class TestRagasEvaluatorWiring:
 
 # ── _llm_numeric_judge: the bug-fix coverage ──────────────────────────────────
 
+
 class TestLLMNumericJudgeHappyPath:
     @pytest.mark.asyncio
     async def test_clean_numeric_response(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         from src.rag_system.config import reset_config
+
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
 
@@ -142,6 +161,7 @@ class TestLLMNumericJudgeHappyPath:
     async def test_response_with_trailing_punctuation(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         from src.rag_system.config import reset_config
+
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
 
@@ -159,6 +179,7 @@ class TestLLMNumericJudgeHappyPath:
     async def test_response_wrapped_in_prose(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         from src.rag_system.config import reset_config
+
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
 
@@ -176,6 +197,7 @@ class TestLLMNumericJudgeHappyPath:
     async def test_score_clamped_to_one(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         from src.rag_system.config import reset_config
+
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
 
@@ -193,6 +215,7 @@ class TestLLMNumericJudgeHappyPath:
     async def test_score_clamped_to_zero(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         from src.rag_system.config import reset_config
+
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
 
@@ -219,6 +242,7 @@ class TestLLMNumericJudgeFailureModes:
     async def test_api_4xx_returns_neutral_score_not_exception(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         from src.rag_system.config import reset_config
+
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
 
@@ -236,6 +260,7 @@ class TestLLMNumericJudgeFailureModes:
     async def test_api_5xx_returns_neutral_score(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         from src.rag_system.config import reset_config
+
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
 
@@ -253,6 +278,7 @@ class TestLLMNumericJudgeFailureModes:
     async def test_connection_timeout_returns_neutral_score(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         from src.rag_system.config import reset_config
+
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
 
@@ -269,6 +295,7 @@ class TestLLMNumericJudgeFailureModes:
     async def test_unparseable_response_returns_neutral_score(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         from src.rag_system.config import reset_config
+
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
 
@@ -287,6 +314,7 @@ class TestLLMNumericJudgeFailureModes:
         """choices[0] missing entirely -> IndexError, must be caught explicitly."""
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         from src.rag_system.config import reset_config
+
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
 
@@ -306,6 +334,7 @@ class TestLLMNumericJudgeFailureModes:
     async def test_missing_api_key_returns_neutral_score(self, monkeypatch):
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         from src.rag_system.config import reset_config
+
         reset_config()
         ev = RagasEvaluator(openai_api_key=None)
         ev._api_key = ""

@@ -1,4 +1,5 @@
 """Config validation and env override tests."""
+
 import pytest
 from pydantic import ValidationError
 

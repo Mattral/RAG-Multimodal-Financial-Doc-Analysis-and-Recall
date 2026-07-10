@@ -6,6 +6,7 @@ boundary numeric values, unicode, very long texts, malformed metadata.
 Guideline §5: 'Property-based testing with Hypothesis for edge cases
 (empty docs, malformed tables, adversarial queries).'
 """
+
 from __future__ import annotations
 
 import math
@@ -37,14 +38,17 @@ safe_query = st.text(
 )
 
 positive_float = st.floats(
-    min_value=0.01, max_value=1e9,
-    allow_nan=False, allow_infinity=False,
+    min_value=0.01,
+    max_value=1e9,
+    allow_nan=False,
+    allow_infinity=False,
 )
 
 small_positive_int = st.integers(min_value=0, max_value=10_000_000)
 
 
 # ── QueryAnalyzer property tests ──────────────────────────────────────────────
+
 
 class TestQueryAnalyzerProperties:
     """QueryAnalyzer must never crash on arbitrary input."""
@@ -97,6 +101,7 @@ class TestQueryAnalyzerProperties:
 
 # ── FinancialGuardrails property tests ───────────────────────────────────────
 
+
 class TestGuardrailsProperties:
     """Guardrails must handle arbitrary text without crashing."""
 
@@ -139,6 +144,7 @@ class TestGuardrailsProperties:
 
 # ── ASTSandboxValidator property tests ───────────────────────────────────────
 
+
 class TestASTSandboxProperties:
     """Validator must never crash, must always return str or None."""
 
@@ -162,10 +168,16 @@ class TestASTSandboxProperties:
         assert result is None, f"Expected safe code to pass, got: {result}"
 
     @given(
-        dangerous=st.sampled_from([
-            "import os", "import sys", "exec('1')",
-            "eval('1')", "open('/etc/passwd')", "__builtins__",
-        ])
+        dangerous=st.sampled_from(
+            [
+                "import os",
+                "import sys",
+                "exec('1')",
+                "eval('1')",
+                "open('/etc/passwd')",
+                "__builtins__",
+            ]
+        )
     )
     @settings(max_examples=30)
     def test_dangerous_patterns_blocked(self, dangerous):
@@ -176,21 +188,22 @@ class TestASTSandboxProperties:
 
 # ── BM25Index property tests ──────────────────────────────────────────────────
 
+
 class TestBM25IndexProperties:
     """BM25 must handle empty queries, empty index, unicode, duplicates."""
 
     @given(
         texts=st.lists(
             st.text(alphabet=string.ascii_lowercase + " ", min_size=1, max_size=200),
-            min_size=0, max_size=30,
+            min_size=0,
+            max_size=30,
         ),
         query=st.text(alphabet=string.ascii_lowercase + " ", min_size=0, max_size=100),
     )
     @settings(max_examples=100, suppress_health_check=[HealthCheck.too_slow])
     def test_search_never_raises(self, texts, query):
         chunks = [
-            RetrievedChunk(text=t, score=0.0, source_document="d.pdf")
-            for t in texts if t.strip()
+            RetrievedChunk(text=t, score=0.0, source_document="d.pdf") for t in texts if t.strip()
         ]
         idx = BM25Index()
         idx.build(chunks)
@@ -200,7 +213,8 @@ class TestBM25IndexProperties:
     @given(
         texts=st.lists(
             st.text(min_size=1, max_size=100),
-            min_size=1, max_size=20,
+            min_size=1,
+            max_size=20,
         ),
     )
     @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow])
@@ -220,6 +234,7 @@ class TestBM25IndexProperties:
 
 
 # ── CostTracker property tests ────────────────────────────────────────────────
+
 
 class TestCostTrackerProperties:
     """Cost computations must be non-negative, monotonic, and never crash."""
@@ -272,6 +287,7 @@ class TestCostTrackerProperties:
 
 # ── DocumentElement property tests ───────────────────────────────────────────
 
+
 class TestDocumentElementProperties:
     """DocumentElement must accept and preserve arbitrary text content."""
 
@@ -301,6 +317,7 @@ class TestDocumentElementProperties:
 
 
 # ── LayoutAwareParser property tests ─────────────────────────────────────────
+
 
 class TestLayoutParserProperties:
     """Layout parser must handle any list of valid DocumentElements without crashing."""

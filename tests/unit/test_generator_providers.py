@@ -4,6 +4,7 @@ Covers the DX fix: users can now select OpenAI, Gemini, Anthropic, or a fully
 local/open-source model (via vLLM) for text generation with zero pipeline
 code changes -- just LLM_CONFIG__PROVIDER in .env.
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -27,13 +28,16 @@ from src.rag_system.utils.exceptions import ConfigurationError
 def sample_chunks():
     return [
         RetrievedChunk(
-            text="Q3 2023 revenue was $23.35B.", score=0.9,
-            source_document="tesla.pdf", page_number=4,
+            text="Q3 2023 revenue was $23.35B.",
+            score=0.9,
+            source_document="tesla.pdf",
+            page_number=4,
         ),
     ]
 
 
 # ── Factory tests ──────────────────────────────────────────────────────────────
+
 
 class TestBuildGeneratorFactory:
     def test_openai_provider_resolves(self):
@@ -85,21 +89,28 @@ class TestBuildGeneratorFactory:
 
 # ── Shared helper function tests ──────────────────────────────────────────────
 
+
 class TestComplexQueryHeuristic:
-    @pytest.mark.parametrize("query", [
-        "What was the CAGR from 2020 to 2023?",
-        "Calculate the gross margin percentage",
-        "Compare revenue versus last year",
-        "What is the EBITDA growth rate?",
-    ])
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "What was the CAGR from 2020 to 2023?",
+            "Calculate the gross margin percentage",
+            "Compare revenue versus last year",
+            "What is the EBITDA growth rate?",
+        ],
+    )
     def test_numerical_queries_detected(self, query):
         assert _is_complex_query(query) is True
 
-    @pytest.mark.parametrize("query", [
-        "Who is the CEO?",
-        "When was the company founded?",
-        "What is mentioned in the risk factors section?",
-    ])
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "Who is the CEO?",
+            "When was the company founded?",
+            "What is mentioned in the risk factors section?",
+        ],
+    )
     def test_simple_queries_not_flagged(self, query):
         assert _is_complex_query(query) is False
 
@@ -126,17 +137,21 @@ class TestBuildContextBlock:
 
 # ── OpenAIGenerator tests (mocked HTTP) ────────────────────────────────────────
 
+
 class TestOpenAIGenerator:
     @pytest.mark.asyncio
     async def test_generate_success(self, sample_chunks, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         from src.rag_system.config import reset_config
+
         reset_config()
 
         gen = OpenAIGenerator()
         mock_response = MagicMock()
         mock_response.json.return_value = {
-            "choices": [{"message": {"content": "Revenue was $23.35B [Source: tesla.pdf, Page 4]."}}],
+            "choices": [
+                {"message": {"content": "Revenue was $23.35B [Source: tesla.pdf, Page 4]."}}
+            ],
             "usage": {"prompt_tokens": 200, "completion_tokens": 40},
         }
         mock_response.raise_for_status = MagicMock()
@@ -157,6 +172,7 @@ class TestOpenAIGenerator:
     def test_name_property(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         from src.rag_system.config import reset_config
+
         reset_config()
         gen = OpenAIGenerator()
         assert "openai" in gen.name
@@ -164,6 +180,7 @@ class TestOpenAIGenerator:
 
 
 # ── GeminiGenerator tests ──────────────────────────────────────────────────────
+
 
 class TestGeminiGenerator:
     def test_missing_api_key_raises(self, monkeypatch):
@@ -207,9 +224,11 @@ class TestGeminiGenerator:
 
 # ── AnthropicGenerator tests ───────────────────────────────────────────────────
 
+
 class TestAnthropicGenerator:
     def test_missing_api_key_raises(self):
         from src.rag_system.config import reset_config
+
         reset_config()
         gen = AnthropicGenerator()
         with pytest.raises(ConfigurationError):
@@ -220,6 +239,7 @@ class TestAnthropicGenerator:
     async def test_generate_success(self, sample_chunks, monkeypatch):
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
         from src.rag_system.config import reset_config
+
         reset_config()
 
         gen = AnthropicGenerator()
@@ -247,6 +267,7 @@ class TestAnthropicGenerator:
 
 
 # ── LocalVLLMGenerator tests ───────────────────────────────────────────────────
+
 
 class TestLocalVLLMGenerator:
     def test_name_property(self):
@@ -282,6 +303,7 @@ class TestLocalVLLMGenerator:
     @pytest.mark.asyncio
     async def test_connection_error_raises_with_helpful_log(self, sample_chunks):
         import httpx
+
         gen = LocalVLLMGenerator(base_url="http://localhost:19999/v1")
         with patch("httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()

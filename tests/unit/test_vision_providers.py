@@ -1,4 +1,5 @@
 """Unit tests for vision provider adapters and fallback chain."""
+
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -106,12 +107,14 @@ class TestLocalVLLMDescriber:
         img = tmp_path / "chart.png"
         img.write_bytes(b"PNG")
         from src.rag_system.components.vision.local_vllm_adapter import LocalVLLMDescriber
+
         describer = LocalVLLMDescriber(base_url="http://localhost:9999/v1")
         result = await describer.describe(str(img), "tesla.pdf")
         assert result is None
 
     def test_name_property(self):
         from src.rag_system.components.vision.local_vllm_adapter import LocalVLLMDescriber
+
         d = LocalVLLMDescriber(model="Qwen/Qwen2-VL-7B-Instruct")
         assert "local_vllm" in d.name
         assert "Qwen2-VL-7B" in d.name
@@ -124,12 +127,14 @@ class TestGeminiVisionDescriber:
         img = tmp_path / "chart.png"
         img.write_bytes(b"PNG")
         from src.rag_system.components.vision.gemini_adapter import GeminiVisionDescriber
+
         describer = GeminiVisionDescriber()
         result = await describer.describe(str(img), "tesla.pdf")
         assert result is None
 
     def test_name_property(self):
         from src.rag_system.components.vision.gemini_adapter import GeminiVisionDescriber
+
         d = GeminiVisionDescriber(model="gemini-2.5-flash")
         assert "gemini" in d.name
         assert "flash" in d.name

@@ -1,4 +1,5 @@
 """Unit tests for DocumentVersionManager — versioning, delta detection, soft-delete."""
+
 from datetime import UTC
 
 import pytest
@@ -19,15 +20,19 @@ def manager(tmp_path):
 def test_doc_id_is_deterministic():
     assert _doc_id("s3://bucket/tesla_10k.pdf") == _doc_id("s3://bucket/tesla_10k.pdf")
 
+
 def test_doc_id_normalises_case():
     assert _doc_id("S3://Bucket/File.pdf") == _doc_id("s3://bucket/file.pdf")
+
 
 def test_doc_id_different_uris():
     assert _doc_id("s3://a/file.pdf") != _doc_id("s3://b/file.pdf")
 
+
 def test_content_hash_deterministic():
     text = "Revenue was $23.35B in Q3 2023."
     assert _content_hash(text) == _content_hash(text)
+
 
 def test_content_hash_sensitive_to_change():
     assert _content_hash("v1 content") != _content_hash("v2 content")

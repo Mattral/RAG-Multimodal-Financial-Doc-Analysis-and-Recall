@@ -4,6 +4,7 @@ Covers the previously-stub-only CacheConfig.semantic_cache_enabled /
 semantic_cache_threshold flags, which now have a real implementation that
 caches full query→answer pairs by embedding cosine similarity.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -15,6 +16,7 @@ from src.rag_system.utils.semantic_cache import (
 )
 
 # ── Cosine similarity helper ───────────────────────────────────────────────────
+
 
 class TestCosineSimilarity:
     def test_identical_vectors_similarity_one(self):
@@ -48,6 +50,7 @@ class TestCosineSimilarity:
 
 
 # ── SemanticQueryCache (in-memory fallback path — no real Redis needed) ──────
+
 
 @pytest.fixture
 def cache():
@@ -213,30 +216,40 @@ class TestSemanticQueryCacheStats:
 
 # ── build_semantic_cache factory ──────────────────────────────────────────────
 
+
 class TestBuildSemanticCacheFactory:
     def test_returns_none_when_cache_disabled(self):
         from types import SimpleNamespace
+
         cfg = SimpleNamespace(
-            enabled=False, semantic_cache_enabled=True,
-            redis_url="redis://x", semantic_cache_threshold=0.9,
+            enabled=False,
+            semantic_cache_enabled=True,
+            redis_url="redis://x",
+            semantic_cache_threshold=0.9,
             query_cache_ttl_seconds=60,
         )
         assert build_semantic_cache(cfg) is None
 
     def test_returns_none_when_semantic_cache_disabled(self):
         from types import SimpleNamespace
+
         cfg = SimpleNamespace(
-            enabled=True, semantic_cache_enabled=False,
-            redis_url="redis://x", semantic_cache_threshold=0.9,
+            enabled=True,
+            semantic_cache_enabled=False,
+            redis_url="redis://x",
+            semantic_cache_threshold=0.9,
             query_cache_ttl_seconds=60,
         )
         assert build_semantic_cache(cfg) is None
 
     def test_returns_cache_instance_when_enabled(self):
         from types import SimpleNamespace
+
         cfg = SimpleNamespace(
-            enabled=True, semantic_cache_enabled=True,
-            redis_url="redis://localhost:6379/0", semantic_cache_threshold=0.92,
+            enabled=True,
+            semantic_cache_enabled=True,
+            redis_url="redis://localhost:6379/0",
+            semantic_cache_threshold=0.92,
             query_cache_ttl_seconds=3600,
         )
         result = build_semantic_cache(cfg)
@@ -247,6 +260,7 @@ class TestBuildSemanticCacheFactory:
         monkeypatch.setenv("CACHE_CONFIG__SEMANTIC_CACHE_ENABLED", "true")
         monkeypatch.setenv("CACHE_CONFIG__ENABLED", "true")
         from src.rag_system.config import reset_config
+
         reset_config()
         result = build_semantic_cache()
         assert isinstance(result, SemanticQueryCache)

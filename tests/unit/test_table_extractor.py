@@ -1,4 +1,5 @@
 """Unit tests for structured table extraction."""
+
 import json
 
 import pytest
@@ -12,6 +13,7 @@ from src.rag_system.components.table_extractor import (
 )
 
 # ── Markdown parser tests ─────────────────────────────────────────────────────
+
 
 class TestMarkdownTableParser:
     def test_basic_table(self):
@@ -57,6 +59,7 @@ class TestMarkdownTableParser:
 
 # ── HTML parser tests ─────────────────────────────────────────────────────────
 
+
 class TestHTMLTableParser:
     def test_basic_html_table(self):
         html = (
@@ -101,6 +104,7 @@ class TestHTMLTableParser:
 
 # ── ExtractedTable tests ──────────────────────────────────────────────────────
 
+
 class TestExtractedTable:
     @pytest.fixture
     def table(self):
@@ -143,6 +147,7 @@ class TestExtractedTable:
 
     def test_to_dataframe_shape(self, table):
         import importlib.util
+
         if importlib.util.find_spec("pandas") is None:
             pytest.skip("pandas not installed")
         df = table.to_dataframe()
@@ -152,15 +157,14 @@ class TestExtractedTable:
 
 # ── TableExtractor tests ──────────────────────────────────────────────────────
 
+
 class TestTableExtractor:
     def setup_method(self):
         self.extractor = TableExtractor()
 
     def test_extract_markdown_table(self):
         text = "| Revenue | $23.35B |\n|---|---|\n| EPS | $0.53 |"
-        result = self.extractor.extract_from_text(
-            text, source_document="tesla.pdf", page_number=5
-        )
+        result = self.extractor.extract_from_text(text, source_document="tesla.pdf", page_number=5)
         assert result is not None
         assert result.num_rows == 1
         assert result.source_document == "tesla.pdf"
@@ -206,7 +210,8 @@ class TestTableExtractor:
 
     def test_to_pot_context_format(self):
         table = ExtractedTable(
-            source_document="tesla.pdf", page_number=5,
+            source_document="tesla.pdf",
+            page_number=5,
             caption="Revenue Table",
             headers=["Quarter", "Revenue"],
             rows=[["Q3 2023", "$23.35B"], ["Q2 2023", "$21.45B"]],
@@ -220,7 +225,8 @@ class TestTableExtractor:
 
     def test_to_pot_context_max_rows(self):
         table = ExtractedTable(
-            source_document="d.pdf", page_number=1,
+            source_document="d.pdf",
+            page_number=1,
             caption=None,
             headers=["A", "B"],
             rows=[[str(i), str(i * 2)] for i in range(50)],

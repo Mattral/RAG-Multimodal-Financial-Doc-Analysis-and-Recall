@@ -10,6 +10,7 @@ already covered in test_property_based.py. This file covers:
     depend on rag_tenant_monthly_tokens_used / rag_tenant_monthly_token_quota
     actually being published on every check_quota() call.
 """
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -26,6 +27,7 @@ from src.rag_system.utils.cost_tracker import (
 
 # ── CostRecord pricing ─────────────────────────────────────────────────────────
 
+
 class TestCostRecordPricing:
     def test_gpt4o_pricing(self):
         rec = CostRecord(prompt_tokens=1_000_000, completion_tokens=1_000_000, model="gpt-4o")
@@ -39,11 +41,15 @@ class TestCostRecordPricing:
     def test_embedding_model_has_zero_completion_cost(self):
         rec = CostRecord(prompt_tokens=1000, completion_tokens=500, model="text-embedding-3-small")
         # Embeddings have no "completion" concept; pricing table sets it to 0
-        prompt_only = CostRecord(prompt_tokens=1000, completion_tokens=0, model="text-embedding-3-small")
+        prompt_only = CostRecord(
+            prompt_tokens=1000, completion_tokens=0, model="text-embedding-3-small"
+        )
         assert rec.cost_usd == prompt_only.cost_usd
 
     def test_unknown_model_defaults_to_zero_cost(self):
-        rec = CostRecord(prompt_tokens=1_000_000, completion_tokens=1_000_000, model="some-future-model-xyz")
+        rec = CostRecord(
+            prompt_tokens=1_000_000, completion_tokens=1_000_000, model="some-future-model-xyz"
+        )
         assert rec.cost_usd == 0.0
 
     def test_total_tokens_sums_prompt_and_completion(self):
@@ -61,6 +67,7 @@ class TestCostRecordPricing:
 
 
 # ── TenantCostAccumulator ──────────────────────────────────────────────────────
+
 
 class TestTenantCostAccumulator:
     def test_starts_empty(self):
@@ -85,6 +92,7 @@ class TestTenantCostAccumulator:
 
 
 # ── CostTracker ────────────────────────────────────────────────────────────────
+
 
 class TestCostTrackerRecord:
     def test_record_creates_new_tenant(self):
@@ -156,17 +164,13 @@ class TestCostTrackerTelemetryWiring:
         tracker = CostTracker()
         tracker.record("t1", "gpt-4o-mini", prompt_tokens=300)
 
-        with patch(
-            "src.rag_system.utils.telemetry.record_tenant_quota"
-        ) as mock_record:
+        with patch("src.rag_system.utils.telemetry.record_tenant_quota") as mock_record:
             tracker.check_quota("t1", monthly_token_limit=1000)
             mock_record.assert_called_once_with("t1", 300, 1000)
 
     def test_check_quota_publishes_zero_for_unknown_tenant(self):
         tracker = CostTracker()
-        with patch(
-            "src.rag_system.utils.telemetry.record_tenant_quota"
-        ) as mock_record:
+        with patch("src.rag_system.utils.telemetry.record_tenant_quota") as mock_record:
             tracker.check_quota("never_seen", monthly_token_limit=5000)
             mock_record.assert_called_once_with("never_seen", 0, 5000)
 
@@ -185,6 +189,7 @@ class TestCostTrackerTelemetryWiring:
 
 
 # ── Global singleton ────────────────────────────────────────────────────────────
+
 
 class TestGetCostTrackerSingleton:
     def test_returns_same_instance(self):

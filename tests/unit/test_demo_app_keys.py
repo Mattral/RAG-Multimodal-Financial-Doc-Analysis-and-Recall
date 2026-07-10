@@ -19,6 +19,7 @@ two ways that don't require the framework:
      actual `examples` list in the file, including the literal collision
      scenario from the bug report.
 """
+
 from __future__ import annotations
 
 import ast
@@ -60,6 +61,7 @@ def examples_list(demo_app_source: str) -> list[str]:
 
 # ── Static source inspection ──────────────────────────────────────────────────
 
+
 class TestExampleButtonKeySource:
     def test_buggy_truncated_text_key_pattern_is_absent(self, demo_app_source: str):
         """The original bug: key derived from ex[:10] (question text prefix)."""
@@ -73,7 +75,7 @@ class TestExampleButtonKeySource:
         """The fix: key derived from the loop index, unique by construction."""
         assert re.search(r'key=f"ex_\{i\}"', demo_app_source), (
             "Expected example-question buttons to use the enumerate index "
-            "(key=f\"ex_{i}\") as the Streamlit widget key."
+            '(key=f"ex_{i}") as the Streamlit widget key.'
         )
 
     def test_example_buttons_loop_uses_enumerate(self, demo_app_source: str):
@@ -84,6 +86,7 @@ class TestExampleButtonKeySource:
 
 
 # ── Behavioural simulation of Streamlit's key-uniqueness constraint ──────────
+
 
 def _simulate_streamlit_render(examples: list[str], key_fn) -> None:
     """Reproduce Streamlit's own duplicate-key check well enough to catch
@@ -111,8 +114,10 @@ class TestExampleButtonKeyUniqueness:
     def test_current_examples_list_produces_unique_keys(self, examples_list: list[str]):
         """The actual production examples list must never collide under the
         fixed (index-based) key scheme."""
+
         def fixed_key_fn(i, ex):
             return f"ex_{i}"
+
         _simulate_streamlit_render(examples_list, fixed_key_fn)  # must not raise
 
     def test_index_based_keys_never_collide_regardless_of_content(self):
@@ -125,8 +130,10 @@ class TestExampleButtonKeyUniqueness:
             ["What was Q3 2023 revenue?", "What was Q3 2023 margin?"],  # PR #9's actual collision
             [f"Question variant number {i} about quarterly results" for i in range(50)],
         ]
+
         def fixed_key_fn(i, ex):
             return f"ex_{i}"
+
         for case in pathological_cases:
             _simulate_streamlit_render(case, fixed_key_fn)  # must not raise for any case
 
@@ -143,6 +150,7 @@ class TestExampleButtonKeyUniqueness:
 
         def buggy_key_fn(i, ex):
             return f"ex_{ex[:10]}"
+
         with pytest.raises(DuplicateElementKeyError):
             _simulate_streamlit_render(colliding_questions, buggy_key_fn)
 
@@ -157,7 +165,9 @@ class TestExampleButtonKeyUniqueness:
             "What was the gross margin in Q3?",  # same first 10 chars as above
         ]
         assert realistic_extension[0][:10] == realistic_extension[1][:10]
+
         def buggy_key_fn(i, ex):
             return f"ex_{ex[:10]}"
+
         with pytest.raises(DuplicateElementKeyError):
             _simulate_streamlit_render(realistic_extension, buggy_key_fn)

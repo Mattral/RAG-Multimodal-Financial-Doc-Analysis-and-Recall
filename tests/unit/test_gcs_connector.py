@@ -1,4 +1,5 @@
 """Tests for the GCS document connector."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -9,6 +10,7 @@ import pytest
 class TestGCSConnectorInit:
     def test_defaults(self):
         from src.rag_system.components.connectors.gcs_connector import GCSConnector
+
         c = GCSConnector(bucket="my-bucket")
         assert c._bucket_name == "my-bucket"
         assert ".pdf" in c._extensions
@@ -16,14 +18,17 @@ class TestGCSConnectorInit:
 
     def test_custom_extensions(self):
         from src.rag_system.components.connectors.gcs_connector import GCSConnector
+
         c = GCSConnector(bucket="b", extensions=[".docx", ".txt"])
         assert c._extensions == [".docx", ".txt"]
 
     def test_check_deps_false_without_library(self):
         from src.rag_system.components.connectors.gcs_connector import GCSConnector
+
         c = GCSConnector(bucket="b")
-        with patch.dict("sys.modules", {"google": None, "google.cloud": None,
-                                         "google.cloud.storage": None}):
+        with patch.dict(
+            "sys.modules", {"google": None, "google.cloud": None, "google.cloud.storage": None}
+        ):
             assert c._check_deps() is False
 
 
@@ -31,6 +36,7 @@ class TestGCSConnectorListUris:
     @pytest.mark.asyncio
     async def test_returns_empty_without_deps(self):
         from src.rag_system.components.connectors.gcs_connector import GCSConnector
+
         c = GCSConnector(bucket="b")
         with patch.object(c, "_check_deps", return_value=False):
             assert await c.list_uris() == []
@@ -38,6 +44,7 @@ class TestGCSConnectorListUris:
     @pytest.mark.asyncio
     async def test_filters_by_extension_and_skips_directories(self):
         from src.rag_system.components.connectors.gcs_connector import GCSConnector
+
         c = GCSConnector(bucket="filings", extensions=[".pdf"])
 
         blob_pdf = MagicMock()
@@ -55,9 +62,9 @@ class TestGCSConnectorListUris:
         # Verify filtering logic directly
         blobs = [blob_pdf, blob_txt, blob_dir]
         uris = [
-            f"gs://filings/{b.name}" for b in blobs
-            if any(b.name.endswith(ext) for ext in c._extensions)
-            and not b.name.endswith("/")
+            f"gs://filings/{b.name}"
+            for b in blobs
+            if any(b.name.endswith(ext) for ext in c._extensions) and not b.name.endswith("/")
         ]
         assert len(uris) == 1
         assert "tesla.pdf" in uris[0]
@@ -68,6 +75,7 @@ class TestGCSConnectorStream:
     @pytest.mark.asyncio
     async def test_yields_nothing_without_deps(self):
         from src.rag_system.components.connectors.gcs_connector import GCSConnector
+
         c = GCSConnector(bucket="b")
         docs = []
         with patch.object(c, "_check_deps", return_value=False):
@@ -77,6 +85,7 @@ class TestGCSConnectorStream:
 
     def test_discovered_doc_metadata_structure(self):
         from src.rag_system.components.connectors import DiscoveredDocument
+
         doc = DiscoveredDocument(
             source_uri="gs://bucket/tesla.pdf",
             local_path="/tmp/tesla.pdf",
@@ -90,4 +99,5 @@ class TestGCSConnectorStream:
 
     def test_exported_from_package(self):
         from src.rag_system.components.connectors import GCSConnector
+
         assert GCSConnector is not None
