@@ -11,6 +11,7 @@ Supports:
   - Compliance audit: "what changed between v1 and v3?"
   - Delta-only re-ingest (skip unchanged docs)
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -79,9 +80,12 @@ class DocumentVersion:
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> DocumentVersion:
         v = cls(
-            doc_id=d["doc_id"], version=d["version"],
-            source_uri=d["source_uri"], content_hash=d["content_hash"],
-            ingest_timestamp=d["ingest_timestamp"], tenant_id=d["tenant_id"],
+            doc_id=d["doc_id"],
+            version=d["version"],
+            source_uri=d["source_uri"],
+            content_hash=d["content_hash"],
+            ingest_timestamp=d["ingest_timestamp"],
+            tenant_id=d["tenant_id"],
             page_count=d.get("page_count", 0),
             previous_version=d.get("previous_version"),
             change_summary=d.get("change_summary"),
@@ -126,7 +130,9 @@ class DocumentVersionManager:
             return None
         return DocumentVersion.from_dict(versions[-1])
 
-    def get_version_at(self, source_uri: str, tenant_id: str, timestamp: str) -> Optional[DocumentVersion]:
+    def get_version_at(
+        self, source_uri: str, tenant_id: str, timestamp: str
+    ) -> Optional[DocumentVersion]:
         """Return the document version that was active at a given ISO timestamp."""
         doc_id = _doc_id(source_uri)
         key = self._tenant_key(tenant_id, doc_id)

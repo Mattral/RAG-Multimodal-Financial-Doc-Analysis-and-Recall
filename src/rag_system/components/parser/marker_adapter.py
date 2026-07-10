@@ -20,6 +20,7 @@ Usage:
         parser = MarkerParser()
         elements = await parser.parse("10k.pdf")
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -53,6 +54,7 @@ class MarkerParser(BaseParser):
     def _check_marker(self) -> bool:
         try:
             import marker  # noqa: F401
+
             return True
         except ImportError:
             logger.warning(
@@ -62,12 +64,11 @@ class MarkerParser(BaseParser):
             )
             return False
 
-    def _parse_sync(
-        self, file_path: str, tenant_id: Optional[str]
-    ) -> List[DocumentElement]:
+    def _parse_sync(self, file_path: str, tenant_id: Optional[str]) -> List[DocumentElement]:
         if not self._check_marker():
             # Graceful fallback to unstructured
             from src.rag_system.components.parser import UnstructuredParser
+
             return asyncio.get_event_loop().run_until_complete(
                 UnstructuredParser().parse(file_path, tenant_id=tenant_id)
             )
@@ -95,18 +96,20 @@ class MarkerParser(BaseParser):
                     if chunk_buffer.strip():
                         text = chunk_buffer.strip()
                         etype = "table" if text.startswith("|") else "text"
-                        elements.append(DocumentElement(
-                            type=etype,
-                            text=text,
-                            source_document=source,
-                            page_number=page_counter,
-                            ingest_timestamp=now,
-                            content_hash=hashlib.sha256(text.encode()).hexdigest()[:12],
-                            tenant_id=tenant_id,
-                            metadata={"parser": self.name},
-                        ))
+                        elements.append(
+                            DocumentElement(
+                                type=etype,
+                                text=text,
+                                source_document=source,
+                                page_number=page_counter,
+                                ingest_timestamp=now,
+                                content_hash=hashlib.sha256(text.encode()).hexdigest()[:12],
+                                tenant_id=tenant_id,
+                                metadata={"parser": self.name},
+                            )
+                        )
                         # Overlap: carry last N chars into next chunk
-                        chunk_buffer = chunk_buffer[-self._chunk_overlap:] + "\n\n" + para
+                        chunk_buffer = chunk_buffer[-self._chunk_overlap :] + "\n\n" + para
                         page_counter += 1
                     else:
                         chunk_buffer = para
@@ -115,13 +118,18 @@ class MarkerParser(BaseParser):
             if chunk_buffer.strip():
                 text = chunk_buffer.strip()
                 etype = "table" if text.startswith("|") else "text"
-                elements.append(DocumentElement(
-                    type=etype, text=text, source_document=source,
-                    page_number=page_counter, ingest_timestamp=now,
-                    content_hash=hashlib.sha256(text.encode()).hexdigest()[:12],
-                    tenant_id=tenant_id,
-                    metadata={"parser": self.name},
-                ))
+                elements.append(
+                    DocumentElement(
+                        type=etype,
+                        text=text,
+                        source_document=source,
+                        page_number=page_counter,
+                        ingest_timestamp=now,
+                        content_hash=hashlib.sha256(text.encode()).hexdigest()[:12],
+                        tenant_id=tenant_id,
+                        metadata={"parser": self.name},
+                    )
+                )
 
             logger.info(
                 "marker_parse_complete",
@@ -135,9 +143,7 @@ class MarkerParser(BaseParser):
             logger.error("marker_parse_failed", file=file_path, error=str(exc))
             return []
 
-    async def parse(
-        self, file_path: str, tenant_id: Optional[str] = None
-    ) -> List[DocumentElement]:
+    async def parse(self, file_path: str, tenant_id: Optional[str] = None) -> List[DocumentElement]:
         return await asyncio.to_thread(self._parse_sync, file_path, tenant_id)
 
     async def parse_batch(

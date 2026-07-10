@@ -28,6 +28,7 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class EvalSample:
     """Single golden-dataset evaluation sample."""
+
     question: str
     ground_truth: str
     source_documents: List[str] = field(default_factory=list)
@@ -79,6 +80,7 @@ class RagasEvaluator(BaseEvaluator):
     def _check_ragas(self) -> bool:
         try:
             import ragas  # noqa: F401
+
             return True
         except ImportError:
             logger.warning(
@@ -101,9 +103,7 @@ class RagasEvaluator(BaseEvaluator):
 
         if self._ragas_available:
             try:
-                metrics.update(
-                    await self._run_ragas(query, answer, ground_truth)
-                )
+                metrics.update(await self._run_ragas(query, answer, ground_truth))
             except Exception as exc:
                 logger.warning("ragas_evaluation_failed", error=str(exc))
 
@@ -147,9 +147,7 @@ class RagasEvaluator(BaseEvaluator):
             "context_precision": float(result["context_precision"]),
         }
 
-    async def _llm_numeric_judge(
-        self, query: str, answer: str, context_texts: List[str]
-    ) -> float:
+    async def _llm_numeric_judge(self, query: str, answer: str, context_texts: List[str]) -> float:
         """Ask LLM to verify numeric claims in the answer are grounded.
 
         Returns 0.5 (neutral) ONLY on genuine infrastructure failure (timeout,
@@ -266,9 +264,7 @@ class GoldenDatasetRunner:
         for sample in samples:
             try:
                 start = time.perf_counter()
-                qa_result = await self._pipeline.query(
-                    sample.question, tenant_id=tenant_id
-                )
+                qa_result = await self._pipeline.query(sample.question, tenant_id=tenant_id)
                 latency_ms = (time.perf_counter() - start) * 1000
 
                 answer: GeneratedAnswer = qa_result.get("answer_obj")
@@ -338,13 +334,15 @@ class GoldenDatasetRunner:
         if self._history_path.exists():
             with open(self._history_path) as f:
                 history = json.load(f)
-        history.append({
-            "run_id": report.run_id,
-            "timestamp": report.timestamp,
-            "pass_rate": report.pass_rate,
-            "avg_faithfulness": report.avg_faithfulness,
-            "avg_numeric_accuracy": report.avg_numeric_accuracy,
-        })
+        history.append(
+            {
+                "run_id": report.run_id,
+                "timestamp": report.timestamp,
+                "pass_rate": report.pass_rate,
+                "avg_faithfulness": report.avg_faithfulness,
+                "avg_numeric_accuracy": report.avg_numeric_accuracy,
+            }
+        )
         # Keep last 50 runs
         history = history[-50:]
         with open(self._history_path, "w") as f:

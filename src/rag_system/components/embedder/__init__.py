@@ -2,6 +2,7 @@
 
 All implement BaseEmbedder with Redis caching and batch support.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -32,6 +33,7 @@ class RedisEmbeddingCache:
         if self._client is None:
             try:
                 import redis.asyncio as aioredis
+
                 self._client = aioredis.from_url(self._url, decode_responses=False)
             except Exception:
                 pass
@@ -67,7 +69,8 @@ class OpenAIEmbedder(BaseEmbedder):
         cache_cfg = get_config().cache_config
         self._cache: Optional[RedisEmbeddingCache] = (
             RedisEmbeddingCache(cache_cfg.redis_url, cache_cfg.embedding_cache_ttl_seconds)
-            if cache_cfg.enabled else None
+            if cache_cfg.enabled
+            else None
         )
         self._model = self._cfg.embedding_model
         self._dim = self._cfg.embedding_dim
@@ -105,7 +108,7 @@ class OpenAIEmbedder(BaseEmbedder):
         # Batch embed uncached texts (max 100 per request)
         batch_size = 100
         for batch_start in range(0, len(uncached_texts), batch_size):
-            batch = uncached_texts[batch_start:batch_start + batch_size]
+            batch = uncached_texts[batch_start : batch_start + batch_size]
             async with httpx.AsyncClient(timeout=60) as client:
                 resp = await client.post(
                     "https://api.openai.com/v1/embeddings",
@@ -143,6 +146,7 @@ class LocalEmbedder(BaseEmbedder):
         if self._model is None:
             try:
                 from sentence_transformers import SentenceTransformer
+
                 self._model = SentenceTransformer(self._model_name)
             except ImportError:
                 logger.error("sentence_transformers_not_installed")
@@ -172,7 +176,8 @@ class VoyageEmbedder(BaseEmbedder):
         cache_cfg = get_config().cache_config
         self._cache: Optional[RedisEmbeddingCache] = (
             RedisEmbeddingCache(cache_cfg.redis_url, cache_cfg.embedding_cache_ttl_seconds)
-            if cache_cfg.enabled else None
+            if cache_cfg.enabled
+            else None
         )
 
     @property
@@ -187,6 +192,7 @@ class VoyageEmbedder(BaseEmbedder):
         cfg = get_config()
         if not cfg.voyage_api_key:
             from src.rag_system.utils.exceptions import ConfigurationError
+
             raise ConfigurationError(
                 "VOYAGE_API_KEY not set — required for embedding provider 'voyage'",
                 config_key="VOYAGE_API_KEY",
@@ -215,7 +221,7 @@ class VoyageEmbedder(BaseEmbedder):
 
         batch_size = 128
         for batch_start in range(0, len(uncached_texts), batch_size):
-            batch = uncached_texts[batch_start:batch_start + batch_size]
+            batch = uncached_texts[batch_start : batch_start + batch_size]
             async with httpx.AsyncClient(timeout=60) as client:
                 resp = await client.post(
                     "https://api.voyageai.com/v1/embeddings",
@@ -242,7 +248,8 @@ class CohereEmbedder(BaseEmbedder):
         cache_cfg = get_config().cache_config
         self._cache: Optional[RedisEmbeddingCache] = (
             RedisEmbeddingCache(cache_cfg.redis_url, cache_cfg.embedding_cache_ttl_seconds)
-            if cache_cfg.enabled else None
+            if cache_cfg.enabled
+            else None
         )
 
     @property
@@ -257,6 +264,7 @@ class CohereEmbedder(BaseEmbedder):
         cfg = get_config()
         if not cfg.cohere_api_key:
             from src.rag_system.utils.exceptions import ConfigurationError
+
             raise ConfigurationError(
                 "COHERE_API_KEY not set — required for embedding provider 'cohere'",
                 config_key="COHERE_API_KEY",
@@ -319,7 +327,11 @@ def build_embedder(provider: Optional[str] = None) -> BaseEmbedder:
         model_name = cfg.embedding_model.lower()
         if "voyage" in model_name:
             name = "voyage"
-        elif "cohere" in model_name or "embed-english" in model_name or "embed-multilingual" in model_name:
+        elif (
+            "cohere" in model_name
+            or "embed-english" in model_name
+            or "embed-multilingual" in model_name
+        ):
             name = "cohere"
         elif "bge" in model_name or "local" in model_name or "sentence-transformers" in model_name:
             name = "local"
@@ -335,7 +347,9 @@ def build_embedder(provider: Optional[str] = None) -> BaseEmbedder:
     embedder_cls = providers.get(name)
     if embedder_cls is None:
         logger.warning(
-            "unknown_embedder_provider", provider=name, fallback="openai",
+            "unknown_embedder_provider",
+            provider=name,
+            fallback="openai",
             available=sorted(providers.keys()),
         )
         embedder_cls = OpenAIEmbedder

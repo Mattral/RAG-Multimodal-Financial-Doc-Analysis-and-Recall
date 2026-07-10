@@ -8,6 +8,7 @@ Usage:
 
 Requires: pip install qdrant-client>=1.9.0
 """
+
 from __future__ import annotations
 
 import os
@@ -48,23 +49,23 @@ class QdrantAdapter(BaseVectorStore):
         )
 
     def _get_api_key(self) -> Optional[str]:
-        return (
-            os.environ.get("VECTOR_STORE_CONFIG__QDRANT_API_KEY")
-            or getattr(self._cfg, "qdrant_api_key", None)
+        return os.environ.get("VECTOR_STORE_CONFIG__QDRANT_API_KEY") or getattr(
+            self._cfg, "qdrant_api_key", None
         )
 
     def _check_deps(self) -> bool:
         try:
             from qdrant_client import QdrantClient  # noqa: F401
+
             return True
         except ImportError:
-            logger.error("qdrant_client_not_installed",
-                         detail="pip install qdrant-client>=1.9.0")
+            logger.error("qdrant_client_not_installed", detail="pip install qdrant-client>=1.9.0")
             return False
 
     def _get_async_client(self):
         if self._async_client is None:
             from qdrant_client import AsyncQdrantClient
+
             self._async_client = AsyncQdrantClient(
                 url=self._get_url(), api_key=self._get_api_key(), timeout=60
             )
@@ -82,6 +83,7 @@ class QdrantAdapter(BaseVectorStore):
 
     async def _ensure_collection(self, tenant_id: Optional[str]) -> None:
         from qdrant_client.models import Distance, HnswConfigDiff, VectorParams
+
         client = self._get_async_client()
         collection = self._collection_name(tenant_id)
         dim = self._cfg.embedding_dim
@@ -103,6 +105,7 @@ class QdrantAdapter(BaseVectorStore):
         if not self._check_deps() or not elements:
             return
         from qdrant_client.models import PointStruct
+
         await self._ensure_collection(tenant_id)
         client = self._get_async_client()
         collection = self._collection_name(tenant_id)
@@ -123,7 +126,7 @@ class QdrantAdapter(BaseVectorStore):
             for i, (elem, vec) in enumerate(zip(elements, embeddings, strict=True))
         ]
         for i in range(0, len(points), 256):
-            await client.upsert(collection_name=collection, points=points[i:i+256])
+            await client.upsert(collection_name=collection, points=points[i : i + 256])
         logger.info("qdrant_upsert_complete", num_points=len(points), tenant_id=tenant_id)
 
     async def search(
@@ -136,13 +139,13 @@ class QdrantAdapter(BaseVectorStore):
         if not self._check_deps():
             return []
         from qdrant_client.models import FieldCondition, Filter, MatchValue
+
         client = self._get_async_client()
         collection = self._collection_name(tenant_id)
         qdrant_filter = None
         if filters:
             conditions = [
-                FieldCondition(key=k, match=MatchValue(value=v))
-                for k, v in filters.items()
+                FieldCondition(key=k, match=MatchValue(value=v)) for k, v in filters.items()
             ]
             if conditions:
                 qdrant_filter = Filter(must=conditions)
@@ -173,14 +176,15 @@ class QdrantAdapter(BaseVectorStore):
         if not self._check_deps():
             return
         from qdrant_client.models import FieldCondition, Filter, MatchAny
+
         client = self._get_async_client()
         collection = self._collection_name(tenant_id)
         try:
             await client.delete(
                 collection_name=collection,
-                points_selector=Filter(must=[
-                    FieldCondition(key="content_hash", match=MatchAny(any=doc_ids))
-                ]),
+                points_selector=Filter(
+                    must=[FieldCondition(key="content_hash", match=MatchAny(any=doc_ids))]
+                ),
             )
         except Exception as exc:
             logger.error("qdrant_delete_failed", error=str(exc))

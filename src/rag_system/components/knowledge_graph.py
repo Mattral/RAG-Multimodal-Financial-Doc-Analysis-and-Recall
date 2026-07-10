@@ -6,6 +6,7 @@ LLM extraction of entities/relations: companies, metrics, events, filings).'
 Status: Interface + in-memory stub in v2.0. Full implementation in v3.0.
 Enable via: ENABLE_KNOWLEDGE_GRAPH=true
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -21,8 +22,9 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class Entity:
     """A named entity extracted from a financial document."""
+
     id: str
-    type: str           # COMPANY, PERSON, METRIC, DATE, PRODUCT, LOCATION
+    type: str  # COMPANY, PERSON, METRIC, DATE, PRODUCT, LOCATION
     name: str
     source_document: str
     page_number: Optional[int] = None
@@ -34,8 +36,9 @@ class Entity:
 @dataclass
 class Relation:
     """A directed relationship between two entities."""
+
     subject_id: str
-    predicate: str      # SUBSIDIARY_OF, REPORTED_REVENUE, SUPPLIES_TO, CITES, MANAGED_BY
+    predicate: str  # SUBSIDIARY_OF, REPORTED_REVENUE, SUPPLIES_TO, CITES, MANAGED_BY
     object_id: str
     source_document: str
     confidence: float = 1.0
@@ -73,7 +76,9 @@ class InMemoryGraphStore:
             for eid in frontier:
                 for rel in self._relations:
                     if rel.subject_id == eid:
-                        if (predicate is None or rel.predicate == predicate) and rel.object_id not in visited:
+                        if (
+                            predicate is None or rel.predicate == predicate
+                        ) and rel.object_id not in visited:
                             next_frontier.add(rel.object_id)
                     elif rel.object_id == eid and rel.subject_id not in visited:
                         next_frontier.add(rel.subject_id)
@@ -178,7 +183,7 @@ Text:
             entities: List[Entity] = []
             entity_map: Dict[str, Entity] = {}
             for e in data.get("entities", []):
-                eid = e.get("id", hashlib.sha256(e.get("name","").encode()).hexdigest()[:8])
+                eid = e.get("id", hashlib.sha256(e.get("name", "").encode()).hexdigest()[:8])
                 entity = Entity(
                     id=f"{source_document}:{eid}",
                     type=e.get("type", "UNKNOWN"),
@@ -192,18 +197,24 @@ Text:
 
             relations: List[Relation] = []
             for r in data.get("relations", []):
-                s, o = r.get("subject_id",""), r.get("object_id","")
+                s, o = r.get("subject_id", ""), r.get("object_id", "")
                 if s in entity_map and o in entity_map:
-                    relations.append(Relation(
-                        subject_id=entity_map[s].id,
-                        predicate=r.get("predicate", "RELATED_TO"),
-                        object_id=entity_map[o].id,
-                        source_document=source_document,
-                        confidence=0.85,
-                    ))
+                    relations.append(
+                        Relation(
+                            subject_id=entity_map[s].id,
+                            predicate=r.get("predicate", "RELATED_TO"),
+                            object_id=entity_map[o].id,
+                            source_document=source_document,
+                            confidence=0.85,
+                        )
+                    )
 
-            logger.info("kg_extraction_complete", source=source_document,
-                       num_entities=len(entities), num_relations=len(relations))
+            logger.info(
+                "kg_extraction_complete",
+                source=source_document,
+                num_entities=len(entities),
+                num_relations=len(relations),
+            )
             return entities, relations
 
         except Exception as exc:

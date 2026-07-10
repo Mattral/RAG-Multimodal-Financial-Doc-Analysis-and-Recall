@@ -88,7 +88,7 @@ class PIIRedactor:
             logger.warning(
                 "presidio_not_installed",
                 detail="Falling back to regex-only PII redaction. "
-                       "Install with: pip install presidio-analyzer presidio-anonymizer",
+                "Install with: pip install presidio-analyzer presidio-anonymizer",
             )
 
     def redact(self, text: str) -> Tuple[str, List[str]]:

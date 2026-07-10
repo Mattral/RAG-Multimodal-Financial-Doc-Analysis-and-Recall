@@ -2,6 +2,7 @@
 
 All implement BaseVectorStore with multi-tenant namespace isolation.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -35,16 +36,27 @@ class DeepLakeVectorStoreAdapter(BaseVectorStore):
     async def initialize(self, tenant_id: Optional[str] = None) -> None:
         logger.info("deeplake_vector_store_ready", path=self._dataset_path(tenant_id))
 
-    async def upsert(self, elements: List[DocumentElement], embeddings: List[List[float]], tenant_id: Optional[str] = None) -> None:
+    async def upsert(
+        self,
+        elements: List[DocumentElement],
+        embeddings: List[List[float]],
+        tenant_id: Optional[str] = None,
+    ) -> None:
         path = self._dataset_path(tenant_id)
         await asyncio.to_thread(self._upsert_sync, elements, embeddings, path)
 
-    def _upsert_sync(self, elements: List[DocumentElement], embeddings: List[List[float]], path: str) -> None:
+    def _upsert_sync(
+        self, elements: List[DocumentElement], embeddings: List[List[float]], path: str
+    ) -> None:
         try:
             import deeplake
             import numpy as np
 
-            ds = deeplake.load(path) if deeplake.exists(path) else deeplake.empty(path, overwrite=False)
+            ds = (
+                deeplake.load(path)
+                if deeplake.exists(path)
+                else deeplake.empty(path, overwrite=False)
+            )
             with ds:
                 if "embedding" not in ds.tensors:
                     ds.create_tensor("embedding", htype="embedding", dtype="float32")
@@ -69,11 +81,19 @@ class DeepLakeVectorStoreAdapter(BaseVectorStore):
             logger.error("deeplake_upsert_failed", error=str(exc))
             raise
 
-    async def search(self, query_vector: List[float], top_k: int = 10, filters: Optional[Dict[str, Any]] = None, tenant_id: Optional[str] = None) -> List[RetrievedChunk]:
+    async def search(
+        self,
+        query_vector: List[float],
+        top_k: int = 10,
+        filters: Optional[Dict[str, Any]] = None,
+        tenant_id: Optional[str] = None,
+    ) -> List[RetrievedChunk]:
         path = self._dataset_path(tenant_id)
         return await asyncio.to_thread(self._search_sync, query_vector, top_k, path)
 
-    def _search_sync(self, query_vector: List[float], top_k: int, path: str) -> List[RetrievedChunk]:
+    def _search_sync(
+        self, query_vector: List[float], top_k: int, path: str
+    ) -> List[RetrievedChunk]:
         try:
             import deeplake
             import numpy as np
@@ -95,21 +115,27 @@ class DeepLakeVectorStoreAdapter(BaseVectorStore):
                 score = float(similarities[idx])
                 page = ds.page_number[int(idx)].numpy().tolist()
                 page_num = int(page) if str(page).isdigit() else None
-                results.append(RetrievedChunk(
-                    text=str(ds.text[int(idx)].numpy().tolist()),
-                    score=score,
-                    source_document=str(ds.source_document[int(idx)].numpy().tolist()),
-                    page_number=page_num,
-                    chunk_id=str(ds.content_hash[int(idx)].numpy().tolist()),
-                ))
+                results.append(
+                    RetrievedChunk(
+                        text=str(ds.text[int(idx)].numpy().tolist()),
+                        score=score,
+                        source_document=str(ds.source_document[int(idx)].numpy().tolist()),
+                        page_number=page_num,
+                        chunk_id=str(ds.content_hash[int(idx)].numpy().tolist()),
+                    )
+                )
             return results
         except Exception as exc:
             logger.error("deeplake_search_failed", error=str(exc))
             return []
 
     async def delete(self, doc_ids: List[str], tenant_id: Optional[str] = None) -> None:
-        logger.info("deeplake_delete_requested", doc_ids=doc_ids, tenant_id=tenant_id,
-                    note="DeepLake deletion requires full reindex; flagging for background job")
+        logger.info(
+            "deeplake_delete_requested",
+            doc_ids=doc_ids,
+            tenant_id=tenant_id,
+            note="DeepLake deletion requires full reindex; flagging for background job",
+        )
 
 
 class InMemoryVectorStore(BaseVectorStore):
@@ -125,14 +151,26 @@ class InMemoryVectorStore(BaseVectorStore):
     async def initialize(self, tenant_id: Optional[str] = None) -> None:
         self._data.setdefault(tenant_id or "default", [])
 
-    async def upsert(self, elements: List[DocumentElement], embeddings: List[List[float]], tenant_id: Optional[str] = None) -> None:
+    async def upsert(
+        self,
+        elements: List[DocumentElement],
+        embeddings: List[List[float]],
+        tenant_id: Optional[str] = None,
+    ) -> None:
         key = tenant_id or "default"
         self._data.setdefault(key, [])
         for elem, vec in zip(elements, embeddings, strict=True):
             self._data[key].append({"element": elem, "vector": vec})
 
-    async def search(self, query_vector: List[float], top_k: int = 10, filters: Optional[Dict[str, Any]] = None, tenant_id: Optional[str] = None) -> List[RetrievedChunk]:
+    async def search(
+        self,
+        query_vector: List[float],
+        top_k: int = 10,
+        filters: Optional[Dict[str, Any]] = None,
+        tenant_id: Optional[str] = None,
+    ) -> List[RetrievedChunk]:
         import math
+
         key = tenant_id or "default"
         data = self._data.get(key, [])
         scored = []
@@ -145,16 +183,20 @@ class InMemoryVectorStore(BaseVectorStore):
             scored.append((score, item["element"]))
         scored.sort(key=lambda x: x[0], reverse=True)
         return [
-            RetrievedChunk(text=e.text, score=s, source_document=e.source_document,
-                           page_number=e.page_number, chunk_id=e.content_hash)
+            RetrievedChunk(
+                text=e.text,
+                score=s,
+                source_document=e.source_document,
+                page_number=e.page_number,
+                chunk_id=e.content_hash,
+            )
             for s, e in scored[:top_k]
         ]
 
     async def delete(self, doc_ids: List[str], tenant_id: Optional[str] = None) -> None:
         key = tenant_id or "default"
         self._data[key] = [
-            item for item in self._data.get(key, [])
-            if item["element"].content_hash not in doc_ids
+            item for item in self._data.get(key, []) if item["element"].content_hash not in doc_ids
         ]
 
 
@@ -165,12 +207,15 @@ def build_vector_store(provider: Optional[str] = None) -> BaseVectorStore:
         return InMemoryVectorStore()
     if name == "pgvector":
         from src.rag_system.components.vector_store.pgvector_adapter import PGVectorAdapter
+
         return PGVectorAdapter()
     if name == "qdrant":
         from src.rag_system.components.vector_store.qdrant_adapter import QdrantAdapter
+
         return QdrantAdapter()
     if name == "chroma":
-        logger.warning("chroma_not_implemented", fallback="deeplake",
-                       detail="Chroma adapter planned v2.1")
+        logger.warning(
+            "chroma_not_implemented", fallback="deeplake", detail="Chroma adapter planned v2.1"
+        )
         return DeepLakeVectorStoreAdapter()
     return DeepLakeVectorStoreAdapter()

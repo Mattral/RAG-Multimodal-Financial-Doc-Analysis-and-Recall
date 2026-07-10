@@ -10,6 +10,7 @@ Converts LayoutChunk table HTML or markdown pipe tables into:
 
 Handles: markdown pipe tables, HTML <table> elements, whitespace-delimited.
 """
+
 from __future__ import annotations
 
 import json
@@ -50,9 +51,8 @@ class ExtractedTable:
         """Convert to pandas DataFrame. Requires pandas."""
         try:
             import pandas as pd
-            return pd.DataFrame(
-                self.rows, columns=self.headers if self.headers else None
-            )
+
+            return pd.DataFrame(self.rows, columns=self.headers if self.headers else None)
         except ImportError:
             logger.warning("pandas_not_installed", detail="pip install pandas")
             return None
@@ -79,6 +79,7 @@ class ExtractedTable:
 # ---------------------------------------------------------------------------
 # Parsers
 # ---------------------------------------------------------------------------
+
 
 def _parse_markdown_table(text: str) -> Tuple[List[str], List[List[str]]]:
     """Parse a markdown pipe table into headers + rows."""
@@ -159,6 +160,7 @@ def _parse_html_table(html: str) -> Tuple[List[str], List[List[str]]]:
 # ---------------------------------------------------------------------------
 # Main extractor
 # ---------------------------------------------------------------------------
+
 
 class TableExtractor:
     """Extract structured tables from document text chunks.

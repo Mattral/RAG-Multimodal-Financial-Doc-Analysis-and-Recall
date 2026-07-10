@@ -8,6 +8,7 @@ Usage: set VECTOR_STORE_CONFIG__PROVIDER=pgvector and
 
 Requires: pip install asyncpg pgvector
 """
+
 from __future__ import annotations
 
 import json
@@ -59,6 +60,7 @@ class PGVectorAdapter(BaseVectorStore):
     def _check_deps(self) -> bool:
         try:
             import asyncpg  # noqa: F401
+
             return True
         except ImportError:
             logger.warning("asyncpg_not_installed", detail="pip install asyncpg pgvector")
@@ -69,16 +71,17 @@ class PGVectorAdapter(BaseVectorStore):
             return
         try:
             import asyncpg
+
             conn_str = self._cfg.connection_string
             if not conn_str:
-                logger.error("pgvector_no_connection_string",
-                             detail="Set VECTOR_STORE_CONFIG__CONNECTION_STRING")
+                logger.error(
+                    "pgvector_no_connection_string",
+                    detail="Set VECTOR_STORE_CONFIG__CONNECTION_STRING",
+                )
                 return
             self._pool = await asyncpg.create_pool(conn_str, min_size=2, max_size=10)
             async with self._pool.acquire() as conn:
-                await conn.execute(
-                    _INIT_SQL.format(table_suffix=self._table, dim=self._dim)
-                )
+                await conn.execute(_INIT_SQL.format(table_suffix=self._table, dim=self._dim))
             logger.info("pgvector_initialized", table=self._table, dim=self._dim)
         except Exception as exc:
             logger.error("pgvector_init_failed", error=str(exc))
@@ -138,7 +141,9 @@ class PGVectorAdapter(BaseVectorStore):
                          WHERE tenant_id = $2
                          ORDER BY embedding <=> $1::vector
                          LIMIT $3""",
-                    vec_str, tid, top_k,
+                    vec_str,
+                    tid,
+                    top_k,
                 )
             return [
                 RetrievedChunk(
@@ -154,9 +159,7 @@ class PGVectorAdapter(BaseVectorStore):
             logger.error("pgvector_search_failed", error=str(exc))
             return []
 
-    async def delete(
-        self, doc_ids: List[str], tenant_id: Optional[str] = None
-    ) -> None:
+    async def delete(self, doc_ids: List[str], tenant_id: Optional[str] = None) -> None:
         if not self._pool:
             return
         tid = tenant_id or "default"
@@ -165,7 +168,8 @@ class PGVectorAdapter(BaseVectorStore):
                 await conn.execute(
                     f"DELETE FROM rag_chunks_{self._table} "
                     f"WHERE tenant_id = $1 AND chunk_id = ANY($2::text[])",
-                    tid, doc_ids,
+                    tid,
+                    doc_ids,
                 )
             logger.info("pgvector_delete_complete", doc_ids=doc_ids, tenant_id=tid)
         except Exception as exc:

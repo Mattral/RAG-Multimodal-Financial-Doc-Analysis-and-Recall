@@ -26,6 +26,7 @@ class CrossEncoderReranker(BaseReranker):
         if self._model is None:
             try:
                 from sentence_transformers import CrossEncoder
+
                 self._model = CrossEncoder(self._model_name)
                 logger.info("cross_encoder_loaded", model=self._model_name)
             except ImportError:
@@ -58,9 +59,7 @@ class CrossEncoderReranker(BaseReranker):
         pairs = [[query, chunk.text] for chunk in chunks]
         scores = await asyncio.to_thread(model.predict, pairs)
 
-        scored = sorted(
-            zip(scores, chunks, strict=True), key=lambda x: x[0], reverse=True
-        )
+        scored = sorted(zip(scores, chunks, strict=True), key=lambda x: x[0], reverse=True)
         return [
             RetrievedChunk(**{**chunk.model_dump(), "score": float(score)})
             for score, chunk in scored[:top_n]
@@ -80,6 +79,7 @@ class CohereReranker(BaseReranker):
                 import cohere
 
                 from src.rag_system.config import get_config
+
                 api_key = get_config().cohere_api_key
                 if api_key:
                     self._client = cohere.Client(api_key.get_secret_value())

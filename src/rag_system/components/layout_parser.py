@@ -5,6 +5,7 @@ Produces chunks with HTML-annotated structure so the LLM receives rich
 layout context (table captions stay with their table, figure captions
 stay with their figure, narrative paragraphs aren't split mid-sentence).
 """
+
 from __future__ import annotations
 
 import re
@@ -22,15 +23,16 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class LayoutChunk:
     """A semantically grouped chunk with spatial metadata."""
+
     text: str
-    html: str                           # HTML-wrapped version for LLM context
-    element_types: List[str]            # e.g. ["table", "caption"]
+    html: str  # HTML-wrapped version for LLM context
+    element_types: List[str]  # e.g. ["table", "caption"]
     source_document: str
     page_start: Optional[int] = None
     page_end: Optional[int] = None
     bbox: Optional[Dict[str, float]] = None
     heading: Optional[str] = None
-    is_continuation: bool = False       # True if spans >1 page
+    is_continuation: bool = False  # True if spans >1 page
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -41,18 +43,18 @@ class LayoutChunk:
 
 
 def _wrap_table(text: str, caption: Optional[str] = None) -> str:
-    cap_html = f'<caption>{caption}</caption>\n' if caption else ""
+    cap_html = f"<caption>{caption}</caption>\n" if caption else ""
     return f'<table class="financial-table">\n{cap_html}{text}\n</table>'
 
 
 def _wrap_figure(description: str, caption: Optional[str] = None) -> str:
-    cap_html = f'<figcaption>{caption}</figcaption>\n' if caption else ""
+    cap_html = f"<figcaption>{caption}</figcaption>\n" if caption else ""
     return f'<figure class="financial-chart">\n{cap_html}{description}\n</figure>'
 
 
 def _wrap_section(text: str, heading: Optional[str] = None, level: int = 2) -> str:
-    head_html = f'<h{level}>{heading}</h{level}>\n' if heading else ""
-    return f'<section>\n{head_html}{text}\n</section>'
+    head_html = f"<h{level}>{heading}</h{level}>\n" if heading else ""
+    return f"<section>\n{head_html}{text}\n</section>"
 
 
 _HEADING_RE = re.compile(
@@ -144,14 +146,18 @@ class LayoutAwareParser:
             # Graph / image elements
             if elem.type in ("graph", "image"):
                 html = _wrap_figure(elem.text, caption=pending_caption)
-                chunks.append(LayoutChunk(
-                    text=elem.text, html=html,
-                    element_types=[elem.type],
-                    source_document=elem.source_document,
-                    page_start=elem.page_number, page_end=elem.page_number,
-                    heading=current_heading,
-                    metadata={"caption": pending_caption},
-                ))
+                chunks.append(
+                    LayoutChunk(
+                        text=elem.text,
+                        html=html,
+                        element_types=[elem.type],
+                        source_document=elem.source_document,
+                        page_start=elem.page_number,
+                        page_end=elem.page_number,
+                        heading=current_heading,
+                        metadata={"caption": pending_caption},
+                    )
+                )
                 pending_caption = None
                 i += 1
                 continue
@@ -162,15 +168,18 @@ class LayoutAwareParser:
 
             for piece_idx, piece_text in enumerate(self._split_text_to_limit(merged_text)):
                 html = _wrap_section(piece_text, heading=current_heading)
-                chunks.append(LayoutChunk(
-                    text=piece_text, html=html,
-                    element_types=["text"],
-                    source_document=elem.source_document,
-                    page_start=text_group[0].page_number,
-                    page_end=text_group[-1].page_number,
-                    heading=current_heading,
-                    is_continuation=piece_idx > 0,
-                ))
+                chunks.append(
+                    LayoutChunk(
+                        text=piece_text,
+                        html=html,
+                        element_types=["text"],
+                        source_document=elem.source_document,
+                        page_start=text_group[0].page_number,
+                        page_end=text_group[-1].page_number,
+                        heading=current_heading,
+                        is_continuation=piece_idx > 0,
+                    )
+                )
             i += consumed
 
         logger.info(
@@ -255,20 +264,22 @@ class LayoutAwareParser:
         result = []
         for chunk in chunks:
             # Embed HTML into metadata for richer LLM context
-            result.append(DocumentElement(
-                type="text" if "text" in chunk.element_types else chunk.element_types[0],
-                text=chunk.html,  # Use HTML-wrapped version
-                source_document=chunk.source_document,
-                page_number=chunk.page_start,
-                ingest_timestamp=now,
-                content_hash=hashlib.sha256(chunk.text.encode()).hexdigest()[:12],
-                tenant_id=tenant_id,
-                metadata={
-                    "layout_types": chunk.element_types,
-                    "heading": chunk.heading,
-                    "page_range": chunk.page_range,
-                    "is_continuation": chunk.is_continuation,
-                    "caption": chunk.metadata.get("caption"),
-                },
-            ))
+            result.append(
+                DocumentElement(
+                    type="text" if "text" in chunk.element_types else chunk.element_types[0],
+                    text=chunk.html,  # Use HTML-wrapped version
+                    source_document=chunk.source_document,
+                    page_number=chunk.page_start,
+                    ingest_timestamp=now,
+                    content_hash=hashlib.sha256(chunk.text.encode()).hexdigest()[:12],
+                    tenant_id=tenant_id,
+                    metadata={
+                        "layout_types": chunk.element_types,
+                        "heading": chunk.heading,
+                        "page_range": chunk.page_range,
+                        "is_continuation": chunk.is_continuation,
+                        "caption": chunk.metadata.get("caption"),
+                    },
+                )
+            )
         return result

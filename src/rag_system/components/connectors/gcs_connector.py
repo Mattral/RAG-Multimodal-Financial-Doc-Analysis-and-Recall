@@ -10,6 +10,7 @@ Usage:
 Requires: pip install google-cloud-storage
 Auth: GOOGLE_APPLICATION_CREDENTIALS, gcloud ADC, or Workload Identity (GKE).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -43,14 +44,17 @@ class GCSConnector(BaseConnector):
     def _check_deps(self) -> bool:
         try:
             from google.cloud import storage  # noqa: F401
+
             return True
         except ImportError:
-            logger.warning("google_cloud_storage_not_installed",
-                           detail="pip install google-cloud-storage")
+            logger.warning(
+                "google_cloud_storage_not_installed", detail="pip install google-cloud-storage"
+            )
             return False
 
     def _get_client(self):
         from google.cloud import storage
+
         return storage.Client(project=self._project)
 
     async def list_uris(self) -> List[str]:
@@ -85,9 +89,7 @@ class GCSConnector(BaseConnector):
                 if blob.name.endswith("/"):
                     continue
                 filename = Path(blob.name).name
-                with tempfile.NamedTemporaryFile(
-                    suffix=Path(filename).suffix, delete=False
-                ) as tmp:
+                with tempfile.NamedTemporaryFile(suffix=Path(filename).suffix, delete=False) as tmp:
                     await asyncio.to_thread(blob.download_to_filename, tmp.name)
                     local_path = tmp.name
                 yield DiscoveredDocument(

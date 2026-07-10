@@ -8,6 +8,7 @@ Each PDF page is embedded as N patch vectors; retrieval is over whole pages.
 Requires: pip install colpali-engine torch torchvision
 Graceful degradation: returns [] if colpali-engine not installed.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -29,8 +30,9 @@ def _maxsim(query_vecs: List[List[float]], doc_vecs: List[List[float]]) -> float
         return 0.0
     try:
         import numpy as np
+
         q_mat = np.array(query_vecs, dtype=np.float32)
-        d_mat = np.array(doc_vecs,  dtype=np.float32)
+        d_mat = np.array(doc_vecs, dtype=np.float32)
         return float(np.sum(np.max(q_mat @ d_mat.T, axis=1)))
     except ImportError:
         total = 0.0
@@ -73,10 +75,12 @@ class ColPaliRetriever(BaseRetriever):
     def _has_deps(self) -> bool:
         try:
             import colpali_engine  # noqa: F401
+
             return True
         except ImportError:
-            logger.warning("colpali_not_installed",
-                           detail="pip install colpali-engine torch torchvision")
+            logger.warning(
+                "colpali_not_installed", detail="pip install colpali-engine torch torchvision"
+            )
             return False
 
     def _load_model(self) -> bool:
@@ -87,6 +91,7 @@ class ColPaliRetriever(BaseRetriever):
         try:
             import torch
             from colpali_engine.models import ColQwen2, ColQwen2Processor
+
             device = self._device
             if device == "auto":
                 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -106,6 +111,7 @@ class ColPaliRetriever(BaseRetriever):
     def _embed_image_sync(self, image_path: str) -> List[List[float]]:
         import torch
         from PIL import Image
+
         img = Image.open(image_path).convert("RGB")
         inputs = self._processor.process_images([img])
         inputs = {k: v.to(self._model.device) for k, v in inputs.items()}
@@ -117,6 +123,7 @@ class ColPaliRetriever(BaseRetriever):
 
     def _embed_query_sync(self, query: str) -> List[List[float]]:
         import torch
+
         inputs = self._processor.process_queries([query])
         inputs = {k: v.to(self._model.device) for k, v in inputs.items()}
         with torch.no_grad():
@@ -125,9 +132,7 @@ class ColPaliRetriever(BaseRetriever):
         vecs = vecs / vecs.norm(dim=-1, keepdim=True)
         return vecs.cpu().float().tolist()
 
-    async def build_index(
-        self, image_paths: List[str], source_document: str
-    ) -> List[str]:
+    async def build_index(self, image_paths: List[str], source_document: str) -> List[str]:
         steps = []
         if not await asyncio.to_thread(self._load_model):
             steps.append("ColPali unavailable — page images not indexed visually")
@@ -136,14 +141,16 @@ class ColPaliRetriever(BaseRetriever):
         for i, img_path in enumerate(image_paths):
             try:
                 vecs = await asyncio.to_thread(self._embed_image_sync, img_path)
-                self._index.append(PageEmbedding(
-                    source_document=source_document,
-                    page_number=i + 1,
-                    patch_embeddings=vecs,
-                    thumbnail_path=img_path,
-                ))
+                self._index.append(
+                    PageEmbedding(
+                        source_document=source_document,
+                        page_number=i + 1,
+                        patch_embeddings=vecs,
+                        thumbnail_path=img_path,
+                    )
+                )
             except Exception as exc:
-                logger.warning("colpali_embed_page_failed", page=i+1, error=str(exc))
+                logger.warning("colpali_embed_page_failed", page=i + 1, error=str(exc))
         steps.append(f"ColPali: indexed {len(image_paths)} pages")
         if self._index_path:
             await asyncio.to_thread(self._save_index)
@@ -154,9 +161,13 @@ class ColPaliRetriever(BaseRetriever):
             return
         self._index_path.parent.mkdir(parents=True, exist_ok=True)
         data = [
-            {"source_document": e.source_document, "page_number": e.page_number,
-             "patch_embeddings": e.patch_embeddings, "thumbnail_path": e.thumbnail_path,
-             "metadata": e.metadata}
+            {
+                "source_document": e.source_document,
+                "page_number": e.page_number,
+                "patch_embeddings": e.patch_embeddings,
+                "thumbnail_path": e.thumbnail_path,
+                "metadata": e.metadata,
+            }
             for e in self._index
         ]
         self._index_path.write_text(json.dumps(data))
@@ -195,7 +206,11 @@ class ColPaliRetriever(BaseRetriever):
 
         scored: List[Tuple[float, PageEmbedding]] = []
         for pe in self._index:
-            if filters and "source_document" in filters and pe.source_document != filters["source_document"]:
+            if (
+                filters
+                and "source_document" in filters
+                and pe.source_document != filters["source_document"]
+            ):
                 continue
             scored.append((_maxsim(qvecs, pe.patch_embeddings), pe))
 
@@ -203,12 +218,15 @@ class ColPaliRetriever(BaseRetriever):
         return [
             RetrievedChunk(
                 text=f"[Visual page — {pe.source_document}, p.{pe.page_number}]"
-                     f"\nColPali MaxSim: {score:.4f}",
+                f"\nColPali MaxSim: {score:.4f}",
                 score=score,
                 source_document=pe.source_document,
                 page_number=pe.page_number,
-                metadata={"method": "colpali_maxsim", "model": self._model_name,
-                          "thumbnail_path": pe.thumbnail_path},
+                metadata={
+                    "method": "colpali_maxsim",
+                    "model": self._model_name,
+                    "thumbnail_path": pe.thumbnail_path,
+                },
             )
             for score, pe in scored[:top_k]
         ]

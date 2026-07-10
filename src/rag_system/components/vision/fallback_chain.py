@@ -9,6 +9,7 @@ Usage (config-driven):
 Provides FallbackVisionDescriber that tries providers in order and returns
 the first successful description.
 """
+
 from __future__ import annotations
 
 import asyncio

@@ -48,10 +48,7 @@ def _reciprocal_rank_fusion(
 
     sorted_keys = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
     return [
-        RetrievedChunk(
-            **{**chunk_map[k].model_dump(), "score": scores[k]}
-        )
-        for k in sorted_keys
+        RetrievedChunk(**{**chunk_map[k].model_dump(), "score": scores[k]}) for k in sorted_keys
     ]
 
 
@@ -113,7 +110,9 @@ class BM25Index:
                 f = tf[term]
                 df = self._df.get(term, 0)
                 idf = math.log((n - df + 0.5) / (df + 0.5) + 1)
-                tf_norm = f * (self.k1 + 1) / (f + self.k1 * (1 - self.b + self.b * dl / self._avgdl))
+                tf_norm = (
+                    f * (self.k1 + 1) / (f + self.k1 * (1 - self.b + self.b * dl / self._avgdl))
+                )
                 score += idf * tf_norm
             scores.append((score, i))
 
@@ -171,13 +170,9 @@ class HybridRetriever(BaseRetriever):
 
             # BM25 retrieval (async-wrapped sync)
             if self._bm25 is not None:
-                bm25_task = asyncio.to_thread(
-                    self._bm25.search, query, self._cfg.top_k_bm25
-                )
+                bm25_task = asyncio.to_thread(self._bm25.search, query, self._cfg.top_k_bm25)
                 dense_results, bm25_results = await asyncio.gather(dense_task, bm25_task)
-                fused = _reciprocal_rank_fusion(
-                    [dense_results, bm25_results], k=self._cfg.rrf_k
-                )
+                fused = _reciprocal_rank_fusion([dense_results, bm25_results], k=self._cfg.rrf_k)
             else:
                 dense_results = await dense_task
                 fused = dense_results

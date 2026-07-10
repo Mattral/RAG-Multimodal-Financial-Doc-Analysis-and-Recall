@@ -12,6 +12,7 @@ Fallback chain:
 All implement BaseVisionDescriber — switch via config with zero code changes:
     VISION_CONFIG__PROVIDER=gemini
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -75,22 +76,25 @@ class OpenAIVisionDescriber(BaseVisionDescriber):
                     "model": self._cfg.model,
                     "max_tokens": self._cfg.max_tokens,
                     "temperature": self._cfg.temperature,
-                    "messages": [{
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": FINANCIAL_CHART_PROMPT},
-                            {"type": "image_url", "image_url": {
-                                "url": f"data:image/png;base64,{image_b64}",
-                                "detail": self._cfg.detail_level,
-                            }},
-                        ],
-                    }],
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": FINANCIAL_CHART_PROMPT},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/png;base64,{image_b64}",
+                                        "detail": self._cfg.detail_level,
+                                    },
+                                },
+                            ],
+                        }
+                    ],
                 }
                 for attempt in range(self._cfg.retry_max_attempts):
                     try:
-                        async with httpx.AsyncClient(
-                            timeout=self._cfg.timeout_seconds
-                        ) as client:
+                        async with httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client:
                             resp = await client.post(
                                 "https://api.openai.com/v1/chat/completions",
                                 headers={"Authorization": f"Bearer {api_key}"},
@@ -104,7 +108,7 @@ class OpenAIVisionDescriber(BaseVisionDescriber):
                             exc.response.status_code == 429
                             and attempt < self._cfg.retry_max_attempts - 1
                         ):
-                            await asyncio.sleep(self._cfg.retry_backoff_factor ** attempt)
+                            await asyncio.sleep(self._cfg.retry_backoff_factor**attempt)
                         else:
                             raise
 
@@ -167,6 +171,7 @@ class Qwen2VLDescriber(BaseVisionDescriber):
         tenant_id: Optional[str] = None,
     ) -> Optional[DocumentElement]:
         import os
+
         api_key = os.environ.get("TOGETHER_API_KEY", "")
         if not api_key:
             logger.warning("TOGETHER_API_KEY not set — skipping Qwen2-VL")
@@ -176,14 +181,18 @@ class Qwen2VLDescriber(BaseVisionDescriber):
             payload = {
                 "model": self._model,
                 "max_tokens": 1500,
-                "messages": [{
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": FINANCIAL_CHART_PROMPT},
-                        {"type": "image_url",
-                         "image_url": {"url": f"data:image/png;base64,{image_b64}"}},
-                    ],
-                }],
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": FINANCIAL_CHART_PROMPT},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/png;base64,{image_b64}"},
+                            },
+                        ],
+                    }
+                ],
             }
             async with httpx.AsyncClient(timeout=120) as client:
                 resp = await client.post(
@@ -194,7 +203,9 @@ class Qwen2VLDescriber(BaseVisionDescriber):
                 resp.raise_for_status()
                 description = resp.json()["choices"][0]["message"]["content"]
             return DocumentElement(
-                type="graph", text=description, source_document=source_document,
+                type="graph",
+                text=description,
+                source_document=source_document,
                 ingest_timestamp=datetime.now(UTC).isoformat(),
                 content_hash=hashlib.sha256(description.encode()).hexdigest()[:12],
                 tenant_id=tenant_id,

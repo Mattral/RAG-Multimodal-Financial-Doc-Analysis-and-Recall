@@ -16,6 +16,7 @@ Every provider:
   - Records token usage and cost to the shared CostTracker.
   - Returns the same GeneratedAnswer shape regardless of provider.
 """
+
 from __future__ import annotations
 
 import re
@@ -68,6 +69,7 @@ def _build_context_block(chunks: List[RetrievedChunk]) -> str:
 
 # ── OpenAI ─────────────────────────────────────────────────────────────────────
 
+
 class OpenAIGenerator(BaseGenerator):
     """OpenAI-based generator with gpt-4o / gpt-4o-mini routing."""
 
@@ -89,9 +91,11 @@ class OpenAIGenerator(BaseGenerator):
         cfg = get_config()
         api_key = cfg.get_openai_key()
 
-        model = self._cfg.complex_query_model if (
-            self._cfg.enable_model_routing and _is_complex_query(query)
-        ) else self._cfg.model
+        model = (
+            self._cfg.complex_query_model
+            if (self._cfg.enable_model_routing and _is_complex_query(query))
+            else self._cfg.model
+        )
 
         context_block = _build_context_block(context)
         user_message = f"Context:\n{context_block}\n\nQuestion: {query}"
@@ -107,23 +111,29 @@ class OpenAIGenerator(BaseGenerator):
         }
 
         start = time.perf_counter()
-        async with async_trace_span("llm_generation", {"model": model, "tenant_id": tenant_id or ""}):
+        async with async_trace_span(
+            "llm_generation", {"model": model, "tenant_id": tenant_id or ""}
+        ):
             try:
                 async with httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client:
                     response = await client.post(
                         "https://api.openai.com/v1/chat/completions",
-                        headers=headers, json=payload,
+                        headers=headers,
+                        json=payload,
                     )
                     response.raise_for_status()
                     data = response.json()
             except httpx.HTTPStatusError as exc:
                 if self._cfg.fallback_model and exc.response.status_code in (429, 503):
-                    logger.warning("llm_fallback_triggered", model=model, status=exc.response.status_code)
+                    logger.warning(
+                        "llm_fallback_triggered", model=model, status=exc.response.status_code
+                    )
                     payload["model"] = self._cfg.fallback_model
                     async with httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client:
                         response = await client.post(
                             "https://api.openai.com/v1/chat/completions",
-                            headers=headers, json=payload,
+                            headers=headers,
+                            json=payload,
                         )
                         response.raise_for_status()
                         data = response.json()
@@ -138,19 +148,26 @@ class OpenAIGenerator(BaseGenerator):
         answer_text = data["choices"][0]["message"]["content"]
 
         cost_record = self._cost_tracker.record(
-            tenant_id=tenant_id or "default", model=model,
-            prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
+            tenant_id=tenant_id or "default",
+            model=model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
         )
 
         return GeneratedAnswer(
-            answer=answer_text, citations=context, model_used=model,
-            prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
-            estimated_cost_usd=cost_record.cost_usd, latency_ms=latency_ms,
+            answer=answer_text,
+            citations=context,
+            model_used=model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            estimated_cost_usd=cost_record.cost_usd,
+            latency_ms=latency_ms,
             tenant_id=tenant_id,
         )
 
 
 # ── Google Gemini ────────────────────────────────────────────────────────────
+
 
 class GeminiGenerator(BaseGenerator):
     """Google Gemini generator — 10-40x cheaper than GPT-4o, generous free tier.
@@ -166,9 +183,9 @@ class GeminiGenerator(BaseGenerator):
     """
 
     _PRICING = {
-        "gemini-2.5-flash":      {"prompt": 0.15, "completion": 0.60},
-        "gemini-2.5-pro":        {"prompt": 1.25, "completion": 5.00},
-        "gemini-3.5-flash":      {"prompt": 0.15, "completion": 0.60},
+        "gemini-2.5-flash": {"prompt": 0.15, "completion": 0.60},
+        "gemini-2.5-pro": {"prompt": 1.25, "completion": 5.00},
+        "gemini-3.5-flash": {"prompt": 0.15, "completion": 0.60},
         "gemini-3.1-flash-lite": {"prompt": 0.05, "completion": 0.20},
     }
 
@@ -177,9 +194,7 @@ class GeminiGenerator(BaseGenerator):
         self._cost_tracker = get_cost_tracker()
         # If the user hasn't overridden the model away from the OpenAI default,
         # use a sensible Gemini default instead.
-        self._default_model = (
-            self._cfg.model if "gemini" in self._cfg.model else "gemini-2.5-flash"
-        )
+        self._default_model = self._cfg.model if "gemini" in self._cfg.model else "gemini-2.5-flash"
         self._complex_model = (
             self._cfg.complex_query_model
             if "gemini" in self._cfg.complex_query_model
@@ -192,9 +207,11 @@ class GeminiGenerator(BaseGenerator):
 
     def _get_api_key(self) -> str:
         import os
+
         key = os.environ.get("GOOGLE_API_KEY", "")
         if not key:
             from src.rag_system.utils.exceptions import ConfigurationError
+
             raise ConfigurationError(
                 "GOOGLE_API_KEY not set — required for LLM_CONFIG__PROVIDER=gemini",
                 config_key="GOOGLE_API_KEY",
@@ -209,9 +226,11 @@ class GeminiGenerator(BaseGenerator):
         system_prompt: Optional[str] = None,
     ) -> GeneratedAnswer:
         api_key = self._get_api_key()
-        model = self._complex_model if (
-            self._cfg.enable_model_routing and _is_complex_query(query)
-        ) else self._default_model
+        model = (
+            self._complex_model
+            if (self._cfg.enable_model_routing and _is_complex_query(query))
+            else self._default_model
+        )
 
         context_block = _build_context_block(context)
         prompt = (
@@ -255,19 +274,26 @@ class GeminiGenerator(BaseGenerator):
         ) / 1_000_000
 
         self._cost_tracker.record(
-            tenant_id=tenant_id or "default", model=model,
-            prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
+            tenant_id=tenant_id or "default",
+            model=model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
         )
 
         return GeneratedAnswer(
-            answer=answer_text, citations=context, model_used=model,
-            prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
-            estimated_cost_usd=cost_usd, latency_ms=latency_ms,
+            answer=answer_text,
+            citations=context,
+            model_used=model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            estimated_cost_usd=cost_usd,
+            latency_ms=latency_ms,
             tenant_id=tenant_id,
         )
 
 
 # ── Anthropic Claude ──────────────────────────────────────────────────────────
+
 
 class AnthropicGenerator(BaseGenerator):
     """Anthropic Claude generator — strong reasoning, large context window."""
@@ -282,11 +308,11 @@ class AnthropicGenerator(BaseGenerator):
         self._cfg = get_config().llm_config
         self._cost_tracker = get_cost_tracker()
         self._default_model = (
-            self._cfg.model if "claude" in self._cfg.model
-            else "claude-3-5-haiku-20241022"
+            self._cfg.model if "claude" in self._cfg.model else "claude-3-5-haiku-20241022"
         )
         self._complex_model = (
-            self._cfg.complex_query_model if "claude" in self._cfg.complex_query_model
+            self._cfg.complex_query_model
+            if "claude" in self._cfg.complex_query_model
             else "claude-3-5-sonnet-20241022"
         )
 
@@ -298,6 +324,7 @@ class AnthropicGenerator(BaseGenerator):
         cfg = get_config()
         if not cfg.anthropic_api_key:
             from src.rag_system.utils.exceptions import ConfigurationError
+
             raise ConfigurationError(
                 "ANTHROPIC_API_KEY not set — required for LLM_CONFIG__PROVIDER=anthropic",
                 config_key="ANTHROPIC_API_KEY",
@@ -312,9 +339,11 @@ class AnthropicGenerator(BaseGenerator):
         system_prompt: Optional[str] = None,
     ) -> GeneratedAnswer:
         api_key = self._get_api_key()
-        model = self._complex_model if (
-            self._cfg.enable_model_routing and _is_complex_query(query)
-        ) else self._default_model
+        model = (
+            self._complex_model
+            if (self._cfg.enable_model_routing and _is_complex_query(query))
+            else self._default_model
+        )
 
         context_block = _build_context_block(context)
         user_message = f"Context:\n{context_block}\n\nQuestion: {query}"
@@ -339,14 +368,17 @@ class AnthropicGenerator(BaseGenerator):
         ):
             response = await client.post(
                 "https://api.anthropic.com/v1/messages",
-                headers=headers, json=payload,
+                headers=headers,
+                json=payload,
             )
             response.raise_for_status()
             data = response.json()
         latency_ms = (time.perf_counter() - start) * 1000
 
         answer_text = "".join(
-            block.get("text", "") for block in data.get("content", []) if block.get("type") == "text"
+            block.get("text", "")
+            for block in data.get("content", [])
+            if block.get("type") == "text"
         )
         usage = data.get("usage", {})
         prompt_tokens = usage.get("input_tokens", 0)
@@ -358,19 +390,26 @@ class AnthropicGenerator(BaseGenerator):
         ) / 1_000_000
 
         self._cost_tracker.record(
-            tenant_id=tenant_id or "default", model=model,
-            prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
+            tenant_id=tenant_id or "default",
+            model=model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
         )
 
         return GeneratedAnswer(
-            answer=answer_text, citations=context, model_used=model,
-            prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
-            estimated_cost_usd=cost_usd, latency_ms=latency_ms,
+            answer=answer_text,
+            citations=context,
+            model_used=model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            estimated_cost_usd=cost_usd,
+            latency_ms=latency_ms,
             tenant_id=tenant_id,
         )
 
 
 # ── Local vLLM (open-source, fully private) ───────────────────────────────────
+
 
 class LocalVLLMGenerator(BaseGenerator):
     """Generic generator for any open-source LLM served via vLLM's OpenAI-compatible API.
@@ -400,11 +439,11 @@ class LocalVLLMGenerator(BaseGenerator):
         api_key: str = "local",
     ) -> None:
         import os
+
         self._cfg = get_config().llm_config
         self._cost_tracker = get_cost_tracker()
         self._base_url = (
-            base_url
-            or os.environ.get("LOCAL_VLLM_GENERATOR_BASE_URL", "http://localhost:8090/v1")
+            base_url or os.environ.get("LOCAL_VLLM_GENERATOR_BASE_URL", "http://localhost:8090/v1")
         ).rstrip("/")
         self._api_key = api_key
 
@@ -434,9 +473,12 @@ class LocalVLLMGenerator(BaseGenerator):
 
         start = time.perf_counter()
         try:
-            async with async_trace_span(
-                "llm_generation", {"model": self._cfg.model, "tenant_id": tenant_id or ""}
-            ), httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client:
+            async with (
+                async_trace_span(
+                    "llm_generation", {"model": self._cfg.model, "tenant_id": tenant_id or ""}
+                ),
+                httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client,
+            ):
                 response = await client.post(
                     f"{self._base_url}/chat/completions",
                     headers={"Authorization": f"Bearer {self._api_key}"},
@@ -460,19 +502,26 @@ class LocalVLLMGenerator(BaseGenerator):
 
         # Local inference: near-zero marginal cost (infra cost only).
         self._cost_tracker.record(
-            tenant_id=tenant_id or "default", model=self._cfg.model,
-            prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
+            tenant_id=tenant_id or "default",
+            model=self._cfg.model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
         )
 
         return GeneratedAnswer(
-            answer=answer_text, citations=context, model_used=self._cfg.model,
-            prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
-            estimated_cost_usd=0.0, latency_ms=latency_ms,
+            answer=answer_text,
+            citations=context,
+            model_used=self._cfg.model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            estimated_cost_usd=0.0,
+            latency_ms=latency_ms,
             tenant_id=tenant_id,
         )
 
 
 # ── Factory ────────────────────────────────────────────────────────────────────
+
 
 def build_generator(provider: Optional[str] = None) -> BaseGenerator:
     """Factory: build a text generator by provider name.
@@ -499,7 +548,9 @@ def build_generator(provider: Optional[str] = None) -> BaseGenerator:
     generator_cls = providers.get(name)
     if generator_cls is None:
         logger.warning(
-            "unknown_llm_provider", provider=name, fallback="openai",
+            "unknown_llm_provider",
+            provider=name,
+            fallback="openai",
             available=sorted(set(providers.keys())),
         )
         generator_cls = OpenAIGenerator

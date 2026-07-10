@@ -9,6 +9,7 @@ Responsibilities:
 
 Uses rule-based extraction for speed (no LLM call), with optional LLM rewrite for complex cases.
 """
+
 from __future__ import annotations
 
 import re
@@ -22,23 +23,24 @@ logger = structlog.get_logger(__name__)
 
 
 class QueryIntent(str, Enum):
-    FACTUAL = "factual"          # "What was revenue in Q3?" — simple lookup
-    NUMERIC = "numeric"          # "Calculate CAGR from 2020 to 2023" — needs PoT
+    FACTUAL = "factual"  # "What was revenue in Q3?" — simple lookup
+    NUMERIC = "numeric"  # "Calculate CAGR from 2020 to 2023" — needs PoT
     COMPARATIVE = "comparative"  # "Compare gross margins across segments" — multi-chunk
-    TEMPORAL = "temporal"        # "How has margin trended over 8 quarters?" — time-series
-    AGENTIC = "agentic"          # "Identify anomalies and flag risks" — multi-step
+    TEMPORAL = "temporal"  # "How has margin trended over 8 quarters?" — time-series
+    AGENTIC = "agentic"  # "Identify anomalies and flag risks" — multi-step
     UNKNOWN = "unknown"
 
 
 class QueryComplexity(str, Enum):
-    SIMPLE = "simple"       # Route to gpt-4o-mini
-    MODERATE = "moderate"   # Route to gpt-4o-mini with larger context
-    COMPLEX = "complex"     # Route to gpt-4o
+    SIMPLE = "simple"  # Route to gpt-4o-mini
+    MODERATE = "moderate"  # Route to gpt-4o-mini with larger context
+    COMPLEX = "complex"  # Route to gpt-4o
 
 
 @dataclass
 class QueryAnalysis:
     """Full analysis result for a single query."""
+
     original_query: str
     rewritten_query: str
     intent: QueryIntent
@@ -55,30 +57,33 @@ class QueryAnalysis:
 
 # ── Compiled patterns ─────────────────────────────────────────────────────────
 
-_STRONG_NUMERIC_RE = re.compile(
-    r"\b(calculat|cagr|compound.annual|growth rate)\b", re.I
-)
+_STRONG_NUMERIC_RE = re.compile(r"\b(calculat|cagr|compound.annual|growth rate)\b", re.I)
 _NUMERIC_RE = re.compile(
     r"\b(calculat|cagr|compound.annual|growth rate|eps|ebitda|margin|"
     r"return|ratio|percent|increase|decrease|compare|versus|yoy|qoq|basis.point|"
-    r"how much|how many|sum|average|mean|median)\b", re.I
+    r"how much|how many|sum|average|mean|median)\b",
+    re.I,
 )
 _COMPARATIVE_RE = re.compile(
     r"\b(compare|versus|vs\.?|relative to|difference|between|across segments|"
-    r"year.over.year|quarter.over.quarter|benchmark|against)\b", re.I
+    r"year.over.year|quarter.over.quarter|benchmark|against)\b",
+    re.I,
 )
 _TEMPORAL_RE = re.compile(
     r"\b(trend|trended|over time|over the.+quarter|historical|past \d+ quarter|"
-    r"trajectory|evolution|since \d{4}|from \d{4} to \d{4})\b", re.I
+    r"trajectory|evolution|since \d{4}|from \d{4} to \d{4})\b",
+    re.I,
 )
 _AGENTIC_RE = re.compile(
     r"\b(anomal|flag|identify.+risk|find all|summarize across|extract all|"
-    r"multi.step|analyze and report|comprehensive|end.to.end)\b", re.I
+    r"multi.step|analyze and report|comprehensive|end.to.end)\b",
+    re.I,
 )
 _INJECTION_RE = re.compile(
     r"(ignore previous|disregard|forget your|jailbreak|act as|you are now|"
     r"new persona|system prompt|bypass|override instructions|pretend you|"
-    r"roleplay as|developer mode|dan mode)", re.I
+    r"roleplay as|developer mode|dan mode)",
+    re.I,
 )
 
 # Financial entity extractors
@@ -87,12 +92,14 @@ _SECTION_RE = re.compile(r"\bSection\s+([\d\.]+[A-Za-z]?)\b", re.I)
 _TICKER_RE = re.compile(r"\b([A-Z]{1,5})\b(?=\s+(?:stock|shares|equity|Inc|Corp|Ltd))")
 _DOC_TYPE_RE = re.compile(
     r"\b(10-K|10-Q|8-K|proxy|DEF\s*14A|earnings\s+release|annual\s+report|"
-    r"quarterly\s+report|investor\s+presentation|credit\s+agreement)\b", re.I
+    r"quarterly\s+report|investor\s+presentation|credit\s+agreement)\b",
+    re.I,
 )
 _DATE_RE = re.compile(r"\b(Q[1-4]\s*\d{4}|FY\s*\d{4}|\d{4})\b")
 _COMPANY_RE = re.compile(
     r"\b(Tesla|Apple|Microsoft|Google|Amazon|Meta|NVIDIA|Goldman|JPMorgan|"
-    r"BlackRock|Berkshire|Apple|Netflix|Salesforce|Alphabet)\b", re.I
+    r"BlackRock|Berkshire|Apple|Netflix|Salesforce|Alphabet)\b",
+    re.I,
 )
 
 
@@ -138,7 +145,11 @@ class QueryAnalyzer:
         # 6. Derived flags
         use_pot = intent == QueryIntent.NUMERIC
         use_agentic = intent == QueryIntent.AGENTIC
-        top_k = 10 if intent in (QueryIntent.COMPARATIVE, QueryIntent.TEMPORAL, QueryIntent.AGENTIC) else 5
+        top_k = (
+            10
+            if intent in (QueryIntent.COMPARATIVE, QueryIntent.TEMPORAL, QueryIntent.AGENTIC)
+            else 5
+        )
         model_override = "gpt-4o" if complexity == QueryComplexity.COMPLEX else None
 
         result = QueryAnalysis(
@@ -236,9 +247,12 @@ class QueryAnalyzer:
         """Return True if query is clearly text-only (skip expensive vision path)."""
         text_only_re = re.compile(
             r"\b(who signed|what date|legal entity|counterparty|governing law|"
-            r"notice period|definition of|defined term|whereas|hereby)\b", re.I
+            r"notice period|definition of|defined term|whereas|hereby)\b",
+            re.I,
         )
         return bool(text_only_re.search(query))
 
-    def batch_analyze(self, queries: List[str], tenant_id: Optional[str] = None) -> List[QueryAnalysis]:
+    def batch_analyze(
+        self, queries: List[str], tenant_id: Optional[str] = None
+    ) -> List[QueryAnalysis]:
         return [self.analyze(q, tenant_id=tenant_id) for q in queries]

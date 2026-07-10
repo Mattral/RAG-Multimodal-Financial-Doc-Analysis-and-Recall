@@ -2,6 +2,7 @@
 
 All implement BaseParser. Switch provider via config without code changes.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -34,7 +35,9 @@ class UnstructuredParser(BaseParser):
         return "unstructured"
 
     async def parse(self, file_path: str, tenant_id: Optional[str] = None) -> List[DocumentElement]:
-        async with async_trace_span("parse_document", {"parser": self.name, "file": Path(file_path).name}):
+        async with async_trace_span(
+            "parse_document", {"parser": self.name, "file": Path(file_path).name}
+        ):
             return await asyncio.to_thread(self._parse_sync, file_path, tenant_id)
 
     def _parse_sync(self, file_path: str, tenant_id: Optional[str]) -> List[DocumentElement]:
@@ -42,7 +45,9 @@ class UnstructuredParser(BaseParser):
             from unstructured.chunking.title import chunk_by_title
             from unstructured.partition.pdf import partition_pdf
         except ImportError:
-            logger.warning("unstructured_not_installed", detail="pip install 'unstructured[all-docs]'")
+            logger.warning(
+                "unstructured_not_installed", detail="pip install 'unstructured[all-docs]'"
+            )
             return self._fallback_parse(file_path, tenant_id)
 
         try:
@@ -73,16 +78,18 @@ class UnstructuredParser(BaseParser):
                     etype = "image"
                 else:
                     etype = "text"
-                elements.append(DocumentElement(
-                    type=etype,
-                    text=text,
-                    source_document=source,
-                    page_number=page,
-                    ingest_timestamp=now,
-                    content_hash=_content_hash(text),
-                    tenant_id=tenant_id,
-                    metadata={"parser": self.name, "raw_type": element_type},
-                ))
+                elements.append(
+                    DocumentElement(
+                        type=etype,
+                        text=text,
+                        source_document=source,
+                        page_number=page,
+                        ingest_timestamp=now,
+                        content_hash=_content_hash(text),
+                        tenant_id=tenant_id,
+                        metadata={"parser": self.name, "raw_type": element_type},
+                    )
+                )
             logger.info("unstructured_parse_complete", file=source, num_chunks=len(elements))
             return elements
         except Exception as exc:
@@ -93,6 +100,7 @@ class UnstructuredParser(BaseParser):
         """Minimal fallback: read raw text with PyPDF2."""
         try:
             import pypdf
+
             source = Path(file_path).name
             now = datetime.now(UTC).isoformat()
             elements = []
@@ -101,18 +109,26 @@ class UnstructuredParser(BaseParser):
                 for page_num, page in enumerate(reader.pages, 1):
                     text = (page.extract_text() or "").strip()
                     if text:
-                        elements.append(DocumentElement(
-                            type="text", text=text, source_document=source,
-                            page_number=page_num, ingest_timestamp=now,
-                            content_hash=_content_hash(text), tenant_id=tenant_id,
-                            metadata={"parser": "pypdf_fallback"},
-                        ))
+                        elements.append(
+                            DocumentElement(
+                                type="text",
+                                text=text,
+                                source_document=source,
+                                page_number=page_num,
+                                ingest_timestamp=now,
+                                content_hash=_content_hash(text),
+                                tenant_id=tenant_id,
+                                metadata={"parser": "pypdf_fallback"},
+                            )
+                        )
             return elements
         except Exception as exc:
             logger.error("fallback_parse_failed", file=file_path, error=str(exc))
             return []
 
-    async def parse_batch(self, file_paths: List[str], tenant_id: Optional[str] = None) -> List[DocumentElement]:
+    async def parse_batch(
+        self, file_paths: List[str], tenant_id: Optional[str] = None
+    ) -> List[DocumentElement]:
         tasks = [self.parse(fp, tenant_id=tenant_id) for fp in file_paths]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         elements: List[DocumentElement] = []
@@ -154,16 +170,24 @@ class DoclingParser(BaseParser):
                 if not text:
                     continue
                 etype = "table" if "table" in type(element).__name__.lower() else "text"
-                elements.append(DocumentElement(
-                    type=etype, text=text, source_document=source,
-                    page_number=getattr(page, "page_no", None),
-                    ingest_timestamp=now, content_hash=_content_hash(text),
-                    tenant_id=tenant_id, metadata={"parser": self.name},
-                ))
+                elements.append(
+                    DocumentElement(
+                        type=etype,
+                        text=text,
+                        source_document=source,
+                        page_number=getattr(page, "page_no", None),
+                        ingest_timestamp=now,
+                        content_hash=_content_hash(text),
+                        tenant_id=tenant_id,
+                        metadata={"parser": self.name},
+                    )
+                )
         logger.info("docling_parse_complete", file=source, num_elements=len(elements))
         return elements
 
-    async def parse_batch(self, file_paths: List[str], tenant_id: Optional[str] = None) -> List[DocumentElement]:
+    async def parse_batch(
+        self, file_paths: List[str], tenant_id: Optional[str] = None
+    ) -> List[DocumentElement]:
         tasks = [self.parse(fp, tenant_id=tenant_id) for fp in file_paths]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         elements: List[DocumentElement] = []

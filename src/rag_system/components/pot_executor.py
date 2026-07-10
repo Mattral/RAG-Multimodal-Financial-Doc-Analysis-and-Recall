@@ -10,6 +10,7 @@ Security model:
   - Hard timeout: 5 seconds via asyncio.wait_for
   - Memory isolation: execution context is a fresh dict each call
 """
+
 from __future__ import annotations
 
 import ast
@@ -27,41 +28,108 @@ logger = structlog.get_logger(__name__)
 
 _ALLOWED_AST_NODES = {
     # Expressions
-    ast.Expression, ast.Expr, ast.BinOp, ast.UnaryOp, ast.BoolOp,
-    ast.Compare, ast.IfExp, ast.Call, ast.Constant,
-    ast.Name, ast.Load, ast.Attribute,
+    ast.Expression,
+    ast.Expr,
+    ast.BinOp,
+    ast.UnaryOp,
+    ast.BoolOp,
+    ast.Compare,
+    ast.IfExp,
+    ast.Call,
+    ast.Constant,
+    ast.Name,
+    ast.Load,
+    ast.Attribute,
     # Arithmetic operators
-    ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv,
-    ast.Mod, ast.Pow, ast.USub, ast.UAdd,
+    ast.Add,
+    ast.Sub,
+    ast.Mult,
+    ast.Div,
+    ast.FloorDiv,
+    ast.Mod,
+    ast.Pow,
+    ast.USub,
+    ast.UAdd,
     # Comparisons
-    ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE,
+    ast.Eq,
+    ast.NotEq,
+    ast.Lt,
+    ast.LtE,
+    ast.Gt,
+    ast.GtE,
     # Control flow (limited)
-    ast.If, ast.Return,
+    ast.If,
+    ast.Return,
     # Assignments
-    ast.Assign, ast.AugAssign, ast.AnnAssign,
+    ast.Assign,
+    ast.AugAssign,
+    ast.AnnAssign,
     # Module
     ast.Module,
     # Collections (literal, no comprehensions)
-    ast.List, ast.Tuple, ast.Dict, ast.Store,
+    ast.List,
+    ast.Tuple,
+    ast.Dict,
+    ast.Store,
     # Function defs (simple single-function scripts only)
-    ast.FunctionDef, ast.arguments, ast.arg,
+    ast.FunctionDef,
+    ast.arguments,
+    ast.arg,
 }
 
-_BLOCKED_NAMES = frozenset({
-    "import", "__import__", "exec", "eval", "compile",
-    "open", "input", "print", "__builtins__", "globals",
-    "locals", "vars", "dir", "getattr", "setattr", "delattr",
-    "hasattr", "object", "type", "super", "classmethod",
-    "staticmethod", "property", "subprocess", "os", "sys",
-    "socket", "urllib", "requests", "httpx",
-})
+_BLOCKED_NAMES = frozenset(
+    {
+        "import",
+        "__import__",
+        "exec",
+        "eval",
+        "compile",
+        "open",
+        "input",
+        "print",
+        "__builtins__",
+        "globals",
+        "locals",
+        "vars",
+        "dir",
+        "getattr",
+        "setattr",
+        "delattr",
+        "hasattr",
+        "object",
+        "type",
+        "super",
+        "classmethod",
+        "staticmethod",
+        "property",
+        "subprocess",
+        "os",
+        "sys",
+        "socket",
+        "urllib",
+        "requests",
+        "httpx",
+    }
+)
 
 _SAFE_BUILTINS: Dict[str, Any] = {
-    "abs": abs, "round": round, "min": min, "max": max,
-    "sum": sum, "len": len, "float": float, "int": int,
-    "str": str, "bool": bool, "list": list, "tuple": tuple,
-    "range": range, "enumerate": enumerate, "zip": zip,
-    "sorted": sorted, "reversed": reversed,
+    "abs": abs,
+    "round": round,
+    "min": min,
+    "max": max,
+    "sum": sum,
+    "len": len,
+    "float": float,
+    "int": int,
+    "str": str,
+    "bool": bool,
+    "list": list,
+    "tuple": tuple,
+    "range": range,
+    "enumerate": enumerate,
+    "zip": zip,
+    "sorted": sorted,
+    "reversed": reversed,
     # Financial helpers
     "pow": pow,
 }
@@ -106,6 +174,7 @@ FINANCIAL_TEMPLATES = {
 @dataclass
 class PoTResult:
     """Result of a Program-of-Thought execution."""
+
     success: bool
     result: Optional[float] = None
     code: str = ""
@@ -210,7 +279,9 @@ class PoTExecutor:
             result_value = variables.get("result")
             if result_value is None:
                 return PoTResult(
-                    success=False, code=code, variables=variables,
+                    success=False,
+                    code=code,
+                    variables=variables,
                     error="Code executed but 'result' variable not set",
                     execution_time_ms=elapsed_ms,
                 )
@@ -222,7 +293,9 @@ class PoTExecutor:
                 execution_time_ms=elapsed_ms,
             )
         except TimeoutError:
-            return PoTResult(success=False, code=code, error=f"Execution timed out after {self._timeout}s")
+            return PoTResult(
+                success=False, code=code, error=f"Execution timed out after {self._timeout}s"
+            )
         except Exception as exc:
             return PoTResult(success=False, code=code, error=f"RuntimeError: {exc}")
 
@@ -259,7 +332,7 @@ class PoTExecutor:
             return PoTResult(
                 success=False,
                 error=f"Unknown template: {template_name}. "
-                      f"Available: {list(FINANCIAL_TEMPLATES.keys())}",
+                f"Available: {list(FINANCIAL_TEMPLATES.keys())}",
             )
         try:
             code = template.format(**kwargs).strip()

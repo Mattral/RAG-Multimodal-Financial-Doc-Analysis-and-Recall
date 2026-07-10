@@ -19,6 +19,7 @@ Config:
     LOCAL_VLLM_BASE_URL=http://localhost:8080/v1
     VISION_CONFIG__MODEL=Qwen/Qwen2-VL-7B-Instruct
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -88,16 +89,18 @@ class LocalVLLMDescriber(BaseVisionDescriber):
                 "model": self._model,
                 "max_tokens": self._max_tokens,
                 "temperature": self._temperature,
-                "messages": [{
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": FINANCIAL_CHART_PROMPT},
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/png;base64,{image_b64}"},
-                        },
-                    ],
-                }],
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": FINANCIAL_CHART_PROMPT},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/png;base64,{image_b64}"},
+                            },
+                        ],
+                    }
+                ],
             }
 
             async with httpx.AsyncClient(timeout=self._timeout) as client:

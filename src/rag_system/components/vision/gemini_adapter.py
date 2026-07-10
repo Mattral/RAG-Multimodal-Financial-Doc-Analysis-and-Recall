@@ -6,6 +6,7 @@ Guideline §7: 'Google Gemini Flash and Pro — excellent free or cheap alternat
 
 Usage: set VISION_CONFIG__PROVIDER=gemini and GOOGLE_API_KEY in .env
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -26,9 +27,9 @@ logger = structlog.get_logger(__name__)
 
 # Gemini pricing (per 1M tokens, mid-2025 approximate)
 _GEMINI_PRICING = {
-    "gemini-2.5-flash":      {"prompt": 0.15, "completion": 0.60},
-    "gemini-2.5-pro":        {"prompt": 1.25, "completion": 5.00},
-    "gemini-3.5-flash":      {"prompt": 0.15, "completion": 0.60},
+    "gemini-2.5-flash": {"prompt": 0.15, "completion": 0.60},
+    "gemini-2.5-pro": {"prompt": 1.25, "completion": 5.00},
+    "gemini-3.5-flash": {"prompt": 0.15, "completion": 0.60},
     "gemini-3.1-flash-lite": {"prompt": 0.05, "completion": 0.20},
 }
 
@@ -60,6 +61,7 @@ class GeminiVisionDescriber(BaseVisionDescriber):
 
     def _get_api_key(self) -> str:
         import os
+
         key = os.environ.get("GOOGLE_API_KEY", "")
         if not key:
             raise ValueError("GOOGLE_API_KEY not set")
@@ -81,12 +83,14 @@ class GeminiVisionDescriber(BaseVisionDescriber):
                 f"{self._model}:generateContent?key={api_key}"
             )
             payload = {
-                "contents": [{
-                    "parts": [
-                        {"text": FINANCIAL_CHART_PROMPT},
-                        {"inline_data": {"mime_type": "image/png", "data": image_b64}},
-                    ]
-                }],
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": FINANCIAL_CHART_PROMPT},
+                            {"inline_data": {"mime_type": "image/png", "data": image_b64}},
+                        ]
+                    }
+                ],
                 "generationConfig": {
                     "temperature": self._temperature,
                     "maxOutputTokens": self._max_tokens,
@@ -105,7 +109,9 @@ class GeminiVisionDescriber(BaseVisionDescriber):
             prompt_tokens = usage.get("promptTokenCount", 500)
             completion_tokens = usage.get("candidatesTokenCount", 200)
             pricing = _GEMINI_PRICING.get(self._model, {"prompt": 0.10, "completion": 0.40})
-            cost_usd = (prompt_tokens * pricing["prompt"] + completion_tokens * pricing["completion"]) / 1_000_000
+            cost_usd = (
+                prompt_tokens * pricing["prompt"] + completion_tokens * pricing["completion"]
+            ) / 1_000_000
 
             self._cost_tracker.record(
                 tenant_id=tenant_id or "default",
