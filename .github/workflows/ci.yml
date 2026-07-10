@@ -56,9 +56,9 @@ jobs:
 
       - name: Install test deps
         run: |
-          pip install pytest pytest-asyncio pytest-cov pytest-mock \
+          pip install pytest pytest-asyncio pytest-cov pytest-mock pytest-timeout \
             pydantic pydantic-settings structlog httpx numpy \
-            hypothesis pypdf
+            hypothesis pypdf fastapi python-multipart
 
       - name: Run unit tests
         run: |
@@ -97,6 +97,30 @@ jobs:
           format: table
           exit-code: "0"   # warn only — set to 1 to block on CRITICAL
           severity: CRITICAL,HIGH
+
+      - name: Grype vulnerability scan
+        uses: anchore/scan-action@v4
+        id: grype
+        with:
+          path: "."
+          fail-build: false   # warn only — flip to true once findings are triaged
+          severity-cutoff: critical
+
+      - name: Upload Grype results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        continue-on-error: true
+        with:
+          sarif_file: ${{ steps.grype.outputs.sarif }}
+
+      - name: Semgrep static analysis
+        uses: semgrep/semgrep-action@v1
+        continue-on-error: true   # warn only — flip off once findings are triaged
+        with:
+          config: >-
+            p/python
+            p/security-audit
+            p/secrets
 
       - name: pip-audit
         run: |
@@ -183,7 +207,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: azure/setup-helm@v4
+
+      - name: Install kubeconform
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz \
+            | tar xz -C /usr/local/bin kubeconform
+
       - name: Helm lint
         run: helm lint helm/rag-financial/
-      - name: Helm template dry-run
-        run: helm template rag-financial helm/rag-financial/ --debug > /dev/null
+
+      - name: Helm template + kubeconform validate
+        run: |
+          helm template rag-financial helm/rag-financial/ --debug > /tmp/helm-rendered.yaml
+          kubeconform -strict -summary -ignore-missing-schemas /tmp/helm-rendered.yaml
+
+      - name: kubeconform validate k8s/base manifests
+        run: |
+          kubeconform -strict -summary -ignore-missing-schemas -kustomize k8s/base/
