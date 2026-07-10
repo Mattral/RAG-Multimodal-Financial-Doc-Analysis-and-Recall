@@ -15,16 +15,19 @@
 
 <div align="center">
 
-https://github.com/user-attachments/assets/4fb1cac4-69f7-4faf-b7f0-90cc1bbcfe88
+| |
+|:--:|
+| <video src="https://github.com/user-attachments/assets/4fb1cac4-69f7-4faf-b7f0-90cc1bbcfe88" width="720" controls loop muted playsinline></video> |
+
 
 **14-second screen recording** of the Gradio demo.  
 Upload a financial PDF → multimodal processing → ask a revenue question → explore grounded answer, sources with RRF scores, full pipeline transparency, numeric guardrails, and performance metrics.
 
 </div>
 
-**Scope note:** The Hugging Face Space is a **lightweight, self-contained Gradio demo** that showcases the *core* multimodal RAG capabilities (PDF/table ingestion, hybrid retrieval, numeric grounding guardrails, and full pipeline observability). 
+**Scope note:** The Hugging Face Space is a **lightweight, self-contained Gradio demo** that showcases the *core* multimodal RAG capabilities (PDF/table ingestion, hybrid retrieval, numeric grounding guardrails, and full pipeline observability). The demo intentionally focuses on the end-user experience and transparency so anyone can try the core value proposition instantly.
 
-The repository you are currently viewing contains the **complete production-grade enterprise system**, including multi-tenancy, OpenTelemetry + Prometheus + SLO alerting, Kubernetes/Helm/Terraform deployment, Program-of-Thought calculator, ColPali visual retrieval, LangGraph agentic workflows, semantic caching, knowledge graph, 520+ tests, local vLLM fallback chains, and full CI/CD + security hardening. The demo intentionally focuses on the end-user experience and transparency so anyone can try the core value proposition instantly.
+The repository you are currently viewing contains the **complete production-grade enterprise system**, including multi-tenancy, OpenTelemetry + Prometheus + SLO alerting, Kubernetes/Helm/Terraform deployment, Program-of-Thought calculator, ColPali visual retrieval, LangGraph agentic workflows, semantic caching, knowledge graph, 520+ tests, local vLLM fallback chains, and full CI/CD + security hardening. 
 
 [→ Try the live Space](https://huggingface.co/spaces/Mattral/RAG-Financial-Multimodal) (Gemini free tier supported)
 
