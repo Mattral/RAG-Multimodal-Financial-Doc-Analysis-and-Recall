@@ -3,6 +3,7 @@
 Strategy: Full Jitter (AWS-recommended) — sleep = random(0, min(cap, base * 2^attempt))
 Reference: https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -52,14 +53,18 @@ class RetryPolicy:
         self.cap_delay = cap_delay
         self.backoff_factor = backoff_factor
         self.retryable_exceptions = retryable_exceptions or (
-            RetryableError, APIRateLimitError, APITimeoutError,
-            asyncio.TimeoutError, ConnectionError, OSError,
+            RetryableError,
+            APIRateLimitError,
+            APITimeoutError,
+            asyncio.TimeoutError,
+            ConnectionError,
+            OSError,
         )
         self.on_retry = on_retry
 
     def get_delay(self, attempt: int) -> float:
         """Full jitter: sleep = random(0, min(cap, base * factor^attempt))."""
-        ceiling = min(self.cap_delay, self.base_delay * (self.backoff_factor ** attempt))
+        ceiling = min(self.cap_delay, self.base_delay * (self.backoff_factor**attempt))
         return random.uniform(0, ceiling)
 
     async def execute(
@@ -164,7 +169,9 @@ def with_retry(
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> T:
             return await policy.execute(func, *args, **kwargs)
+
         return wrapper
+
     return decorator
 
 

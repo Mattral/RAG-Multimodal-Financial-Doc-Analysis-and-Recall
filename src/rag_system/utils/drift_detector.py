@@ -8,6 +8,7 @@ Detects:
 2. Query pattern drift (new intents, new entity types)
 3. Corpus freshness drift (stale documents, new doc types appearing)
 """
+
 from __future__ import annotations
 
 import json
@@ -59,6 +60,7 @@ class EmbeddingDriftDetector:
     @staticmethod
     def _cosine_distance(a: List[float], b: List[float]) -> float:
         import math
+
         dot = sum(x * y for x, y in zip(a, b, strict=True))
         mag_a = math.sqrt(sum(x**2 for x in a))
         mag_b = math.sqrt(sum(x**2 for x in b))
@@ -176,10 +178,9 @@ class QueryPatternDriftDetector:
 
         # Jensen-Shannon divergence proxy (simplified)
         all_intents = set(historical) | set(recent_dist)
-        drift_score = sum(
-            abs(recent_dist.get(i, 0) - historical.get(i, 0))
-            for i in all_intents
-        ) / 2
+        drift_score = (
+            sum(abs(recent_dist.get(i, 0) - historical.get(i, 0)) for i in all_intents) / 2
+        )
 
         drift_detected = drift_score > self._threshold
         if drift_detected:

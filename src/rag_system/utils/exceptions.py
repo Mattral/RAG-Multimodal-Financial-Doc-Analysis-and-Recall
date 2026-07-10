@@ -6,6 +6,7 @@ All exceptions carry:
   - optional HTTP status code (for FastAPI exception handlers)
   - tenant_id context where applicable
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
@@ -47,6 +48,7 @@ class RAGError(Exception):
 
 # ── Ingestion ─────────────────────────────────────────────────────────────────
 
+
 class PDFParsingError(RAGError):
     http_status = 422
     default_code = "PDF_PARSING_ERROR"
@@ -84,6 +86,7 @@ class DocumentNotFoundError(RAGError):
 
 # ── Storage ───────────────────────────────────────────────────────────────────
 
+
 class VectorStorageError(RAGError):
     http_status = 503
     default_code = "VECTOR_STORAGE_ERROR"
@@ -102,6 +105,7 @@ class EmbeddingError(RAGError):
 
 # ── Retrieval / Generation ────────────────────────────────────────────────────
 
+
 class RetrievalError(RAGError):
     http_status = 503
     default_code = "RETRIEVAL_ERROR"
@@ -114,11 +118,13 @@ class GenerationError(RAGError):
 
 class NoContextFoundError(RAGError):
     """Raised when no relevant context is retrieved for a query."""
+
     http_status = 404
     default_code = "NO_CONTEXT_FOUND"
 
 
 # ── API / Network ─────────────────────────────────────────────────────────────
+
 
 class APIRateLimitError(RAGError):
     http_status = 429
@@ -160,6 +166,7 @@ class APITimeoutError(RAGError):
 
 # ── Auth / Tenancy ────────────────────────────────────────────────────────────
 
+
 class AuthenticationError(RAGError):
     http_status = 401
     default_code = "AUTHENTICATION_ERROR"
@@ -187,6 +194,7 @@ class TenantNotFoundError(RAGError):
 
 # ── Config / Guardrails ───────────────────────────────────────────────────────
 
+
 class ConfigurationError(RAGError):
     http_status = 500
     default_code = "CONFIGURATION_ERROR"
@@ -210,6 +218,7 @@ class GuardrailViolationError(RAGError):
 
 # ── Retry ─────────────────────────────────────────────────────────────────────
 
+
 class RetryableError(RAGError):
     http_status = 503
     default_code = "RETRYABLE_ERROR"
@@ -232,6 +241,7 @@ class MaxRetriesExceededError(RetryableError):
 
 # ── Cache ─────────────────────────────────────────────────────────────────────
 
+
 class CacheError(RAGError):
     http_status = 503
     default_code = "CACHE_ERROR"
@@ -244,6 +254,7 @@ class CacheError(RAGError):
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────
+
 
 def is_retryable(exc: Exception) -> bool:
     """Return True if the exception is safe to retry."""

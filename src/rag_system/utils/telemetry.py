@@ -20,6 +20,7 @@ try:
         Histogram,
         start_http_server,
     )
+
     PROMETHEUS_AVAILABLE = True
 except ImportError:
     PROMETHEUS_AVAILABLE = False
@@ -32,6 +33,7 @@ try:
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
     from opentelemetry.semconv.resource import ResourceAttributes
+
     OTEL_AVAILABLE = True
 except ImportError:
     OTEL_AVAILABLE = False
@@ -196,6 +198,7 @@ def get_tracer() -> Optional[Any]:
 # Context managers for span-level instrumentation
 # ---------------------------------------------------------------------------
 
+
 @contextmanager
 def trace_span(
     name: str,
@@ -234,6 +237,7 @@ async def async_trace_span(
 # ---------------------------------------------------------------------------
 # Metric helper functions
 # ---------------------------------------------------------------------------
+
 
 def record_ingest(
     tenant_id: str,
@@ -278,7 +282,9 @@ def record_query(
     if total_latency_s:
         QUERY_LATENCY.labels(tenant_id=tenant_id, query_mode=query_mode).observe(total_latency_s)
     if retrieval_latency_s:
-        RETRIEVAL_LATENCY.labels(tenant_id=tenant_id, strategy=retrieval_strategy).observe(retrieval_latency_s)
+        RETRIEVAL_LATENCY.labels(tenant_id=tenant_id, strategy=retrieval_strategy).observe(
+            retrieval_latency_s
+        )
     if generation_latency_s:
         GENERATION_LATENCY.labels(tenant_id=tenant_id, model=model).observe(generation_latency_s)
     if cost_usd:
@@ -286,7 +292,9 @@ def record_query(
     if prompt_tokens:
         TOKENS_USED.labels(tenant_id=tenant_id, model=model, token_type="prompt").inc(prompt_tokens)
     if completion_tokens:
-        TOKENS_USED.labels(tenant_id=tenant_id, model=model, token_type="completion").inc(completion_tokens)
+        TOKENS_USED.labels(tenant_id=tenant_id, model=model, token_type="completion").inc(
+            completion_tokens
+        )
     if num_chunks:
         RETRIEVAL_CHUNKS_RETURNED.labels(tenant_id=tenant_id).observe(num_chunks)
     if citation_coverage:

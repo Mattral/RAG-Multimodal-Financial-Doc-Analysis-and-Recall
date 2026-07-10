@@ -5,6 +5,7 @@ Processors chain:
   → CallsiteParameter → MemoryMetricsProcessor → JSONRenderer (prod)
   | ConsoleRenderer (dev)
 """
+
 from __future__ import annotations
 
 import logging
@@ -17,12 +18,14 @@ from structlog.types import EventDict, WrappedLogger
 
 # ── Custom processors ────────────────────────────────────────────────────────
 
+
 class OTelContextProcessor:
     """Inject OpenTelemetry trace_id/span_id from active span into log record."""
 
     def __call__(self, logger: WrappedLogger, method: str, event_dict: EventDict) -> EventDict:
         try:
             from opentelemetry import trace
+
             span = trace.get_current_span()
             ctx = span.get_span_context()
             if ctx and ctx.is_valid:
@@ -44,6 +47,7 @@ class MemoryMetricsProcessor:
             return event_dict
         try:
             import psutil
+
             proc = psutil.Process(os.getpid())
             event_dict["memory_mb"] = round(proc.memory_info().rss / 1024 / 1024, 1)
         except Exception:
@@ -67,6 +71,7 @@ class ServiceContextProcessor:
 
 
 # ── Setup ────────────────────────────────────────────────────────────────────
+
 
 def setup_logging(
     level: str = "INFO",
@@ -108,7 +113,8 @@ def setup_logging(
         renderer = structlog.dev.ConsoleRenderer(colors=True)
 
     structlog.configure(
-        processors=shared_processors + [
+        processors=shared_processors
+        + [
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         logger_factory=structlog.stdlib.LoggerFactory(),
@@ -138,8 +144,16 @@ def setup_logging(
     logging.basicConfig(level=log_level, handlers=handlers, force=True)
 
     # Silence noisy third-party loggers
-    for noisy in ("unstructured", "httpx", "openai", "httpcore", "urllib3",
-                  "multipart", "PIL", "pdfminer"):
+    for noisy in (
+        "unstructured",
+        "httpx",
+        "openai",
+        "httpcore",
+        "urllib3",
+        "multipart",
+        "PIL",
+        "pdfminer",
+    ):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
 

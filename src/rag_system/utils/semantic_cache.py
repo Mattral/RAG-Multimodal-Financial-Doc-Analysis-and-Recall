@@ -18,6 +18,7 @@ for (hundreds to low thousands of distinct cached queries per tenant); for
 very large caches, swap in a proper ANN index (e.g. a small DeepLake/FAISS
 side-index) behind the same two methods (`get`, `set`).
 """
+
 from __future__ import annotations
 
 import json
@@ -45,6 +46,7 @@ def _cosine_similarity(a: List[float], b: List[float]) -> float:
 @dataclass
 class SemanticCacheEntry:
     """A single cached (query, answer) pair with its embedding."""
+
     query_text: str
     embedding: List[float]
     answer_payload: Dict[str, Any]
@@ -55,6 +57,7 @@ class SemanticCacheEntry:
 @dataclass
 class SemanticCacheResult:
     """Result of a semantic cache lookup."""
+
     hit: bool
     answer_payload: Optional[Dict[str, Any]] = None
     matched_query: Optional[str] = None
@@ -96,6 +99,7 @@ class SemanticQueryCache:
         if self._client is None:
             try:
                 import redis.asyncio as aioredis
+
                 self._client = aioredis.from_url(self._url, decode_responses=True)
             except Exception as exc:
                 logger.warning(
@@ -153,15 +157,17 @@ class SemanticQueryCache:
     ) -> None:
         """Store a new query→answer pair in the cache."""
         entries = await self._load_entries(tenant_id)
-        entries.append(SemanticCacheEntry(
-            query_text=query_text,
-            embedding=query_embedding,
-            answer_payload=answer_payload,
-            cached_at=time.time(),
-        ))
+        entries.append(
+            SemanticCacheEntry(
+                query_text=query_text,
+                embedding=query_embedding,
+                answer_payload=answer_payload,
+                cached_at=time.time(),
+            )
+        )
         # Evict oldest entries beyond the per-tenant cap
         if len(entries) > self._max_entries:
-            entries = sorted(entries, key=lambda e: e.cached_at)[-self._max_entries:]
+            entries = sorted(entries, key=lambda e: e.cached_at)[-self._max_entries :]
         await self._persist_entries(tenant_id, entries)
 
     async def invalidate_tenant(self, tenant_id: str) -> None:
@@ -215,16 +221,18 @@ class SemanticQueryCache:
         client = self._get_client()
         if client:
             try:
-                payload = json.dumps([
-                    {
-                        "query_text": e.query_text,
-                        "embedding": e.embedding,
-                        "answer_payload": e.answer_payload,
-                        "cached_at": e.cached_at,
-                        "hit_count": e.hit_count,
-                    }
-                    for e in entries
-                ])
+                payload = json.dumps(
+                    [
+                        {
+                            "query_text": e.query_text,
+                            "embedding": e.embedding,
+                            "answer_payload": e.answer_payload,
+                            "cached_at": e.cached_at,
+                            "hit_count": e.hit_count,
+                        }
+                        for e in entries
+                    ]
+                )
                 await client.setex(self._redis_key(tenant_id), self._ttl, payload)
                 return
             except Exception as exc:
@@ -237,6 +245,7 @@ def build_semantic_cache(config: Optional[Any] = None) -> Optional[SemanticQuery
     """Factory: build a SemanticQueryCache from CacheConfig, or None if disabled."""
     if config is None:
         from src.rag_system.config import get_config
+
         config = get_config().cache_config
 
     if not config.enabled or not config.semantic_cache_enabled:

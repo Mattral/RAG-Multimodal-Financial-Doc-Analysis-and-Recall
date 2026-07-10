@@ -34,8 +34,7 @@ class CostRecord:
     def cost_usd(self) -> float:
         pricing = _PRICING.get(self.model, {"prompt": 0.0, "completion": 0.0})
         return (
-            self.prompt_tokens * pricing["prompt"]
-            + self.completion_tokens * pricing["completion"]
+            self.prompt_tokens * pricing["prompt"] + self.completion_tokens * pricing["completion"]
         ) / 1_000_000
 
 
@@ -95,6 +94,7 @@ class CostTracker:
 
         try:
             from src.rag_system.utils.telemetry import record_tenant_quota
+
             record_tenant_quota(tenant_id, tokens_used, monthly_token_limit)
         except ImportError:
             pass  # telemetry module optional in minimal/test environments

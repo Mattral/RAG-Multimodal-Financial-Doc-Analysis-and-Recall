@@ -4,6 +4,7 @@ Two modes:
   - In-process (asyncio.Lock): suitable for single-process deployments
   - Redis (atomic Lua): suitable for multi-process / K8s deployments
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -102,7 +103,7 @@ class AsyncRateLimiter:
                 f"Per-tenant rate limit exceeded for tenant={tenant_id}",
                 retry_after=int(1.0 / self._rps),
                 api_name="rag-query",
-        )
+            )
 
     def stats(self, tenant_id: str = "default") -> dict:
         bucket = self._tenant_buckets.get(tenant_id)
@@ -165,6 +166,7 @@ class RedisRateLimiter:
         if self._client is None:
             try:
                 import redis.asyncio as aioredis
+
                 self._client = aioredis.from_url(self._url)
             except Exception as exc:
                 logger.warning("redis_rate_limiter_unavailable", error=str(exc))
@@ -177,8 +179,12 @@ class RedisRateLimiter:
         try:
             now_ms = int(time.time() * 1000)
             result = await client.eval(
-                _SLIDING_WINDOW_LUA, 1, f"rl:{key}",
-                now_ms, self._window * 1000, self._max_requests,
+                _SLIDING_WINDOW_LUA,
+                1,
+                f"rl:{key}",
+                now_ms,
+                self._window * 1000,
+                self._max_requests,
             )
             return bool(result)
         except Exception as exc:
