@@ -58,7 +58,7 @@ jobs:
         run: |
           pip install pytest pytest-asyncio pytest-cov pytest-mock pytest-timeout \
             pydantic pydantic-settings structlog httpx numpy \
-            hypothesis pypdf fastapi python-multipart
+            hypothesis pypdf fastapi python-multipart qdrant-client
 
       - name: Run unit tests
         run: |
@@ -213,6 +213,8 @@ jobs:
           curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz \
             | tar xz -C /usr/local/bin kubeconform
 
+      - uses: azure/setup-kubectl@v4
+
       - name: Helm lint
         run: helm lint helm/rag-financial/
 
@@ -223,4 +225,5 @@ jobs:
 
       - name: kubeconform validate k8s/base manifests
         run: |
-          kubeconform -strict -summary -ignore-missing-schemas -kustomize k8s/base/
+          kubectl kustomize k8s/base/ > /tmp/k8s-base-rendered.yaml
+          kubeconform -strict -summary -ignore-missing-schemas /tmp/k8s-base-rendered.yaml
