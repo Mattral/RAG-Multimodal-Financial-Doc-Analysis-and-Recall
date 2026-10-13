@@ -133,3 +133,6 @@ tmp/
 # ── Node (frontend tooling) ───────────────────────────────────────────────────
 node_modules/
 package-lock.json
+
+# ── Golden-dataset source cache (scripts/verify_golden_dataset.py) ───────────
+.cache/

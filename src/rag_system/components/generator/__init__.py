@@ -206,17 +206,8 @@ class GeminiGenerator(BaseGenerator):
         return f"gemini/{self._default_model}"
 
     def _get_api_key(self) -> str:
-        import os
-
-        key = os.environ.get("GOOGLE_API_KEY", "")
-        if not key:
-            from src.rag_system.utils.exceptions import ConfigurationError
-
-            raise ConfigurationError(
-                "GOOGLE_API_KEY not set — required for LLM_CONFIG__PROVIDER=gemini",
-                config_key="GOOGLE_API_KEY",
-            )
-        return key
+        # Reads GOOGLE_API_KEY from .env (via Config) or the process environment.
+        return get_config().get_google_key()
 
     async def generate(
         self,
@@ -238,10 +229,8 @@ class GeminiGenerator(BaseGenerator):
             f"Context:\n{context_block}\n\nQuestion: {query}"
         )
 
-        url = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{model}:generateContent?key={api_key}"
-        )
+        # Key goes in a header, not the query string, so it never lands in URL logs.
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
@@ -255,12 +244,15 @@ class GeminiGenerator(BaseGenerator):
             async_trace_span("llm_generation", {"model": model, "tenant_id": tenant_id or ""}),
             httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client,
         ):
-            response = await client.post(url, json=payload)
+            response = await client.post(url, json=payload, headers={"x-goog-api-key": api_key})
             response.raise_for_status()
             data = response.json()
         latency_ms = (time.perf_counter() - start) * 1000
 
-        answer_text = data["candidates"][0]["content"]["parts"][0]["text"]
+        # 2.5-series models may return several parts (or none, if the token budget
+        # was spent on thinking); join whatever text parts came back.
+        parts = data["candidates"][0].get("content", {}).get("parts", [])
+        answer_text = "".join(p.get("text", "") for p in parts)
         usage = data.get("usageMetadata", {})
         prompt_tokens = usage.get("promptTokenCount", 0)
         completion_tokens = usage.get("candidatesTokenCount", 0)

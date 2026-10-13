@@ -21,7 +21,11 @@ from src.rag_system.components.evaluator import (
     EvalReport,
     EvalResult,
     EvalSample,
+    GoldenDatasetRunner,
     RagasEvaluator,
+    extract_numbers,
+    numeric_recall,
+    source_hit,
 )
 
 
@@ -342,3 +346,80 @@ class TestLLMNumericJudgeFailureModes:
         score = await ev._llm_numeric_judge("q", "a", ["context"])
         assert score == 0.5
         reset_config()
+
+
+# ── Deterministic checks (expected-value recall, source hit) ─────────────────────
+
+
+class TestExtractNumbers:
+    def test_scales_unit_words(self):
+        assert extract_numbers("$23.35 billion") == [(23.35e9, False)]
+        assert extract_numbers("$26,077 million") == [(26077e6, False)]
+
+    def test_percent_forms(self):
+        assert extract_numbers("up 9% and 17.9 percent") == [(9.0, True), (17.9, True)]
+
+    def test_ignores_digits_inside_identifiers(self):
+        assert extract_numbers("Q3 results in the 10-K") == []
+
+
+class TestNumericRecall:
+    def test_matches_across_units(self):
+        answer = "Tesla held $26,077 million, up $3.0B from the prior quarter."
+        assert numeric_recall(answer, ["26.1 billion", "3.0 billion"]) == 1.0
+
+    def test_partial_recall(self):
+        assert numeric_recall("Margin was 17.9%.", ["17.9%", "25.1%"]) == 0.5
+
+    def test_percent_does_not_match_plain_number(self):
+        assert numeric_recall("It grew 12 units.", ["12%"]) == 0.0
+
+    def test_unitless_expected_matches_scaled_answer(self):
+        assert numeric_recall("Net income was $13,151 million.", ["13,151"]) == 1.0
+
+    def test_none_when_nothing_to_check(self):
+        assert numeric_recall("anything", []) is None
+
+
+class TestSourceHit:
+    def _chunk(self, doc):
+        return RetrievedChunk(text="t", score=0.5, source_document=doc)
+
+    def test_hit_ignores_case_extension_and_directory(self):
+        cites = [self._chunk("uploads/Tesla_Q3_2023_Update.PDF")]
+        assert source_hit(cites, ["tesla_q3_2023_update.pdf"]) is True
+
+    def test_miss(self):
+        assert source_hit([self._chunk("apple_10k_fy2023.pdf")], ["msft_10k_fy2023.pdf"]) is False
+
+    def test_none_without_expected_documents(self):
+        assert source_hit([self._chunk("a.pdf")], []) is None
+
+
+class TestGoldenDatasetRunnerDeterministicMetrics:
+    @pytest.mark.asyncio
+    async def test_report_includes_recall_and_source_hit(self, tmp_path, sample_answer):
+        dataset = tmp_path / "golden.jsonl"
+        dataset.write_text(
+            '{"question": "Q3 revenue?", "ground_truth": "$23.35 billion, up 9%", '
+            '"source_documents": ["tesla.pdf"], "expected_numeric_values": ["23.35 billion", "9%"]}\n',
+            encoding="utf-8",
+        )
+        pipeline = MagicMock()
+        pipeline.query = AsyncMock(return_value={"answer_obj": sample_answer})
+        evaluator = MagicMock()
+        evaluator.evaluate = AsyncMock(
+            return_value={"faithfulness": 0.9, "answer_relevancy": 0.9, "numeric_accuracy": 0.9}
+        )
+        runner = GoldenDatasetRunner(
+            pipeline=pipeline,
+            evaluator=evaluator,
+            golden_dataset_path=str(dataset),
+            history_path=str(tmp_path / "history.json"),
+        )
+        report = await runner.run()
+        assert report.num_samples == 1
+        assert report.results[0].numeric_recall == 0.5  # answer states 23.35B but not 9%
+        assert report.results[0].source_hit is True
+        assert report.avg_numeric_recall == 0.5
+        assert report.source_hit_rate == 1.0

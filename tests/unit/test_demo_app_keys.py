@@ -34,7 +34,7 @@ _DEMO_APP_PATH = Path(__file__).resolve().parents[2] / "demo" / "app.py"
 @pytest.fixture(scope="module")
 def demo_app_source() -> str:
     assert _DEMO_APP_PATH.exists(), f"demo/app.py not found at {_DEMO_APP_PATH}"
-    return _DEMO_APP_PATH.read_text()
+    return _DEMO_APP_PATH.read_text(encoding="utf-8")
 
 
 @pytest.fixture(scope="module")

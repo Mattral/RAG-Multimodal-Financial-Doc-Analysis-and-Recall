@@ -3,6 +3,34 @@
 All notable changes to RAG Financial Multimodal are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Evaluation
+- Golden dataset expanded from 22 to 119 QA pairs over 16 public filings (10 companies;
+  factual, calculation, comparative, table and chart questions), with `provenance.json`
+  recording the source passage behind every figure and an arithmetic check for each derived number
+- Corrected 9 of the original 22 samples that had wrong figures or claims (see
+  `evals/golden_datasets/README.md`)
+- `scripts/verify_golden_dataset.py` checks every evidence string against the primary documents,
+  and `tests/unit/test_golden_dataset.py` checks schema, consistency and calculations offline
+- Deterministic eval metrics that need no LLM: expected-value recall and source hit rate
+- `evals/retrieval_benchmark.py` (offline BM25 / dense / hybrid benchmark on the real filings)
+  and `evals/answer_eval.py` (retrieval + generation, rate-limited and resumable)
+- BENCHMARK_RESULTS.md and README rewritten around measured numbers. Earlier quality,
+  retrieval, latency and cost figures were withdrawn as unreproducible
+
+### Fixed
+- `evals/run_evals.py` and `rag-financial evaluate` treated the eval report as a dict and raised
+  `TypeError`
+- `LLM_CONFIG__PROVIDER=gemini` (and `local_vllm`) were rejected by config validation even
+  though `build_generator` supports them
+- `GOOGLE_API_KEY` in `.env` was ignored. Gemini text and vision now read it through config and
+  send it in the `x-goog-api-key` header instead of the URL
+- `GeminiGenerator` no longer fails on responses with multiple or missing text parts
+- `scripts/seed_golden_dataset.py` no longer overwrites the main golden dataset by default
+- Restored `tests/unit/test_cli.py`, which a lint commit had truncated into a syntax error;
+  tests no longer read a developer's local `.env`
+
 ## [2.0.0] - 2024-07
 
 ### Added — Multi-Provider Architecture

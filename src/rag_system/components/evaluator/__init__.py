@@ -3,6 +3,9 @@
 Integrates:
 - RAGAS: faithfulness, answer_relevancy, context_precision, context_recall
 - LLM-as-Judge: numeric accuracy, citation faithfulness, hallucination score
+- Deterministic checks: expected-value recall and expected-source hit rate
+  (no LLM calls; uses the golden dataset's expected_numeric_values and
+  source_documents fields)
 - Golden dataset runner
 - CI-ready exit codes (fails if quality regression detected)
 """
@@ -12,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -48,6 +52,8 @@ class EvalResult:
     context_recall: float = 0.0
     numeric_accuracy: float = 0.0
     citation_faithfulness: float = 0.0
+    numeric_recall: Optional[float] = None  # None when the sample has no expected values
+    source_hit: Optional[bool] = None  # None when the sample lists no source documents
     latency_ms: float = 0.0
     cost_usd: float = 0.0
     passed: bool = False
@@ -68,6 +74,88 @@ class EvalReport:
     total_cost_usd: float
     results: List[EvalResult] = field(default_factory=list)
     regression_detected: bool = False
+    avg_numeric_recall: float = 0.0
+    source_hit_rate: float = 0.0
+
+
+# ---------------------------------------------------------------------------
+# Deterministic (LLM-free) checks against golden-dataset fields
+# ---------------------------------------------------------------------------
+
+_NUMBER_RE = re.compile(
+    r"(?<![\w.])[-$]*(\d[\d,]*(?:\.\d+)?)(?!\d|\.\d|-[A-Za-z])\s*"
+    r"(%|percent\b|trillion\b|billion\b|million\b|thousand\b|[TBMK]\b)?",
+    re.IGNORECASE,
+)
+_SCALE = {"trillion": 1e12, "t": 1e12, "billion": 1e9, "b": 1e9, "million": 1e6, "m": 1e6,
+          "thousand": 1e3, "k": 1e3}
+
+
+def _parse_numbers(text: str) -> List[tuple]:
+    """Return ``(value, kind)`` with kind "pct", "scaled" (had a unit word) or "plain"."""
+    found = []
+    for match in _NUMBER_RE.finditer(text):
+        value = float(match.group(1).replace(",", ""))
+        unit = (match.group(2) or "").lower()
+        if unit in ("%", "percent"):
+            found.append((value, "pct"))
+        elif unit:
+            found.append((value * _SCALE[unit], "scaled"))
+        else:
+            found.append((value, "plain"))
+    return found
+
+
+def extract_numbers(text: str) -> List[tuple]:
+    """Extract ``(value, is_percent)`` pairs, scaling unit words to absolute values.
+
+    "$23.35 billion" -> (23.35e9, False); "17.9%" -> (17.9, True); "1,808,581" -> (1808581, False).
+    """
+    return [(value, kind == "pct") for value, kind in _parse_numbers(text)]
+
+
+def numeric_recall(answer: str, expected_values: List[str], rel_tol: float = 0.01) -> Optional[float]:
+    """Fraction of expected values that appear in the answer (within ``rel_tol``).
+
+    Units are normalised, so "$26,077 million" matches an expected "26.1 billion".
+    An expected value without a unit (e.g. "13,151" read from a table in $ millions)
+    also matches the same figure stated with thousand/million/billion scaling.
+    Returns None when there is nothing to check.
+    """
+    expected = [nums[0] for nums in map(_parse_numbers, expected_values) if nums]
+    if not expected:
+        return None
+    in_answer = _parse_numbers(answer)
+
+    def close(a: float, b: float) -> bool:
+        return abs(a - b) <= rel_tol * max(abs(b), 1e-9)
+
+    hits = 0
+    for value, kind in expected:
+        for got, got_kind in in_answer:
+            if (kind == "pct") != (got_kind == "pct"):
+                continue
+            scales = (1.0, 1e3, 1e6, 1e9, 1e12) if kind == "plain" else (1.0,)
+            if any(close(got, value * s) for s in scales):
+                hits += 1
+                break
+    return hits / len(expected)
+
+
+def _doc_stem(name: str) -> str:
+    return Path(name.replace("\\", "/")).stem.lower()
+
+
+def source_hit(citations: List[Any], expected_documents: List[str]) -> Optional[bool]:
+    """True if any cited chunk comes from one of the expected source documents.
+
+    Compares file stems case-insensitively, so ingested files must keep the
+    dataset's file names for this check to be meaningful.
+    """
+    if not expected_documents:
+        return None
+    wanted = {_doc_stem(d) for d in expected_documents}
+    return any(_doc_stem(getattr(c, "source_document", "")) in wanted for c in citations)
 
 
 class RagasEvaluator(BaseEvaluator):
@@ -278,6 +366,8 @@ class GoldenDatasetRunner:
                     metrics.get("faithfulness", 0.0) >= 0.7
                     and metrics.get("numeric_accuracy", 0.0) >= 0.7
                 )
+                recall = numeric_recall(answer.answer, sample.expected_numeric_values)
+                hit = source_hit(answer.citations, sample.source_documents)
                 results.append(
                     EvalResult(
                         question=sample.question,
@@ -286,6 +376,8 @@ class GoldenDatasetRunner:
                         faithfulness=metrics.get("faithfulness", 0.0),
                         answer_relevancy=metrics.get("answer_relevancy", 0.0),
                         numeric_accuracy=metrics.get("numeric_accuracy", 0.0),
+                        numeric_recall=recall,
+                        source_hit=hit,
                         latency_ms=latency_ms,
                         cost_usd=answer.estimated_cost_usd,
                         passed=passed,
@@ -296,6 +388,8 @@ class GoldenDatasetRunner:
 
         num = len(results)
         passed_count = sum(1 for r in results if r.passed)
+        recalls = [r.numeric_recall for r in results if r.numeric_recall is not None]
+        hits = [r.source_hit for r in results if r.source_hit is not None]
         report = EvalReport(
             run_id=str(uuid.uuid4())[:8],
             timestamp=datetime.now(UTC).isoformat(),
@@ -309,6 +403,8 @@ class GoldenDatasetRunner:
             avg_latency_ms=sum(r.latency_ms for r in results) / num if num else 0.0,
             total_cost_usd=sum(r.cost_usd for r in results),
             results=results,
+            avg_numeric_recall=sum(recalls) / len(recalls) if recalls else 0.0,
+            source_hit_rate=sum(hits) / len(hits) if hits else 0.0,
         )
         report.regression_detected = self._detect_regression(report)
         self._save_history(report)
@@ -341,6 +437,8 @@ class GoldenDatasetRunner:
                 "pass_rate": report.pass_rate,
                 "avg_faithfulness": report.avg_faithfulness,
                 "avg_numeric_accuracy": report.avg_numeric_accuracy,
+                "avg_numeric_recall": report.avg_numeric_recall,
+                "source_hit_rate": report.source_hit_rate,
             }
         )
         # Keep last 50 runs

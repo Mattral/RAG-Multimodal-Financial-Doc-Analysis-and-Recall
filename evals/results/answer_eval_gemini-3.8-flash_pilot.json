@@ -1,0 +1,51 @@
+{
+  "model": [
+    "gemini-3.8-flash"
+  ],
+  "overall": {
+    "n": 11,
+    "headline_value_stated": 0.8,
+    "expected_value_recall": 0.4,
+    "all_values_stated": 0.1,
+    "cites_expected_doc": 0.727,
+    "abstained": 0.182,
+    "evidence_in_context": 0.545
+  },
+  "when_evidence_retrieved": {
+    "n": 6,
+    "headline_value_stated": 0.833,
+    "expected_value_recall": 0.472,
+    "all_values_stated": 0.167,
+    "cites_expected_doc": 0.833,
+    "abstained": 0.0,
+    "evidence_in_context": 1.0
+  },
+  "by_type": {
+    "factual": {
+      "n": 7,
+      "headline_value_stated": 0.833,
+      "expected_value_recall": 0.444,
+      "all_values_stated": 0.167,
+      "cites_expected_doc": 0.571,
+      "abstained": 0.143,
+      "evidence_in_context": 0.429
+    },
+    "table": {
+      "n": 4,
+      "headline_value_stated": 0.75,
+      "expected_value_recall": 0.333,
+      "all_values_stated": 0.0,
+      "cites_expected_doc": 1.0,
+      "abstained": 0.25,
+      "evidence_in_context": 0.75
+    }
+  },
+  "latency_ms": {
+    "p50": 20337,
+    "p95": 47987
+  },
+  "tokens": {
+    "prompt": 20841,
+    "completion": 685
+  }
+}

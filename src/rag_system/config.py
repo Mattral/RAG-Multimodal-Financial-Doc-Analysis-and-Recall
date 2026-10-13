@@ -145,7 +145,11 @@ class MultiTenancyConfig(BaseModel):
 
 
 class LLMConfig(BaseModel):
-    provider: Literal["openai", "anthropic", "azure_openai", "together", "local"] = "openai"
+    # Keep in sync with the provider map in components/generator/build_generator().
+    provider: Literal[
+        "openai", "azure_openai", "gemini", "google", "anthropic", "claude",
+        "local", "local_vllm", "together",
+    ] = "openai"
     model: str = "gpt-4o-mini"
     fallback_model: Optional[str] = "gpt-3.5-turbo"
     temperature: float = Field(0.1, ge=0.0, le=2.0)
@@ -180,6 +184,7 @@ class Config(BaseSettings):
     # API Keys
     openai_api_key: Optional[SecretStr] = Field(None, alias="OPENAI_API_KEY")
     anthropic_api_key: Optional[SecretStr] = Field(None, alias="ANTHROPIC_API_KEY")
+    google_api_key: Optional[SecretStr] = Field(None, alias="GOOGLE_API_KEY")
     cohere_api_key: Optional[SecretStr] = Field(None, alias="COHERE_API_KEY")
     activeloop_token: Optional[SecretStr] = Field(None, alias="ACTIVELOOP_TOKEN")
     voyage_api_key: Optional[SecretStr] = Field(None, alias="VOYAGE_API_KEY")
@@ -256,6 +261,18 @@ class Config(BaseSettings):
         if not self.openai_api_key:
             raise ConfigurationError("OPENAI_API_KEY not set", config_key="openai_api_key")
         return self.openai_api_key.get_secret_value()
+
+    def get_google_key(self) -> str:
+        """GOOGLE_API_KEY from .env or the process environment (Gemini text + vision)."""
+        import os
+
+        from src.rag_system.utils.exceptions import ConfigurationError
+
+        if self.google_api_key:
+            return self.google_api_key.get_secret_value()
+        if os.environ.get("GOOGLE_API_KEY"):
+            return os.environ["GOOGLE_API_KEY"]
+        raise ConfigurationError("GOOGLE_API_KEY not set", config_key="google_api_key")
 
 
 _config: Optional[Config] = None

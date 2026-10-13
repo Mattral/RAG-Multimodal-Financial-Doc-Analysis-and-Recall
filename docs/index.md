@@ -41,35 +41,17 @@ See [Quickstart → Docker](quickstart/docker.md) for the full walkthrough.
 
 ---
 
-## Retrieval Quality
-
-![Retrieval Quality](assets/retrieval_quality.png)
-
-*22-sample financial QA golden dataset. Hybrid RRF achieves 89% Recall@5 — 25% better than dense-only, 41% better than BM25-only.*
-
----
-
-## Performance
-
-![Latency Benchmarks](assets/latency_benchmarks.png)
-
-*All query modes within the p99 < 8s SLO. Measured at 1000 queries, 50 concurrent users.*
-
----
-
-## Cost
-
-![Cost Per Query](assets/cost_per_query.png)
-
-*Smart routing + Redis cache = ~$0.00011/query at scale. Local vLLM eliminates API cost entirely.*
-
----
-
 ## Evaluation
 
-![Evaluation Radar](assets/eval_quality_radar.png)
-
-*All five RAGAS metrics exceed the 70% SLO threshold on the 22-sample golden dataset.*
+* **Golden dataset:** 119 QA pairs over 16 public filings from 10 companies, every figure
+  traced to its source passage. See the
+  [dataset README](https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/blob/main/evals/golden_datasets/README.md).
+* **Retrieval, measured offline on the real filings:** hybrid RRF puts an answer-bearing chunk in
+  the top 5 for 71% of questions at the default 4,000-character chunks, the same as BM25 alone.
+  With 1,000-character chunks it reaches 53% versus 42% for BM25.
+* **Answer quality, latency and cost:** not yet measured on a reproducible run. Earlier figures
+  were withdrawn. See
+  [BENCHMARK_RESULTS.md](https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/blob/main/BENCHMARK_RESULTS.md).
 
 ---
 
@@ -93,8 +75,8 @@ See [Quickstart → Docker](quickstart/docker.md) for the full walkthrough.
 
 | Metric | Value |
 |---|---|
-| Test functions | 520 |
-| Golden eval samples | 22 |
+| Tests collected | 814 |
+| Golden eval samples | 119 |
 | Architecture Decision Records | 8 |
 | Prometheus metrics | 15 |
 | Grafana dashboards | 2 |
