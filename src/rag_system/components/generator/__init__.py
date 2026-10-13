@@ -249,10 +249,10 @@ class GeminiGenerator(BaseGenerator):
             data = response.json()
         latency_ms = (time.perf_counter() - start) * 1000
 
-        # 2.5-series models may return several parts (or none, if the token budget
-        # was spent on thinking); join whatever text parts came back.
+        # Thinking models may return several parts (or none, if the token budget was
+        # spent on thinking). Join the text parts, skipping any marked as thoughts.
         parts = data["candidates"][0].get("content", {}).get("parts", [])
-        answer_text = "".join(p.get("text", "") for p in parts)
+        answer_text = "".join(p.get("text", "") for p in parts if not p.get("thought"))
         usage = data.get("usageMetadata", {})
         prompt_tokens = usage.get("promptTokenCount", 0)
         completion_tokens = usage.get("candidatesTokenCount", 0)
