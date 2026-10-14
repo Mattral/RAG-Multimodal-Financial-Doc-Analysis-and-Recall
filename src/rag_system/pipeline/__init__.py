@@ -68,6 +68,8 @@ class RAGPipeline:
         query_analyzer=None,
         version_manager=None,
         semantic_cache=None,
+        graph_store=None,
+        entity_extractor=None,
         config=None,
     ) -> None:
         self._config = config or get_config()
@@ -89,6 +91,10 @@ class RAGPipeline:
         )
         self._query_analyzer = query_analyzer or QueryAnalyzer()
         self._version_manager = version_manager or DocumentVersionManager()
+        # Knowledge graph (ENABLE_KNOWLEDGE_GRAPH): built at ingest, used by the
+        # GraphAugmentedRetriever that wraps the hybrid retriever.
+        self._graph_store = graph_store
+        self._entity_extractor = entity_extractor
         self._cost_tracker = get_cost_tracker()
         self._semantic_cache = (
             semantic_cache
@@ -136,6 +142,24 @@ class RAGPipeline:
                 reranker=reranker,
                 bm25_index=BM25Index(),
             )
+            graph_store = entity_extractor = None
+            if cfg.enable_knowledge_graph:
+                from src.rag_system.components.knowledge_graph import (
+                    EntityExtractor,
+                    GraphAugmentedRetriever,
+                    InMemoryGraphStore,
+                )
+
+                graph_store = kwargs.get("graph_store") or InMemoryGraphStore()
+                entity_extractor = kwargs.get("entity_extractor") or EntityExtractor()
+                retriever = GraphAugmentedRetriever(
+                    graph_store=graph_store, base_retriever=retriever
+                )
+            elif cfg.retriever_config.strategy == "graph_augmented":
+                logger.warning(
+                    "graph_augmented_strategy_ignored",
+                    detail="set ENABLE_KNOWLEDGE_GRAPH=true to build and use the graph",
+                )
             pipeline = cls(
                 parser=kwargs.get("parser") or build_parser(),
                 vision_describer=kwargs.get("vision_describer") or build_vision_describer(),
@@ -144,6 +168,8 @@ class RAGPipeline:
                 retriever=retriever,
                 reranker=reranker,
                 generator=kwargs.get("generator") or build_generator(cfg.llm_config.provider),
+                graph_store=graph_store,
+                entity_extractor=entity_extractor,
                 config=cfg,
             )
         except ImportError as exc:
@@ -229,6 +255,11 @@ class RAGPipeline:
                 embeddings = await self._embedder.embed(texts)
                 await self._vector_store.upsert(all_elements, embeddings, tenant_id=tenant_id)
 
+            # Knowledge graph extraction (one LLM call per element)
+            graph_stats = None
+            if self._config.enable_knowledge_graph and self._graph_store and all_elements:
+                graph_stats = await self._index_graph(all_elements, tenant_id)
+
             # Version registration + audit
             for fp in to_process:
                 try:
@@ -267,7 +298,36 @@ class RAGPipeline:
                 "num_chunks": len(all_elements),
                 "skipped": len(skipped),
                 "latency_s": round(latency_s, 2),
+                **({"knowledge_graph": graph_stats} if graph_stats else {}),
             }
+
+    async def _index_graph(self, elements: List[Any], tenant_id: str) -> Dict[str, int]:
+        """Extract entities/relations from each element and add them to the graph."""
+        from src.rag_system.components.base import RetrievedChunk
+        from src.rag_system.components.knowledge_graph import EntityExtractor
+
+        extractor = self._entity_extractor or EntityExtractor()
+        semaphore = asyncio.Semaphore(self._config.num_workers)
+
+        async def index_one(element: Any) -> None:
+            async with semaphore:
+                entities, relations = await extractor.extract(
+                    element.text, element.source_document, tenant_id=tenant_id
+                )
+            chunk = RetrievedChunk(
+                text=element.text,
+                score=0.0,
+                source_document=element.source_document,
+                page_number=element.page_number,
+                chunk_id=element.content_hash or _sha256(element.text)[:16],
+                metadata={"type": element.type},
+            )
+            self._graph_store.add_chunk_extraction(chunk, entities, relations, tenant_id)
+
+        await asyncio.gather(*(index_one(e) for e in elements))
+        stats = self._graph_store.stats(tenant_id)
+        logger.info("knowledge_graph_indexed", tenant_id=tenant_id, **stats)
+        return stats
 
     async def _redact_elements(self, elements: List[Any]) -> List[Any]:
         texts = [e.text for e in elements]

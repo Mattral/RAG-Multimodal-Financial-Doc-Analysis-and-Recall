@@ -58,6 +58,9 @@ class RetrieverConfig(BaseModel):
     top_k_bm25: int = 20
     top_k_final: int = 10
     rrf_k: int = 60
+    # Graph-augmented retrieval (used when ENABLE_KNOWLEDGE_GRAPH=true)
+    graph_max_hops: int = Field(1, ge=0, le=3)
+    graph_max_chunks: int = Field(10, ge=1)
     enable_metadata_filters: bool = True
     enable_reranker: bool = True
     model_config = {"frozen": True}
