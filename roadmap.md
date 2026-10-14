@@ -101,9 +101,11 @@
       published.*
 - [x] CI jobs: lint (ruff/black/isort), mypy, tests, Trivy + pip-audit + Semgrep, eval, Docker
       build, Helm lint
-- [ ] **CI actually gating merges.** *The test, lint, mypy, Semgrep and eval steps are all
-      `continue-on-error: true`, so a green check does not mean tests passed. The eval job also
-      has no LLM key in CI.*
+- [x] Tests gate merges (#19). Before #19 the test step was `continue-on-error` and its install
+      list lacked `typer`/`pyyaml`, so pytest aborted at collection and CI ran zero tests while
+      showing green. CI now runs about 790 unit and integration tests with a 70% coverage floor
+- [ ] Lint, mypy, Semgrep and the eval gate gating merges. *Still `continue-on-error`. The eval
+      job also has no LLM key in CI.*
 
 ---
 
@@ -111,8 +113,8 @@
 
 Highest impact first:
 
-- [ ] **Make CI blocking.** Tests first (they pass today), then lint once the existing debt is
-      fixed, then the eval gate once it has a key and a budget
+- [ ] **Make the rest of CI blocking.** Tests block since #19. Next is lint, once the existing
+      debt is fixed, then the eval gate once it has a key and a budget
 - [ ] **Persistence for in-memory indexes.** BM25 and the knowledge graph are lost on restart.
       CLI `ingest` and `query` run as separate processes, so the CLI never benefits from the
       graph

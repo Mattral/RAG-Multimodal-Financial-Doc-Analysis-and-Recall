@@ -61,8 +61,10 @@ jobs:
         run: |
           pip install pytest pytest-asyncio pytest-cov pytest-mock pytest-timeout \
             pydantic pydantic-settings structlog httpx numpy \
-            hypothesis pypdf fastapi python-multipart qdrant-client
+            hypothesis pypdf fastapi python-multipart qdrant-client \
+            typer rich pyyaml
 
+      # Blocking: a failing test or coverage below 70% fails the job.
       - name: Run unit + integration tests (combined coverage)
         run: |
           pytest tests/unit/ tests/integration/ -v --timeout=30 \
@@ -72,7 +74,6 @@ jobs:
             --cov-fail-under=70
         env:
           ENVIRONMENT: testing
-        continue-on-error: true
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
