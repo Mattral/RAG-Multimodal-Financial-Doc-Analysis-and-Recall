@@ -20,7 +20,6 @@ restart. Swap in Neo4j / Kuzu behind the same interface for persistence.
 
 from __future__ import annotations
 
-import math
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -90,6 +89,7 @@ class InMemoryGraphStore:
         self._edges: Dict[str, Set[Tuple[str, str, bool]]] = defaultdict(set)
         # Entity -> linked chunk keys; chunk key -> chunk ("<tenant>/<chunk id>")
         self._entity_chunks: Dict[str, Set[str]] = defaultdict(set)
+        self._chunk_entities: Dict[str, Set[str]] = defaultdict(set)
         self._chunks: Dict[str, RetrievedChunk] = {}
 
     # ── Building the graph ───────────────────────────────────────────────────
@@ -110,6 +110,7 @@ class InMemoryGraphStore:
         key = f"{tenant_id}/{chunk.chunk_id or hash(chunk.text)}"
         self._chunks.setdefault(key, chunk)
         self._entity_chunks[entity_id].add(key)
+        self._chunk_entities[key].add(entity_id)
 
     def add_chunk_extraction(
         self,
@@ -173,6 +174,12 @@ class InMemoryGraphStore:
 
     def chunk_count(self, entity_id: str) -> int:
         return len(self._entity_chunks.get(entity_id, ()))
+
+    def entities_in_chunk(self, chunk_key: str) -> Set[str]:
+        return self._chunk_entities.get(chunk_key, set())
+
+    def entity(self, entity_id: str) -> Optional[Entity]:
+        return self._entities.get(entity_id)
 
     def search_by_name(self, name: str, tenant_id: str = "default") -> List[Entity]:
         name_lower = name.lower()
@@ -397,26 +404,32 @@ Text:
 
 
 class GraphAugmentedRetriever(BaseRetriever):
-    """Fuses a base retriever's results with chunks found by graph traversal.
+    """Fuses a base retriever's results with chunks found through the knowledge graph.
 
-    1. Find entities named in the query (whole-word match on entity names).
-       Companies, metrics, products etc. are *anchors*; periods (DATE) are not,
-       because every company shares them.
-    2. Expand the anchors to their neighbours up to ``max_hops`` (e.g. a
-       company's reported metrics), without expanding through hub entities.
-    3. Score each linked chunk by the entities that reach it: an entity at hop
-       h contributes 1/(1+h), divided by log2(2 + number of chunks it appears
-       in) so entities mentioned everywhere count for less. Periods named in
-       the query add the same kind of weight, but only to chunks already
-       reached, so "Tesla ... Q3 2023" favours Tesla's Q3 2023 chunks.
+    1. Find entities named in the query (whole-word match on entity names) and
+       group them into *concepts* by type and name: every "Revenue = $X" node
+       is one "revenue" concept.
+    2. Candidates: chunks linked to an *anchor* named in the query (company,
+       product, person, ...), plus chunks reached from an anchor within
+       ``max_hops`` (e.g. the metrics a company reported), skipping hub nodes.
+       Metrics and periods are not anchors when an anchor is present: they are
+       shared across companies and would pull in unrelated chunks. With no
+       anchor in the query, named metrics act as anchors. Periods never do.
+    3. Score each candidate by how many distinct query concepts it mentions
+       directly (anchor, metric name, period), plus 0.5 if it was reached only
+       through a neighbour. Ties go to chunks with fewer entities, because large
+       statements mention everything and match every query.
     4. Fuse the top graph chunks with the base results using Reciprocal Rank
-       Fusion, the same method the hybrid retriever uses.
+       Fusion, the same method the hybrid retriever uses, with the graph list
+       weighted by ``graph_weight`` (RETRIEVER_CONFIG__GRAPH_WEIGHT).
 
-    Falls back to the base results unchanged when the query names no anchor
-    entity in the graph or nothing linked is found.
+    Falls back to the base results unchanged when the query names no usable
+    entity or nothing linked is found.
     """
 
     PERIOD_TYPES = frozenset({"DATE"})
+    METRIC_TYPES = frozenset({"METRIC"})
+    NEIGHBOUR_WEIGHT = 0.5
 
     def __init__(
         self,
@@ -426,6 +439,7 @@ class GraphAugmentedRetriever(BaseRetriever):
         max_graph_chunks: Optional[int] = None,
         max_degree: int = 50,
         rrf_k: Optional[int] = None,
+        graph_weight: Optional[float] = None,
     ) -> None:
         cfg = get_config().retriever_config
         self._graph = graph_store or InMemoryGraphStore()
@@ -436,6 +450,8 @@ class GraphAugmentedRetriever(BaseRetriever):
         )
         self._max_degree = max_degree
         self._rrf_k = cfg.rrf_k if rrf_k is None else rrf_k
+        # RRF weight of the graph list relative to the base list (1.0 = equal say).
+        self._graph_weight = cfg.graph_weight if graph_weight is None else graph_weight
 
     @property
     def name(self) -> str:
@@ -462,56 +478,56 @@ class GraphAugmentedRetriever(BaseRetriever):
             query, base_chunks, top_k=top_k, tenant_id=tenant_id or "default"
         )
 
+    @staticmethod
+    def _concept(entity: Entity) -> Tuple[str, str]:
+        return entity.type, re.sub(r"[^a-z0-9]+", " ", entity.name.lower()).strip()
+
     def graph_chunks(self, query: str, tenant_id: str = "default") -> List[RetrievedChunk]:
-        """Chunks reached from the query's entities, best first (no fusion)."""
+        """Chunks found from the query's entities, best first (no fusion)."""
         seeds = self._graph.find_entities_in_text(query, tenant_id)
-        # Periods ("Q3 2023") are shared by every company, so they never anchor or
-        # expand the search on their own; they only boost chunks already reached.
-        anchors = [s for s in seeds if s.type not in self.PERIOD_TYPES]
-        periods = [s for s in seeds if s.type in self.PERIOD_TYPES]
+        anchors = [s for s in seeds if s.type not in self.PERIOD_TYPES | self.METRIC_TYPES] or [
+            s for s in seeds if s.type in self.METRIC_TYPES
+        ]
         if not anchors:
             return []
+
+        # Concept of every seed node: what a chunk "mentions" when linked to it.
+        seed_concepts = {s.id: self._concept(s) for s in seeds}
         hops = self._graph.neighborhood(
-            [s.id for s in anchors], max_hops=self._max_hops, max_degree=self._max_degree
+            [a.id for a in anchors], max_hops=self._max_hops, max_degree=self._max_degree
         )
 
-        scores: Dict[str, float] = defaultdict(float)
-        reached_by: Dict[str, Set[str]] = defaultdict(set)
-        chunks: Dict[str, RetrievedChunk] = {}
-
-        def add(entity_id: str, hop: int, only_existing: bool) -> None:
-            linked = self._graph.chunks_for_entity(entity_id)
-            if not linked:
-                return
-            weight = (1.0 / (1 + hop)) / math.log2(2 + len(linked))
-            name = self._graph._entities[entity_id].name
-            for key, chunk in linked:
-                if only_existing and key not in scores:
-                    continue
-                scores[key] += weight
-                reached_by[key].add(name)
-                chunks[key] = chunk
-
+        candidates: Dict[str, RetrievedChunk] = {}
+        via_neighbour: Set[str] = set()
         for entity_id, hop in hops.items():
-            if self._graph._entities[entity_id].type not in self.PERIOD_TYPES:
-                add(entity_id, hop, only_existing=False)
-        for period in periods:
-            add(period.id, 0, only_existing=True)
+            for key, chunk in self._graph.chunks_for_entity(entity_id):
+                candidates[key] = chunk
+                if hop > 0:
+                    via_neighbour.add(key)
 
-        ranked = sorted(scores, key=lambda k: scores[k], reverse=True)[: self._max_graph_chunks]
+        scored = []
+        for key, chunk in candidates.items():
+            linked = self._graph.entities_in_chunk(key)
+            mentioned = {seed_concepts[e] for e in linked if e in seed_concepts}
+            score = len(mentioned) or self.NEIGHBOUR_WEIGHT * (key in via_neighbour)
+            names = sorted({self._graph.entity(e).name for e in linked if e in seed_concepts})
+            scored.append((score, -len(linked), key, chunk, names))
+        scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+
         return [
             RetrievedChunk(
                 **{
-                    **chunks[k].model_dump(),
-                    "score": scores[k],
+                    **chunk.model_dump(),
+                    "score": float(score),
                     "metadata": {
-                        **chunks[k].metadata,
+                        **chunk.metadata,
                         "retrieval": "graph",
-                        "graph_entities": sorted(reached_by[k]),
+                        "graph_entities": names,
                     },
                 }
             )
-            for k in ranked
+            for score, _neg_size, _key, chunk, names in scored[: self._max_graph_chunks]
+            if score > 0
         ]
 
     async def retrieve_with_graph(
@@ -532,7 +548,9 @@ class GraphAugmentedRetriever(BaseRetriever):
 
         from src.rag_system.components.retriever import _reciprocal_rank_fusion
 
-        fused = _reciprocal_rank_fusion([list(base_chunks), graph_results], k=self._rrf_k)
+        fused = _reciprocal_rank_fusion(
+            [list(base_chunks), graph_results], k=self._rrf_k, weights=[1.0, self._graph_weight]
+        )
         limit = max(top_k, len(base_chunks))
         logger.info(
             "graph_augmented_retrieval",

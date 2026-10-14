@@ -5,6 +5,20 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Knowledge graph
+- `GraphAugmentedRetriever` now performs real graph traversal: query entities (companies,
+  metrics, products) -> hop-limited neighbourhood -> chunks scored by matched query concepts ->
+  weighted RRF fusion with the hybrid results. Falls back to hybrid results unchanged. Off by
+  default, behind `ENABLE_KNOWLEDGE_GRAPH`. In-memory graph only
+- `InMemoryGraphStore`: canonical tenant-scoped entity ids, entity <-> chunk links, adjacency index
+- `EntityExtractor`: OpenAI or Gemini (JSON mode), metric/period-focused prompt, `REPORTED_METRIC`
+  and `FOR_PERIOD` relations, prompt truncated at the parser's chunk size (was 3,000 chars)
+- Pipeline extracts entities during ingest when the flag is on and wraps the retriever
+- New config: `RETRIEVER_CONFIG__GRAPH_MAX_HOPS` (1), `__GRAPH_MAX_CHUNKS` (10), `__GRAPH_WEIGHT` (0.5).
+  `_reciprocal_rank_fusion` accepts optional per-list weights
+- Measured on the golden set: evidence hit@5 0.706 -> 0.723 (7 gained, 5 lost). See
+  BENCHMARK_RESULTS.md section 2b. `evals/build_graph.py` + `retrieval_benchmark --graph-cache`
+
 ### Evaluation
 - Golden dataset expanded from 22 to 119 QA pairs over 16 public filings (10 companies;
   factual, calculation, comparative, table and chart questions), with `provenance.json`

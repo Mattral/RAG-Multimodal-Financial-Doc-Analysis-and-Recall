@@ -237,6 +237,10 @@ async def run(args: argparse.Namespace) -> Dict:
             "top_k_bm25": cfg.top_k_bm25,
         },
         "overall": {mode: summarize(res) for mode, res in per_mode.items()},
+        # Per-question evidence hits, in dataset order (for dev/test splits etc.).
+        "per_question_evidence_hit": {
+            mode: [bool(r["evidence_hit"]) for r in res] for mode, res in per_mode.items()
+        },
         "by_type": {
             mode: {
                 t: summarize([r for r in res if r["type"] == t])

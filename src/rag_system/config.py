@@ -61,6 +61,7 @@ class RetrieverConfig(BaseModel):
     # Graph-augmented retrieval (used when ENABLE_KNOWLEDGE_GRAPH=true)
     graph_max_hops: int = Field(1, ge=0, le=3)
     graph_max_chunks: int = Field(10, ge=1)
+    graph_weight: float = Field(0.5, ge=0.0)  # RRF weight of graph results vs. base
     enable_metadata_filters: bool = True
     enable_reranker: bool = True
     model_config = {"frozen": True}

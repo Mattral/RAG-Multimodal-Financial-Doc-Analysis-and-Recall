@@ -183,6 +183,31 @@ class TestGraphAugmentedRetrieval:
         assert {"b1", "c_margin"} <= {c.chunk_id for c in out}
         assert r.name == "graph_augmented(hybrid_rrf_retriever)"
 
+    @pytest.mark.asyncio
+    async def test_graph_weight_controls_how_far_graph_chunks_rise(self, tesla_graph):
+        base = [_chunk(f"b{i}", f"base {i}", doc="other.pdf") for i in range(3)]
+        query = "Tesla gross margin in Q3 2023"
+        equal = await GraphAugmentedRetriever(
+            graph_store=tesla_graph, graph_weight=1.0
+        ).retrieve_with_graph(query, base, top_k=5, tenant_id="t1")
+        assert equal[0].chunk_id in {"b0", "c_margin"}  # rank-1 of each list tie
+        light = await GraphAugmentedRetriever(
+            graph_store=tesla_graph, graph_weight=0.5
+        ).retrieve_with_graph(query, base, top_k=5, tenant_id="t1")
+        ids = [c.chunk_id for c in light]
+        assert ids[0] == "b0" and ids.index("c_margin") > 0  # base keeps the top slot
+
+
+def test_weighted_rrf_defaults_to_equal_weights():
+    from src.rag_system.components.retriever import _reciprocal_rank_fusion
+
+    a, b = [_chunk("a", "A")], [_chunk("b", "B")]
+    assert [c.chunk_id for c in _reciprocal_rank_fusion([a, b], k=60)][0] == "a"  # stable tie
+    assert [c.chunk_id for c in _reciprocal_rank_fusion([a, b], k=60, weights=[0.5, 1.0])] == [
+        "b",
+        "a",
+    ]
+
 
 class TestExtractorParsingAndProviders:
     def test_parse_assigns_canonical_ids_and_resolves_relations(self):

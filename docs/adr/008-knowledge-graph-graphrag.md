@@ -1,7 +1,7 @@
 # ADR 008: Knowledge Graph / GraphRAG Design
 
-**Status:** Deferred (v3.0)
-**Date:** 2024-07
+**Status:** Accepted, implemented in memory (2026-10). Originally deferred (2024-07)
+**Date:** 2024-07, updated 2026-10
 **Deciders:** Core team
 
 ## Context
@@ -45,6 +45,26 @@ Defer full implementation to v3.0. Provide now:
    chunks to merge plus rerank.
 4. Fallback: if graph traversal returns nothing, fall back to standard
    vector retrieval transparently.
+
+## Update 2026-10: what was implemented
+
+Items 1, 3 and 4 of the plan above now exist. Neo4j (item 2) does not.
+
+* **Extraction:** `EntityExtractor` uses the configured provider (OpenAI or Gemini JSON mode).
+  The prompt asks for figures as `METRIC` entities with values, periods written the way
+  analysts write them, and `REPORTED_METRIC` / `FOR_PERIOD` links.
+* **Store:** `InMemoryGraphStore` gives entities canonical, tenant-scoped ids, so the same
+  company across chunks and filings is one node. It links entities to their source chunks and
+  keeps an adjacency index for traversal.
+* **Retrieval:** `GraphAugmentedRetriever` is a `BaseRetriever` that wraps the hybrid
+  retriever. It goes from query entity names to anchors (periods excluded), then a hop-limited
+  neighbourhood, then scored linked chunks, then RRF fusion with the hybrid results. It falls
+  back unchanged when nothing matches.
+* **Flag:** `ENABLE_KNOWLEDGE_GRAPH` controls both ingest-time extraction and the retriever
+  wrapper. It remains off by default.
+* **Not done:** persistence (the graph is lost on restart, and CLI ingest/query run in separate
+  processes) and query-time NER beyond exact name matching. Measured effect on the golden set:
+  see BENCHMARK_RESULTS.md.
 
 ## Consequences
 
