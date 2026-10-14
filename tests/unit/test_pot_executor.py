@@ -286,3 +286,43 @@ async def test_execute_runtime_errors(code, fragment):
     result = await PoTExecutor().execute_code(code)
     assert not result.success
     assert fragment in result.error
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "code, expected",
+    [
+        ("result = pow(2, 10, 7)", 2.0),
+        ("result = pow(3, 4, mod=5)", 1.0),
+        ("result = pow(2, -1, 7)", 4.0),
+        ("result = pow(base=2, exp=10)", 1024.0),
+        ("result = pow(1.05, exp=3)", 1.157625),
+    ],
+)
+async def test_pow_call_forms(code, expected):
+    result = await PoTExecutor().execute_code(code)
+    assert result.success, result.error
+    assert result.result == pytest.approx(expected)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "code, fragment",
+    [
+        # Keyword arguments used to skip the exponent pre-check and compute first.
+        ("result = pow(base=3, exp=20000000)", "Exponent too large"),
+        ("result = pow(3, exp=20000000)", "Exponent too large"),
+        ("result = pow(2.0, 3, 5)", "integer arguments"),
+        ("result = pow(2, 3, 5, 7)", "at most 3"),
+        ("result = pow(2, base=3)", "Unsupported pow() argument"),
+        ("result = pow(2)", "needs base and exp"),
+    ],
+)
+async def test_pow_rejections(code, fragment):
+    import time
+
+    start = time.perf_counter()
+    result = await PoTExecutor().execute_code(code)
+    assert not result.success
+    assert fragment in result.error
+    assert time.perf_counter() - start < 1.0
