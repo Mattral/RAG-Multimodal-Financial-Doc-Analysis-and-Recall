@@ -39,8 +39,8 @@ Input PDF / S3 / Azure Blob
            ▼
 ┌─────────────────────┐
 │  Vector Store       │  DeepLake / pgvector / Qdrant
-│  + BM25 Index       │  Per-tenant namespace
-└──────────┬──────────┘
+│  + BM25 Index       │  Per-tenant namespace (BM25: in-memory,
+└──────────┬──────────┘  lost on restart — see ADR-001)
            ▼
    Audit Log + Version Registry
 ```

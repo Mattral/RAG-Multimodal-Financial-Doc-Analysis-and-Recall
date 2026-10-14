@@ -13,7 +13,7 @@
 | Knowledge-graph-augmented retrieval | **Measured** offline on a graph extracted once with `gemini-3.8-flash` | Section 2b |
 | Answer quality with an LLM (`gemini-3.8-flash`) | **Measured** on all 119 questions, with deterministic scoring and a number-grounding check | Section 3 |
 | RAGAS faithfulness / answer relevancy / LLM-judged numeric accuracy | **Not measured.** The judge in `RagasEvaluator` currently calls OpenAI only | — |
-| Latency under load, throughput, cost per query | **Not reproduced** | Section 4 |
+| Latency under load, throughput, cost per query | **Not measured.** Earlier figures unverified | Section 4 |
 
 ## 1. Golden dataset
 
@@ -85,7 +85,7 @@ tokens. The result is a graph of 4,959 entities and 7,705 relations
 | Strategy (4,000-char chunks) | Evidence hit@5 | Doc hit@5 | Doc precision@5 | MRR@10 |
 |---|---|---|---|---|
 | Hybrid RRF | 0.706 | 0.933 | 0.570 | 0.468 |
-| **Hybrid RRF + graph** (defaults: 1 hop, weight 0.5) | **0.723** | 0.908 | 0.587 | 0.470 |
+| **Hybrid RRF + graph** (defaults: 1 hop, weight 0.5) | **0.723** | 0.899 | 0.583 | 0.474 |
 
 Evidence hit@5 by question type:
 
@@ -213,26 +213,39 @@ Raw output: [`answers_gemini-3.8-flash.jsonl`](evals/results/answers_gemini-3.8-
 
 ## 4. Previously published figures (not reproduced)
 
-Earlier versions of this file and the README reported the figures below, dated "2024-07" on
-an AWS m5.xlarge:
+Earlier versions of this file and the README showed the figures below, under a "Last updated:
+2024-07" header citing an AWS m5.xlarge. The charts are kept here as published, so nothing is
+lost. They were made with matplotlib 3.10.8, and the plotting script was never committed.
 
-* Quality: faithfulness 0.912, answer relevancy 0.887, context precision 0.856, numeric
-  accuracy 0.893, pass rate 90.9%.
-* Retrieval: hybrid Recall@5 0.89, Precision@5 0.84, plus dense, BM25 and reranker rows.
-* Latency: p99 2.1–6.1 s by query mode.
-* Load: 61 req/s at 100 users, 0.3% errors.
-* Cost: $0.00011–$0.0082 per query.
+| Retrieval | Answer quality |
+|---|---|
+| ![Previously published retrieval chart](docs/assets/retrieval_quality.png) | ![Previously published quality radar](docs/assets/eval_quality_radar.png) |
+| **Latency** | **Cost per query** |
+| ![Previously published latency chart](docs/assets/latency_benchmarks.png) | ![Previously published cost chart](docs/assets/cost_per_query.png) |
 
-They have been withdrawn because nothing in this repository can reproduce them:
+Provenance check (2026-10-14: git history, PNG metadata, and the owner's other Claude Code
+sessions on this machine):
 
-* No code computed Recall@k or Precision@k, and no run outputs were committed.
-* The evaluation runner indexed its report as a dict (`report["run_id"]`) while
-  `GoldenDatasetRunner.run()` returns a dataclass, so `python -m evals.run_evals` and
-  `rag-financial evaluate` raised `TypeError` before printing results. That bug is fixed now.
-* 9 of the 22 golden samples the figures were computed on had wrong ground truths.
+* **Retrieval (Recall@5 0.89 / Precision@5 0.84): could not have come from this repository.**
+  No commit has ever contained code that computes Recall@k or Precision@k. The chart's footer
+  gives a weighted fusion formula (`0.7/(60+dense_rank+1) + 0.3/(60+bm25_rank+1)`), but the
+  retriever has always used unweighted `1/(k+rank)`. The comparable measured number (section 2)
+  is 0.71.
+* **Answer quality (faithfulness 0.912 etc.): possible but unverified.** When these were
+  published (June 2026), `evals/run_evals.py` did work. The dict-indexing bug that made it raise
+  `TypeError` was introduced later, by the lint commit `95f1c95` on 2026-09-04. Its outputs
+  (`evals/history.json`, `evals/ci_report.json`) are gitignored, CI has no LLM API key, and none
+  of the owner's other sessions show such a run, so a local run would have left no trace.
+  Reproducing it needs an OpenAI key: RAGAS and the numeric judge are OpenAI-only. Note that
+  faithfulness, answer relevancy and numeric accuracy do not use the ground truth, so the 9
+  wrong ground truths in the original 22 samples affect only context precision.
+* **Latency, load and cost: possible but unverified.** `tests/load/locustfile.py` and
+  `scripts/benchmark.py` existed, but no outputs were committed and nothing records a run.
 
-`tests/load/locustfile.py` and `scripts/benchmark.py` can measure latency and cost against a
-running deployment. Those numbers will be added here once they are actually run.
+These figures are therefore shown for transparency only and are not cited as results. The
+measured replacements are in sections 2, 2b and 3 and are drawn by `scripts/plot_benchmarks.py`
+from `evals/results/`. If the original run outputs turn up, the figures can be restored with
+their sources.
 
 ## Reproduce
 
@@ -247,6 +260,7 @@ python -m evals.build_graph --chunk-size 4000 --rpm 60 --concurrency 8   # 2b, n
 python -m evals.retrieval_benchmark --chunk-size 4000 \
   --graph-cache evals/results/graph_extractions_chunk4000.jsonl
 python -m evals.answer_eval --rpm 5                            # section 3 (needs an LLM key)
+python scripts/plot_benchmarks.py                              # redraw the charts from evals/results/
 ```
 
 ## Limitations of these measurements

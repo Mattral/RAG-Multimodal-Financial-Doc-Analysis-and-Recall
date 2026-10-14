@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from src.rag_system.components.base import RetrievedChunk
 from src.rag_system.components.guardrails import FinancialGuardrails, PIIRedactor
 from src.rag_system.components.query_analyzer import QueryAnalyzer
 from src.rag_system.components.query_analyzer import QueryIntent as QueryIntent
@@ -37,6 +38,32 @@ logger = get_logger(__name__)
 
 def _sha256(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()[:16]
+
+
+def _element_to_chunk(element: Any, tenant_id: str) -> RetrievedChunk:
+    """Convert an ingested DocumentElement into a BM25-indexable chunk.
+
+    ``chunk_id`` matches what the vector stores report (``content_hash``) so
+    re-ingesting a document upserts rather than duplicates.
+    """
+    chunk_id = element.content_hash or _sha256(
+        f"{element.source_document}:{element.page_number}:{element.text}"
+    )
+    metadata: Dict[str, Any] = {
+        **(element.metadata or {}),
+        "tenant_id": tenant_id,
+        "chunk_type": element.type,
+    }
+    if element.doc_version:
+        metadata["doc_version"] = element.doc_version
+    return RetrievedChunk(
+        text=element.text,
+        score=0.0,
+        source_document=element.source_document,
+        page_number=element.page_number,
+        chunk_id=chunk_id,
+        metadata=metadata,
+    )
 
 
 class RAGPipeline:
@@ -70,6 +97,7 @@ class RAGPipeline:
         semantic_cache=None,
         graph_store=None,
         entity_extractor=None,
+        bm25_index=None,
         config=None,
     ) -> None:
         self._config = config or get_config()
@@ -78,6 +106,11 @@ class RAGPipeline:
         self._embedder = embedder
         self._vector_store = vector_store
         self._retriever = retriever
+        # Keyword index populated at ingest time; defaults to the one the
+        # retriever searches so callers only have to wire it once.
+        self._bm25_index = (
+            bm25_index if bm25_index is not None else getattr(retriever, "bm25_index", None)
+        )
         self._reranker = reranker
         self._generator = generator
         self._pii_redactor = pii_redactor or PIIRedactor(
@@ -136,11 +169,15 @@ class RAGPipeline:
                 cfg.vector_store_config.provider
             )
             reranker = kwargs.get("reranker") or build_reranker(cfg.reranker_config.provider)
+            # Explicit None checks: an empty BM25Index is falsy (it defines __len__).
+            bm25_index = kwargs.get("bm25_index")
+            if bm25_index is None:
+                bm25_index = BM25Index()
             retriever = kwargs.get("retriever") or HybridRetriever(
                 vector_store=vector_store,
                 embedder=embedder,
                 reranker=reranker,
-                bm25_index=BM25Index(),
+                bm25_index=bm25_index,
             )
             graph_store = entity_extractor = None
             if cfg.enable_knowledge_graph:
@@ -170,6 +207,12 @@ class RAGPipeline:
                 generator=kwargs.get("generator") or build_generator(cfg.llm_config.provider),
                 graph_store=graph_store,
                 entity_extractor=entity_extractor,
+                # Populate whichever index the retriever actually searches.
+                bm25_index=(
+                    retriever.bm25_index
+                    if getattr(retriever, "bm25_index", None) is not None
+                    else bm25_index
+                ),
                 config=cfg,
             )
         except ImportError as exc:
@@ -254,6 +297,12 @@ class RAGPipeline:
                 texts = [e.text for e in all_elements]
                 embeddings = await self._embedder.embed(texts)
                 await self._vector_store.upsert(all_elements, embeddings, tenant_id=tenant_id)
+
+            # Keyword index (tenant-partitioned, in-memory — see BM25Index docstring)
+            if self._bm25_index is not None and all_elements:
+                bm25_chunks = [_element_to_chunk(e, tenant_id) for e in all_elements]
+                await asyncio.to_thread(self._bm25_index.add, bm25_chunks, tenant_id=tenant_id)
+                logger.info("bm25_index_updated", tenant_id=tenant_id, num_chunks=len(bm25_chunks))
 
             # Knowledge graph extraction (one LLM call per element)
             graph_stats = None

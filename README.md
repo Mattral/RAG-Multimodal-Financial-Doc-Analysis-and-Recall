@@ -35,6 +35,8 @@ Financial documents are mixed-media: narrative text, tables, charts, footnotes, 
 
 ## Retrieval Quality
 
+![Retrieval quality, measured](docs/assets/retrieval_measured.png)
+
 Measured offline on the 16 real filings behind the golden dataset (119 questions), using this
 repo's BM25, local `bge-small` embeddings and RRF fusion with default settings and no reranker.
 *Evidence hit@5* means a top-5 chunk contains the exact supporting text for the answer.
@@ -44,12 +46,14 @@ repo's BM25, local `bge-small` embeddings and RRF fusion with default settings a
 | BM25 only | 0.71 | 0.87 |
 | Dense only | 0.61 | 0.99 |
 | **Hybrid RRF** | **0.71** | 0.93 |
+| Hybrid RRF + knowledge graph (optional) | 0.72 | 0.90 |
 
 With 1,000-character chunks, hybrid reaches 0.53 versus 0.42 (BM25) and 0.46 (dense), so fusion
 helps there. At the default chunk size it only ties BM25. About 3 in 10 questions get no
 answer-bearing chunk in the top 5. Full results, method and caveats are in
 [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md). Earlier versions of this README claimed 89%
-Recall@5. That figure could not be reproduced and has been withdrawn.
+Recall@5. That figure could not be reproduced and has been withdrawn; the original charts are
+kept, with a provenance note, in [BENCHMARK_RESULTS.md section 4](BENCHMARK_RESULTS.md#4-previously-published-figures-not-reproduced).
 
 ---
 
@@ -107,6 +111,8 @@ vllm serve Qwen/Qwen2-VL-7B-Instruct --port 8080 --host 0.0.0.0
 
 ## Evaluation Quality
 
+![Answer quality, measured](docs/assets/answer_quality_measured.png)
+
 * **Golden dataset:** [119 QA pairs](evals/golden_datasets/README.md) over 16 public filings
   from 10 companies. The mix is 56 factual, 24 calculation, 17 comparative, 13 table and 9 chart
   questions. Every figure is traced to a quoted passage in its source document (209/209 verified
@@ -140,8 +146,11 @@ python -m evals.answer_eval --rpm 5           # retrieval + generation, needs an
 
 ## Latency and Cost
 
-Not yet measured in a reproducible run. Earlier latency, load-test and cost-per-query figures
-were withdrawn because no run outputs or scripts reproduce them. `tests/load/locustfile.py`
+Not yet measured in a reproducible run. Earlier latency, load-test and cost-per-query charts
+had no committed run outputs, so they are no longer cited. They are kept, with a provenance
+note, in [BENCHMARK_RESULTS.md section 4](BENCHMARK_RESULTS.md#4-previously-published-figures-not-reproduced).
+The only measured latency so far is generation alone, from the answer eval: p50 3.0 s,
+p95 5.0 s with `gemini-3.8-flash`. `tests/load/locustfile.py`
 and `scripts/benchmark.py` can measure them against a running deployment. The SLO targets
 (p99 < 8 s, < 1% errors) are configured in `src/rag_system/config.py` and the alerting rules.
 
