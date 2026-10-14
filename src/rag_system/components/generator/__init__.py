@@ -19,9 +19,10 @@ Every provider:
 
 from __future__ import annotations
 
+import json
 import re
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional, Tuple, Union
 
 import httpx
 import structlog
@@ -67,6 +68,17 @@ def _build_context_block(chunks: List[RetrievedChunk]) -> str:
     return "\n\n---\n\n".join(parts)
 
 
+_OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
+_GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+
+
+async def _sse_data_lines(response: httpx.Response) -> AsyncIterator[str]:
+    """The ``data:`` payloads of a server-sent-events HTTP response."""
+    async for line in response.aiter_lines():
+        if line.startswith("data:"):
+            yield line[5:].strip()
+
+
 # ── OpenAI ─────────────────────────────────────────────────────────────────────
 
 
@@ -81,22 +93,16 @@ class OpenAIGenerator(BaseGenerator):
     def name(self) -> str:
         return f"openai/{self._cfg.model}"
 
-    async def generate(
-        self,
-        query: str,
-        context: List[RetrievedChunk],
-        tenant_id: Optional[str] = None,
-        system_prompt: Optional[str] = None,
-    ) -> GeneratedAnswer:
-        cfg = get_config()
-        api_key = cfg.get_openai_key()
-
+    def _prepare(
+        self, query: str, context: List[RetrievedChunk], system_prompt: Optional[str]
+    ) -> Tuple[str, Dict[str, str], Dict[str, Any]]:
+        """Model choice, headers and request body shared by generate() and generate_stream()."""
+        api_key = get_config().get_openai_key()
         model = (
             self._cfg.complex_query_model
             if (self._cfg.enable_model_routing and _is_complex_query(query))
             else self._cfg.model
         )
-
         context_block = _build_context_block(context)
         user_message = f"Context:\n{context_block}\n\nQuestion: {query}"
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
@@ -109,51 +115,25 @@ class OpenAIGenerator(BaseGenerator):
             "max_tokens": self._cfg.max_tokens,
             "temperature": self._cfg.temperature,
         }
+        return model, headers, payload
 
-        start = time.perf_counter()
-        async with async_trace_span(
-            "llm_generation", {"model": model, "tenant_id": tenant_id or ""}
-        ):
-            try:
-                async with httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client:
-                    response = await client.post(
-                        "https://api.openai.com/v1/chat/completions",
-                        headers=headers,
-                        json=payload,
-                    )
-                    response.raise_for_status()
-                    data = response.json()
-            except httpx.HTTPStatusError as exc:
-                if self._cfg.fallback_model and exc.response.status_code in (429, 503):
-                    logger.warning(
-                        "llm_fallback_triggered", model=model, status=exc.response.status_code
-                    )
-                    payload["model"] = self._cfg.fallback_model
-                    async with httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client:
-                        response = await client.post(
-                            "https://api.openai.com/v1/chat/completions",
-                            headers=headers,
-                            json=payload,
-                        )
-                        response.raise_for_status()
-                        data = response.json()
-                        model = self._cfg.fallback_model
-                else:
-                    raise
-
-        latency_ms = (time.perf_counter() - start) * 1000
-        usage = data.get("usage", {})
+    def _answer(
+        self,
+        answer_text: str,
+        context: List[RetrievedChunk],
+        model: str,
+        usage: Dict[str, Any],
+        latency_ms: float,
+        tenant_id: Optional[str],
+    ) -> GeneratedAnswer:
         prompt_tokens = usage.get("prompt_tokens", 0)
         completion_tokens = usage.get("completion_tokens", 0)
-        answer_text = data["choices"][0]["message"]["content"]
-
         cost_record = self._cost_tracker.record(
             tenant_id=tenant_id or "default",
             model=model,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
         )
-
         return GeneratedAnswer(
             answer=answer_text,
             citations=context,
@@ -164,6 +144,97 @@ class OpenAIGenerator(BaseGenerator):
             latency_ms=latency_ms,
             tenant_id=tenant_id,
         )
+
+    async def generate(
+        self,
+        query: str,
+        context: List[RetrievedChunk],
+        tenant_id: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+    ) -> GeneratedAnswer:
+        model, headers, payload = self._prepare(query, context, system_prompt)
+
+        start = time.perf_counter()
+        async with async_trace_span(
+            "llm_generation", {"model": model, "tenant_id": tenant_id or ""}
+        ):
+            try:
+                async with httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client:
+                    response = await client.post(_OPENAI_CHAT_URL, headers=headers, json=payload)
+                    response.raise_for_status()
+                    data = response.json()
+            except httpx.HTTPStatusError as exc:
+                if self._cfg.fallback_model and exc.response.status_code in (429, 503):
+                    logger.warning(
+                        "llm_fallback_triggered", model=model, status=exc.response.status_code
+                    )
+                    payload["model"] = self._cfg.fallback_model
+                    async with httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client:
+                        response = await client.post(
+                            _OPENAI_CHAT_URL, headers=headers, json=payload
+                        )
+                        response.raise_for_status()
+                        data = response.json()
+                        model = self._cfg.fallback_model
+                else:
+                    raise
+
+        latency_ms = (time.perf_counter() - start) * 1000
+        return self._answer(
+            data["choices"][0]["message"]["content"],
+            context,
+            model,
+            data.get("usage", {}),
+            latency_ms,
+            tenant_id,
+        )
+
+    async def generate_stream(
+        self,
+        query: str,
+        context: List[RetrievedChunk],
+        tenant_id: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+    ) -> AsyncIterator[Union[str, GeneratedAnswer]]:
+        """Token streaming via the Chat Completions SSE stream.
+
+        A 429/503 before the first token defers to generate(), which retries on
+        the fallback model, so callers still get an answer (just not streamed).
+        """
+        model, headers, payload = self._prepare(query, context, system_prompt)
+        payload = {**payload, "stream": True, "stream_options": {"include_usage": True}}
+
+        pieces: List[str] = []
+        usage: Dict[str, Any] = {}
+        use_fallback = False
+        start = time.perf_counter()
+        async with (
+            async_trace_span("llm_generation", {"model": model, "tenant_id": tenant_id or ""}),
+            httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client,
+            client.stream("POST", _OPENAI_CHAT_URL, headers=headers, json=payload) as response,
+        ):
+            if self._cfg.fallback_model and response.status_code in (429, 503):
+                use_fallback = True
+            else:
+                response.raise_for_status()
+                async for data in _sse_data_lines(response):
+                    if data == "[DONE]":
+                        break
+                    event = json.loads(data)
+                    usage = event.get("usage") or usage  # final chunk carries usage
+                    for choice in event.get("choices", [])[:1]:
+                        text = (choice.get("delta") or {}).get("content")
+                        if text:
+                            pieces.append(text)
+                            yield text
+
+        if use_fallback:
+            async for item in super().generate_stream(query, context, tenant_id, system_prompt):
+                yield item
+            return
+
+        latency_ms = (time.perf_counter() - start) * 1000
+        yield self._answer("".join(pieces), context, model, usage, latency_ms, tenant_id)
 
 
 # ── Google Gemini ────────────────────────────────────────────────────────────
@@ -209,28 +280,20 @@ class GeminiGenerator(BaseGenerator):
         # Reads GOOGLE_API_KEY from .env (via Config) or the process environment.
         return get_config().get_google_key()
 
-    async def generate(
-        self,
-        query: str,
-        context: List[RetrievedChunk],
-        tenant_id: Optional[str] = None,
-        system_prompt: Optional[str] = None,
-    ) -> GeneratedAnswer:
-        api_key = self._get_api_key()
+    def _prepare(
+        self, query: str, context: List[RetrievedChunk], system_prompt: Optional[str]
+    ) -> Tuple[str, Dict[str, Any]]:
+        """Model choice and request body shared by generate() and generate_stream()."""
         model = (
             self._complex_model
             if (self._cfg.enable_model_routing and _is_complex_query(query))
             else self._default_model
         )
-
         context_block = _build_context_block(context)
         prompt = (
             f"{system_prompt or FINANCIAL_RAG_SYSTEM_PROMPT}\n\n"
             f"Context:\n{context_block}\n\nQuestion: {query}"
         )
-
-        # Key goes in a header, not the query string, so it never lands in URL logs.
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
         generation_config: Dict[str, Any] = {
             "temperature": self._cfg.temperature,
             "maxOutputTokens": self._cfg.max_tokens,
@@ -245,24 +308,26 @@ class GeminiGenerator(BaseGenerator):
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": generation_config,
         }
+        return model, payload
 
-        start = time.perf_counter()
-        async with (
-            async_trace_span("llm_generation", {"model": model, "tenant_id": tenant_id or ""}),
-            httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client,
-        ):
-            response = await client.post(url, json=payload, headers={"x-goog-api-key": api_key})
-            response.raise_for_status()
-            data = response.json()
-        latency_ms = (time.perf_counter() - start) * 1000
-
+    @staticmethod
+    def _text_of(candidate: Dict[str, Any]) -> str:
         # Thinking models may return several parts (or none, if the token budget was
         # spent on thinking). Join the text parts, skipping any marked as thoughts.
-        candidate = data["candidates"][0]
         parts = candidate.get("content", {}).get("parts", [])
-        answer_text = "".join(p.get("text", "") for p in parts if not p.get("thought"))
-        usage = data.get("usageMetadata", {})
-        if candidate.get("finishReason") == "MAX_TOKENS":
+        return "".join(p.get("text", "") for p in parts if not p.get("thought"))
+
+    def _answer(
+        self,
+        answer_text: str,
+        context: List[RetrievedChunk],
+        model: str,
+        usage: Dict[str, Any],
+        finish_reason: Optional[str],
+        latency_ms: float,
+        tenant_id: Optional[str],
+    ) -> GeneratedAnswer:
+        if finish_reason == "MAX_TOKENS":
             logger.warning(
                 "gemini_answer_truncated",
                 model=model,
@@ -296,6 +361,77 @@ class GeminiGenerator(BaseGenerator):
             estimated_cost_usd=cost_usd,
             latency_ms=latency_ms,
             tenant_id=tenant_id,
+        )
+
+    async def generate(
+        self,
+        query: str,
+        context: List[RetrievedChunk],
+        tenant_id: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+    ) -> GeneratedAnswer:
+        api_key = self._get_api_key()
+        model, payload = self._prepare(query, context, system_prompt)
+        # Key goes in a header, not the query string, so it never lands in URL logs.
+        url = f"{_GEMINI_BASE}/{model}:generateContent"
+
+        start = time.perf_counter()
+        async with (
+            async_trace_span("llm_generation", {"model": model, "tenant_id": tenant_id or ""}),
+            httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client,
+        ):
+            response = await client.post(url, json=payload, headers={"x-goog-api-key": api_key})
+            response.raise_for_status()
+            data = response.json()
+        latency_ms = (time.perf_counter() - start) * 1000
+
+        candidate = data["candidates"][0]
+        return self._answer(
+            self._text_of(candidate),
+            context,
+            model,
+            data.get("usageMetadata", {}),
+            candidate.get("finishReason"),
+            latency_ms,
+            tenant_id,
+        )
+
+    async def generate_stream(
+        self,
+        query: str,
+        context: List[RetrievedChunk],
+        tenant_id: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+    ) -> AsyncIterator[Union[str, GeneratedAnswer]]:
+        """Token streaming via streamGenerateContent (server-sent events)."""
+        api_key = self._get_api_key()
+        model, payload = self._prepare(query, context, system_prompt)
+        url = f"{_GEMINI_BASE}/{model}:streamGenerateContent?alt=sse"
+
+        pieces: List[str] = []
+        usage: Dict[str, Any] = {}
+        finish_reason: Optional[str] = None
+        start = time.perf_counter()
+        async with (
+            async_trace_span("llm_generation", {"model": model, "tenant_id": tenant_id or ""}),
+            httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client,
+            client.stream(
+                "POST", url, json=payload, headers={"x-goog-api-key": api_key}
+            ) as response,
+        ):
+            response.raise_for_status()
+            async for data in _sse_data_lines(response):
+                event = json.loads(data)
+                usage = event.get("usageMetadata", usage)  # later events carry totals
+                for candidate in event.get("candidates", [])[:1]:
+                    finish_reason = candidate.get("finishReason") or finish_reason
+                    text = self._text_of(candidate)
+                    if text:
+                        pieces.append(text)
+                        yield text
+        latency_ms = (time.perf_counter() - start) * 1000
+        yield self._answer(
+            "".join(pieces), context, model, usage, finish_reason, latency_ms, tenant_id
         )
 
 
