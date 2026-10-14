@@ -1,5 +1,9 @@
 name: CI/CD
 
+# Every job in this workflow gates merges. Advisory checks that are allowed to fail
+# (vulnerability scanners, the LLM eval gate) live in advisory.yml, so they do not
+# share this workflow's badge.
+
 on:
   push:
     branches: [main, develop]
@@ -26,24 +30,23 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
+      # Pinned so a new formatter or linter release cannot turn main red on its own.
       - name: Install lint deps
-        run: pip install ruff mypy black isort pydantic pydantic-settings structlog
+        run: |
+          pip install ruff==0.17.0 mypy==2.4.0 black==26.10.1 isort==9.0.2             pydantic pydantic-settings structlog
 
+      # Every step below is blocking.
       - name: Ruff lint
         run: ruff check src/ tests/ evals/
-        continue-on-error: true
 
       - name: Black format check
         run: black --check src/ tests/ evals/
-        continue-on-error: true
 
       - name: isort check
         run: isort --check-only src/ tests/ evals/
-        continue-on-error: true
 
       - name: mypy type check
         run: mypy src/rag_system/config.py src/rag_system/components/base.py
-        continue-on-error: true  # warn but don't block
 
   # ─────────────────────────────────────────────────────────────────────────
   test:
@@ -75,6 +78,7 @@ jobs:
         env:
           ENVIRONMENT: testing
 
+      # Reporting only: an outage at Codecov should not fail the build.
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
@@ -82,86 +86,10 @@ jobs:
         continue-on-error: true
 
   # ─────────────────────────────────────────────────────────────────────────
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    needs: lint
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: fs
-          scan-ref: "."
-          format: table
-          exit-code: "0"   # warn only — set to 1 to block on CRITICAL
-          severity: CRITICAL,HIGH
-
-      - name: Grype vulnerability scan
-        uses: anchore/scan-action@v4
-        id: grype
-        with:
-          path: "."
-          fail-build: false   # warn only — flip to true once findings are triaged
-          severity-cutoff: critical
-
-      - name: Upload Grype results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        continue-on-error: true
-        with:
-          sarif_file: ${{ steps.grype.outputs.sarif }}
-
-      - name: Semgrep static analysis
-        uses: semgrep/semgrep-action@v1
-        continue-on-error: true   # warn only — flip off once findings are triaged
-        with:
-          config: >-
-            p/python
-            p/security-audit
-            p/secrets
-
-      - name: pip-audit
-        run: |
-          pip install pip-audit
-          pip-audit --requirement requirements.txt || true
-
-  # ─────────────────────────────────────────────────────────────────────────
-  eval-regression:
-    name: Eval Regression Gate
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-
-      - name: Install deps
-        run: pip install pydantic pydantic-settings structlog httpx numpy
-
-      - name: Run eval regression check
-        run: python -m evals.run_evals --fail-on-regression --output evals/ci_report.json
-        env:
-          ENVIRONMENT: testing
-          VECTOR_STORE_CONFIG__PROVIDER: memory
-        continue-on-error: true  # soft gate until golden dataset is populated
-
-      - name: Upload eval report
-        uses: actions/upload-artifact@v4
-        with:
-          name: eval-report
-          path: evals/ci_report.json
-        if: always()
-
-  # ─────────────────────────────────────────────────────────────────────────
   docker:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
-    needs: [test, security]
+    needs: [test, helm-lint]
     if: github.event_name == 'push' || github.event_name == 'release'
     permissions:
       contents: read

@@ -2,9 +2,13 @@
 
 Covers the RAGPipeline SDK wrapper via mocking the internal pipeline.
 """
+
 from __future__ import annotations
+
 from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
+
 from src.rag_system.sdk import RAGPipeline, get_config
 
 
@@ -147,4 +151,5 @@ class TestSDKExports:
 
     def test_all_contains_rag_pipeline(self):
         from src.rag_system.sdk import __all__
+
         assert "RAGPipeline" in __all__

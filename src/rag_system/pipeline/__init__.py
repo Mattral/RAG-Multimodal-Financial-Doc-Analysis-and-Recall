@@ -65,6 +65,8 @@ def _element_to_chunk(element: Any, tenant_id: str) -> RetrievedChunk:
         chunk_id=chunk_id,
         metadata=metadata,
     )
+
+
 @dataclass
 class _QueryState:
     """What one query carries between its stages (see RAGPipeline.query)."""

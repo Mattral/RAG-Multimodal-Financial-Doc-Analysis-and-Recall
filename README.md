@@ -8,6 +8,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![HF Space](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Space-blue)](https://huggingface.co/spaces/Mattral/RAG-Financial-Multimodal)
 
+> **About the history:** this codebase was rebuilt from scratch in 2026. The commits from
+> February 2024 at the start of the history are an earlier, unrelated upload: a notebook,
+> two pickled data files and an image. Nothing in the rebuild used them, so they were removed
+> from the tree in October 2026. They remain in the history (commits `781d919`–`1d08a81`).
+
 
 ---
 
@@ -168,7 +173,9 @@ and `scripts/benchmark.py` can measure them against a running deployment. The SL
 
 ![SLO Burn Rate](docs/assets/slo_burn_rate.png)
 
-*Multi-window multi-burn-rate alerting from the Google SRE Workbook. Four alert tiers (14.4×, 6×, 3×, 1× burn rate) routing to PagerDuty/OpsGenie.*
+*Design diagram, not live data: it illustrates how the configured alert rules behave and is
+not taken from a running deployment. Multi-window multi-burn-rate alerting from the Google
+SRE Workbook, with four alert tiers (14.4×, 6×, 3×, 1× burn rate) routing to PagerDuty/OpsGenie.*
 
 ---
 
@@ -184,7 +191,7 @@ and `scripts/benchmark.py` can measure them against a running deployment. The SL
 | **Retrieval** | Hybrid (dense + BM25) | Reciprocal Rank Fusion, k=60 |
 | **Reranking** | Cross-encoder | ms-marco-MiniLM / Cohere Rerank v3 |
 | **Generation** | Cost-routed, multi-provider | OpenAI / Gemini / Anthropic / Local vLLM |
-| **Guardrails** | Numeric grounding + PII | Presidio + custom regex + AST-sandboxed PoT calculator |
+| **Guardrails** | Numeric grounding + PII | Presidio + custom regex + restricted-interpreter PoT calculator |
 | **API** | REST + OpenAPI | FastAPI + uvicorn |
 | **Observability** | Traces + metrics | OpenTelemetry + Prometheus + Grafana |
 | **Security** | Auth + audit trail | API key + SHA-256 tamper-evident audit log |
@@ -198,14 +205,18 @@ and `scripts/benchmark.py` can measure them against a running deployment. The SL
 ### Multimodal ingestion
 - **Vision LLM fallback chain**: primary → secondary → local, never silently fails
 - **Layout-aware chunker**: tables stay with their captions; multi-page tables merged
-- **ColPali visual retrieval**: late-interaction MaxSim scoring on page images (no OCR)
+- **ColPali visual retrieval** (component only, not yet called by the query pipeline):
+  late-interaction MaxSim scoring on page images (no OCR)
 - **Delta detection**: skip unchanged documents on re-ingest; version history for rollback
 
 ### Retrieval
-- **Hybrid RRF (k=60)**: dense × 0.7 + BM25 × 0.3 — 25% better recall than dense-only
+- **Hybrid RRF (k=60)**: dense + BM25, equal-weight Reciprocal Rank Fusion. Measured: beats
+  both dense-only and BM25 at 1,000-char chunks (evidence hit@5 0.53 vs 0.46 and 0.42), and
+  ties BM25 at the default 4,000-char chunks (0.71). See [Retrieval Quality](#retrieval-quality)
 - **Cross-encoder reranking**: ms-marco-MiniLM-L-6-v2 or Cohere Rerank v3
 - **Query analyzer**: intent classification → cost routing, entity extraction, query rewriting
-- **Semantic cache**: similar queries served from cache (~1800ms saved per hit)
+- **Semantic cache**: a query whose embedding is close enough to a cached one (cosine ≥ 0.92)
+  is answered from cache, skipping retrieval and generation. The saving has not been measured
 - **Knowledge graph (optional, `ENABLE_KNOWLEDGE_GRAPH=true`)**: LLM-extracted entities/relations
   (COMPANY, METRIC, DATE; REPORTED_METRIC, FOR_PERIOD, …) and graph-augmented retrieval that walks
   query entities to related metrics/periods and RRF-fuses the linked chunks with hybrid results.
@@ -213,13 +224,15 @@ and `scripts/benchmark.py` can measure them against a running deployment. The SL
 
 ### Quality assurance
 - **Numeric grounding guardrail**: every number in the answer is verified against context
-- **Program-of-Thought calculator**: exact arithmetic in a sandboxed Python executor
+- **Program-of-Thought calculator**: the LLM writes the calculation; a restricted arithmetic
+  interpreter (no `exec()`, no attribute access) evaluates it
 - **RAGAS evaluation**: faithfulness, answer relevancy, context precision + LLM-as-judge
-- **520 tests**: unit, integration, property-based (Hypothesis), API, chaos engineering
+- **Test suite**: unit, integration, property-based (Hypothesis), API, chaos engineering. CI
+  runs it on every PR, with lint, mypy and a 70% coverage floor, and blocks on failure
 
 ### Production operations
 - **OpenTelemetry**: distributed traces with ingest/retrieve/generate spans
-- **15 Prometheus metrics**: latency, cost, hallucination score, citation coverage, cache hit rate
+- **17 Prometheus metrics**: latency, cost, hallucination score, citation coverage, cache hit rate
 - **Multi-window SLO alerting**: Google SRE workbook burn-rate pattern, PagerDuty/OpsGenie
 - **Kubernetes**: HPA 2–10 replicas, PodDisruptionBudget, NetworkPolicy, IRSA
 - **Terraform**: full EKS + RDS(pgvector) + ElastiCache + S3 + KMS infrastructure-as-code
@@ -233,8 +246,13 @@ full pipeline end-to-end — ingestion, hybrid retrieval, vision/chart queries, 
 calculations, guardrails, and cost tracking — using Tesla's real Q3 2023 Investor Update as the
 example document.
 
-A standalone Gradio demo lives in [`spaces/rag-financial/`](spaces/rag-financial/) — deploy it
-directly to HuggingFace Spaces or run it locally:
+**Hosted demo**: [Mattral/RAG-Financial-Multimodal](https://huggingface.co/spaces/Mattral/RAG-Financial-Multimodal)
+on Hugging Face Spaces (status `RUNNING` when checked on 2026-10-14). Bring your own OpenAI or
+Gemini key. The Space defaults to `gemini-2.5-flash`, which returns 404 for newly created
+Google API keys; pick a 3.x model or use OpenAI. On the free CPU tier the Space sleeps when
+idle, so the first load can take a minute.
+
+Its source is in [`spaces/rag-financial/`](spaces/rag-financial/). To run it locally:
 
 ```bash
 cd spaces/rag-financial

@@ -5,6 +5,44 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### CI
+- Lint gates merges: ruff, black, isort and mypy no longer run with `continue-on-error`.
+  Existing findings were fixed (formatting only) and tool versions are pinned in CI
+- Security scanners (Trivy, Grype, Semgrep, pip-audit) and the eval regression check moved to
+  a separate `advisory.yml` workflow (nightly and on PRs) that reports but never blocks, so
+  the CI badge only covers checks that gate
+
+### Accuracy of README claims
+- Hybrid retrieval bullet: dropped "25% better recall than dense-only" and the
+  "dense × 0.7 + BM25 × 0.3" weights (fusion is equal-weight). It now states the measured
+  result: hybrid beats both at 1,000-char chunks and ties BM25 at the default size
+- Semantic cache: dropped the unmeasured "~1800ms saved per hit"
+- Removed hand-typed test counts (README "520 tests", docs "814", roadmap "868")
+- SLO burn-rate chart captioned as a design diagram, not live data (README, docs/index.md)
+- ColPali bullet notes the component is not yet called by the query pipeline
+- Prometheus metric count corrected to 17
+- Note on the repository history: rebuilt from scratch in 2026; the February 2024 commits are
+  an earlier, unrelated upload
+- Hugging Face Space link: status checked (running), with the `gemini-2.5-flash` default caveat
+
+### Removed
+- The Streamlit `demo/` app and its test. The Gradio Space in `spaces/rag-financial/`
+  replaces it and tracks the current pipeline
+- Root-level files from the February 2024 upload (`categorized_elements.pkl`,
+  `graphs_description.pkl`, `trend.avif`, `Tesla Investor Presentations.ipynb`). Nothing
+  referenced them; they remain in the git history
+
+### Security
+- Program-of-Thought sandbox escape fixed. The old sandbox validated an AST allowlist and then
+  ran the program with `exec()`. Attribute access was allowed, so
+  `round.__self__.__import__('os')` reached the real `os` module. Programs are now evaluated
+  by a restricted tree-walking interpreter (numbers, variables, arithmetic, comparisons,
+  `if`/`else`, assignment, and calls to `abs round min max sum len float int pow`). Attribute
+  access, subscripts, strings, loops, comprehensions, lambdas and function definitions are
+  rejected at validation. Exponent, integer-size and program-size limits stop inputs like
+  `9 ** 9 ** 9 ** 9` that the timeout could not interrupt. Regression tests cover both cases.
+  See the update note in ADR 004
+
 ### Streaming
 - `POST /api/v1/query/stream`: server-sent events `sources` -> `token`... -> `done` (the same payload
   as `POST /query`) or `error`. `POST /api/v1/query` is unchanged

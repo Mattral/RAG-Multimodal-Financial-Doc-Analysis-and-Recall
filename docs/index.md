@@ -64,7 +64,9 @@ See [Quickstart → Docker](quickstart/docker.md) for the full walkthrough.
 
 ![SLO Burn Rate](assets/slo_burn_rate.png)
 
-*Multi-window multi-burn-rate alerting (Google SRE Workbook). Four alert tiers with PagerDuty/OpsGenie routing.*
+*Design diagram, not live data: it illustrates the configured alert rules and is not taken from a
+running deployment. Multi-window multi-burn-rate alerting (Google SRE Workbook), with four alert
+tiers routed to PagerDuty/OpsGenie.*
 
 ---
 
@@ -80,10 +82,9 @@ See [Quickstart → Docker](quickstart/docker.md) for the full walkthrough.
 
 | Metric | Value |
 |---|---|
-| Tests collected | 814 |
 | Golden eval samples | 119 |
 | Architecture Decision Records | 8 |
-| Prometheus metrics | 15 |
+| Prometheus metrics | 17 |
 | Grafana dashboards | 2 |
 | K8s manifests | 15 |
 | Vector store backends | DeepLake, pgvector, Qdrant (all real implementations) |

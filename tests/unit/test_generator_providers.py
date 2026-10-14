@@ -220,11 +220,17 @@ class TestGeminiGenerator:
 
         mock_response = MagicMock()
         mock_response.json.return_value = {
-            "candidates": [{"content": {"parts": [
-                {"text": "The user wants Q3 revenue...", "thought": True},
-                {"text": "Revenue was "},
-                {"text": "$23.35B."},
-            ]}}],
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"text": "The user wants Q3 revenue...", "thought": True},
+                            {"text": "Revenue was "},
+                            {"text": "$23.35B."},
+                        ]
+                    }
+                }
+            ],
             "usageMetadata": {"promptTokenCount": 150, "candidatesTokenCount": 30},
         }
         mock_response.raise_for_status = MagicMock()

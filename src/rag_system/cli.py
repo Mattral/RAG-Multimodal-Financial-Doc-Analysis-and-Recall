@@ -45,9 +45,7 @@ logger = structlog.get_logger(__name__)
 def _version_callback(value: bool) -> None:
     if value:
         console.print("[bold cyan]RAG Financial Multimodal[/bold cyan] [green]v2.0.0[/green]")
-        console.print(
-            "Enterprise-grade multimodal RAG for financial document analysis"
-        )
+        console.print("Enterprise-grade multimodal RAG for financial document analysis")
         raise typer.Exit()
 
 
@@ -135,21 +133,15 @@ def query(
     async def _run() -> dict:
         from src.rag_system.pipeline import create_pipeline
 
-        with Progress(
-            SpinnerColumn(), TextColumn("[cyan]Querying…"), console=console
-        ) as prog:
+        with Progress(SpinnerColumn(), TextColumn("[cyan]Querying…"), console=console) as prog:
             prog.add_task("", total=None)
             pipeline = await create_pipeline()
-            return await pipeline.query(
-                query_text=question, tenant_id=tenant, top_k=top_k
-            )
+            return await pipeline.query(query_text=question, tenant_id=tenant, top_k=top_k)
 
     result = asyncio.run(_run())
 
     if json_out:
-        console.print(
-            Syntax(json.dumps(result, indent=2, default=str), "json", theme="monokai")
-        )
+        console.print(Syntax(json.dumps(result, indent=2, default=str), "json", theme="monokai"))
         return
 
     console.print(
@@ -202,8 +194,9 @@ def query(
 
 @app.command()
 def evaluate(
-    dataset: Annotated[str, typer.Option("--dataset", "-d")]
-    = "evals/golden_datasets/financial_qa.jsonl",
+    dataset: Annotated[
+        str, typer.Option("--dataset", "-d")
+    ] = "evals/golden_datasets/financial_qa.jsonl",
     tenant: Annotated[str, typer.Option("--tenant", "-t")] = "eval",
     fail_on_regression: Annotated[bool, typer.Option("--fail-on-regression")] = True,
     output: Annotated[Optional[str], typer.Option("--output", "-o")] = None,
@@ -227,15 +220,15 @@ def evaluate(
         return await runner.run(tenant_id=tenant)
 
     with Progress(
-        SpinnerColumn(), TextColumn("[cyan]Running evals…"), TimeElapsedColumn(),
+        SpinnerColumn(),
+        TextColumn("[cyan]Running evals…"),
+        TimeElapsedColumn(),
         console=console,
     ) as prog:
         prog.add_task("", total=None)
         report = asyncio.run(_run())
 
-    table = Table(
-        title="📊 Eval Report", show_header=True, header_style="bold magenta"
-    )
+    table = Table(title="📊 Eval Report", show_header=True, header_style="bold magenta")
     table.add_column("Metric")
     table.add_column("Value", style="cyan")
     table.add_row("Run ID", report.run_id)
@@ -248,9 +241,7 @@ def evaluate(
     table.add_row("Source Hit Rate", f"{report.source_hit_rate:.1%}")
     table.add_row("Avg Latency", f"{report.avg_latency_ms:.0f}ms")
     table.add_row("Total Cost", f"${report.total_cost_usd:.4f}")
-    table.add_row(
-        "Regression", "⚠ YES" if report.regression_detected else "✅ None"
-    )
+    table.add_row("Regression", "⚠ YES" if report.regression_detected else "✅ None")
     console.print(table)
 
     if output:

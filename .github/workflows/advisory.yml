@@ -1,0 +1,96 @@
+name: Advisory (non-gating)
+
+# These checks report findings but do not block merges, and they are kept out of
+# ci.yml so that the CI badge only reflects checks that gate.
+#   - Vulnerability and static-analysis scanners: soft until the existing findings
+#     are triaged. To make one gating, drop its soft setting and move it to ci.yml.
+#   - Eval regression: CI has no LLM key or budget, so the eval cannot run end to end.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 3 * * *"   # nightly, 03:00 UTC
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+
+  # ─────────────────────────────────────────────────────────────────────────
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: "."
+          format: table
+          exit-code: "0"   # report only; set to 1 to block on CRITICAL/HIGH
+          severity: CRITICAL,HIGH
+
+      - name: Grype vulnerability scan
+        uses: anchore/scan-action@v4
+        id: grype
+        with:
+          path: "."
+          fail-build: false   # report only
+          severity-cutoff: critical
+
+      - name: Upload Grype results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        continue-on-error: true   # needs code scanning enabled on the repo
+        with:
+          sarif_file: ${{ steps.grype.outputs.sarif }}
+
+      - name: Semgrep static analysis
+        uses: semgrep/semgrep-action@v1
+        continue-on-error: true   # report only
+        with:
+          config: >-
+            p/python
+            p/security-audit
+            p/secrets
+
+      - name: pip-audit
+        run: |
+          pip install pip-audit
+          pip-audit --requirement requirements.txt || true   # report only
+
+  # ─────────────────────────────────────────────────────────────────────────
+  eval-regression:
+    name: Eval Regression (advisory)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install deps
+        run: pip install pydantic pydantic-settings structlog httpx numpy
+
+      - name: Run eval regression check
+        run: python -m evals.run_evals --fail-on-regression --output evals/ci_report.json
+        env:
+          ENVIRONMENT: testing
+          VECTOR_STORE_CONFIG__PROVIDER: memory
+        continue-on-error: true   # no LLM key in CI; see the header comment
+
+      - name: Upload eval report
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: evals/ci_report.json
+          if-no-files-found: ignore
+        if: always()

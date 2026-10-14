@@ -160,9 +160,7 @@ def mock_parser(sample_document_element, sample_table_element):
     parser = MagicMock()
     parser.name = "mock_unstructured"
     parser.parse = AsyncMock(return_value=[sample_document_element])
-    parser.parse_batch = AsyncMock(
-        return_value=[sample_document_element, sample_table_element]
-    )
+    parser.parse_batch = AsyncMock(return_value=[sample_document_element, sample_table_element])
     return parser
 
 
