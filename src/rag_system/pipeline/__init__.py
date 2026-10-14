@@ -413,6 +413,60 @@ class RAGPipeline:
 
     # ── QUERY ─────────────────────────────────────────────────────────────────
 
+    async def _run_program_of_thought(
+        self, query: str, chunks: List[Any], tenant_id: str
+    ) -> Optional[Any]:
+        """Ask the LLM for a calculation program over the context, then sandbox it.
+
+        Retrieved chunk text is untrusted: it is only ever shown to the LLM as
+        data, never extracted or executed. The only code executed is what the
+        LLM writes in response to the codegen prompt, and that still has to
+        pass the PoT AST allowlist (see ADR 004).
+        """
+        from src.rag_system.components.pot_executor import (
+            POT_CODEGEN_SYSTEM_PROMPT,
+            POT_NO_CALCULATION,
+            PoTExecutor,
+        )
+
+        try:
+            codegen = await self._generator.generate(
+                query=query,
+                context=chunks,
+                tenant_id=tenant_id,
+                system_prompt=POT_CODEGEN_SYSTEM_PROMPT,
+            )
+            program = (codegen.answer or "").strip()
+            if not program or program == POT_NO_CALCULATION:
+                logger.info("pot_skipped", reason="llm_declined_calculation")
+                return None
+            pot_result = await PoTExecutor().execute_from_llm_response(program)
+            if not pot_result.success:
+                logger.info("pot_failed", error=pot_result.error)
+            return pot_result
+        except Exception as exc:
+            logger.warning("pot_execution_error", error=str(exc))
+            return None
+
+    @staticmethod
+    def _with_pot_note(system_prompt: Optional[str], pot_result: Any) -> str:
+        """Append the PoT result to the caller's prompt, or to the default one.
+
+        Generators fall back to FINANCIAL_RAG_SYSTEM_PROMPT only when given no
+        prompt, so the note must be appended to that default explicitly;
+        otherwise the grounding/citation rules would be silently dropped.
+        """
+        from src.rag_system.components.generator import FINANCIAL_RAG_SYSTEM_PROMPT
+
+        pot_note = (
+            f"\n\nCalculated value (exact): {pot_result.formatted(2)}\n"
+            "This value was computed by executing the program below over figures "
+            "from the source passages. Use it as the result of the calculation and "
+            "cite the sources of its input figures.\n"
+            f"```python\n{pot_result.code}\n```"
+        )
+        return (system_prompt or FINANCIAL_RAG_SYSTEM_PROMPT) + pot_note
+
     async def query(
         self,
         query_text: str,
@@ -500,16 +554,8 @@ class RAGPipeline:
 
             # PoT for numeric queries
             pot_result = None
-            if analysis.use_pot and chunks:
-                try:
-                    from src.rag_system.components.pot_executor import PoTExecutor
-
-                    pot_executor = PoTExecutor()
-                    context_text = " ".join(c.text for c in chunks[:3])
-                    # Attempt to extract and run any code from context
-                    pot_result = await pot_executor.execute_from_llm_response(context_text)
-                except Exception:
-                    pass
+            if analysis.use_pot and chunks and self._generator:
+                pot_result = await self._run_program_of_thought(effective_query, chunks, tenant_id)
 
             # Generate
             t1 = time.perf_counter()
@@ -518,8 +564,7 @@ class RAGPipeline:
                 # Inject PoT result into system prompt if available
                 effective_system = system_prompt
                 if pot_result and pot_result.success:
-                    pot_note = f"\n\nCalculated value (exact): {pot_result.formatted(2)}"
-                    effective_system = (system_prompt or "") + pot_note
+                    effective_system = self._with_pot_note(system_prompt, pot_result)
                 answer = await self._generator.generate(
                     query=effective_query,
                     context=chunks,
