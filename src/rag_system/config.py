@@ -154,6 +154,9 @@ class LLMConfig(BaseModel):
     fallback_model: Optional[str] = "gpt-3.5-turbo"
     temperature: float = Field(0.1, ge=0.0, le=2.0)
     max_tokens: int = 2048
+    # Reasoning budget for thinking models (Gemini), granted on top of max_tokens so
+    # hidden reasoning cannot use up the answer's tokens. None = provider default.
+    thinking_budget_tokens: Optional[int] = Field(1024, ge=0)
     timeout_seconds: int = 60
     complex_query_model: str = "gpt-4o"
     enable_model_routing: bool = True

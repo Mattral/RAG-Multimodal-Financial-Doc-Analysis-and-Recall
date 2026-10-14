@@ -240,6 +240,10 @@ class TestGeminiGenerator:
         url = mock_client.post.call_args.args[0]
         assert "key=" not in url
         assert mock_client.post.call_args.kwargs["headers"] == {"x-goog-api-key": "test-google-key"}
+        # Reasoning gets its own budget on top of max_tokens (defaults 1024 + 2048).
+        gen_cfg = mock_client.post.call_args.kwargs["json"]["generationConfig"]
+        assert gen_cfg["thinkingConfig"] == {"thinkingBudget": 1024}
+        assert gen_cfg["maxOutputTokens"] == 2048 + 1024
 
     def test_name_property(self):
         gen = GeminiGenerator()

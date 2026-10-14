@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import re
 import time
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 import structlog
@@ -231,12 +231,19 @@ class GeminiGenerator(BaseGenerator):
 
         # Key goes in a header, not the query string, so it never lands in URL logs.
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        generation_config: Dict[str, Any] = {
+            "temperature": self._cfg.temperature,
+            "maxOutputTokens": self._cfg.max_tokens,
+        }
+        # On thinking models maxOutputTokens covers reasoning + answer; without a
+        # separate budget the reasoning can consume it and truncate the answer.
+        budget = self._cfg.thinking_budget_tokens
+        if budget is not None:
+            generation_config["maxOutputTokens"] = self._cfg.max_tokens + budget
+            generation_config["thinkingConfig"] = {"thinkingBudget": budget}
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": self._cfg.temperature,
-                "maxOutputTokens": self._cfg.max_tokens,
-            },
+            "generationConfig": generation_config,
         }
 
         start = time.perf_counter()
@@ -251,9 +258,17 @@ class GeminiGenerator(BaseGenerator):
 
         # Thinking models may return several parts (or none, if the token budget was
         # spent on thinking). Join the text parts, skipping any marked as thoughts.
-        parts = data["candidates"][0].get("content", {}).get("parts", [])
+        candidate = data["candidates"][0]
+        parts = candidate.get("content", {}).get("parts", [])
         answer_text = "".join(p.get("text", "") for p in parts if not p.get("thought"))
         usage = data.get("usageMetadata", {})
+        if candidate.get("finishReason") == "MAX_TOKENS":
+            logger.warning(
+                "gemini_answer_truncated",
+                model=model,
+                thoughts_tokens=usage.get("thoughtsTokenCount", 0),
+                answer_tokens=usage.get("candidatesTokenCount", 0),
+            )
         prompt_tokens = usage.get("promptTokenCount", 0)
         completion_tokens = usage.get("candidatesTokenCount", 0)
 
