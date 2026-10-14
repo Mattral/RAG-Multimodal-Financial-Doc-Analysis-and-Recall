@@ -100,13 +100,13 @@
 - [x] Offline retrieval benchmark and answer-quality eval on the real filings
 - [x] RAGAS and LLM-as-judge scorers. *They call OpenAI only, and no RAGAS run has been
       published.*
-- [x] CI jobs: lint (ruff/black/isort), mypy, tests, Trivy + pip-audit + Semgrep, eval, Docker
-      build, Helm lint
-- [x] Tests gate merges (#19). Before #19 the test step was `continue-on-error` and its install
-      list lacked `typer`/`pyyaml`, so pytest aborted at collection and CI ran zero tests while
-      showing green. CI now runs about 790 unit and integration tests with a 70% coverage floor
-- [ ] Lint, mypy, Semgrep and the eval gate gating merges. *Still `continue-on-error`. The eval
-      job also has no LLM key in CI.*
+- [x] Gating CI (`ci.yml`): ruff, black, isort, mypy, unit + integration tests with a 70%
+      coverage floor, Helm lint, Docker build. Tests gate since #19 (before that CI ran zero
+      tests while showing green); lint and mypy gate since #20
+- [x] Advisory CI (`advisory.yml`, nightly and on PRs, never blocks): Trivy, Grype, Semgrep,
+      pip-audit, and the eval regression check
+- [ ] Security scanners and the eval gate gating merges. *The scanners need their findings
+      triaged first; the eval job has no LLM key in CI.*
 
 ---
 
@@ -114,8 +114,9 @@
 
 Highest impact first:
 
-- [ ] **Make the rest of CI blocking.** Tests block since #19. Next is lint, once the existing
-      debt is fixed, then the eval gate once it has a key and a budget
+- [ ] **Make the advisory CI checks blocking.** Tests, lint and mypy gate (#19, #20). Next are
+      the security scanners once findings are triaged, then the eval gate once it has a key
+      and a budget
 - [ ] **Persistence for in-memory indexes.** BM25 and the knowledge graph are lost on restart.
       CLI `ingest` and `query` run as separate processes, so the CLI never benefits from the
       graph

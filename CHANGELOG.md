@@ -5,6 +5,13 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### CI
+- Lint gates merges: ruff, black, isort and mypy no longer run with `continue-on-error`.
+  Existing findings were fixed (formatting only) and tool versions are pinned in CI
+- Security scanners (Trivy, Grype, Semgrep, pip-audit) and the eval regression check moved to
+  a separate `advisory.yml` workflow (nightly and on PRs) that reports but never blocks, so
+  the CI badge only covers checks that gate
+
 ### Security
 - Program-of-Thought sandbox escape fixed. The old sandbox validated an AST allowlist and then
   ran the program with `exec()`. Attribute access was allowed, so
