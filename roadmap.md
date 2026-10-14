@@ -1,7 +1,7 @@
 # Roadmap — RAG Financial Multimodal
 
-> Checked against the code on 2026-10-14: `main` (including #15, BM25) plus open PRs #16
-> (Program-of-Thought) and #17 (streaming), which are cited where they matter.
+> Checked against the code on 2026-10-14 (`main` after #15 BM25, #16 Program-of-Thought and
+> #17 streaming; PR numbers are cited where a fix landed).
 >
 > `[x]` means the feature exists and is reachable from the pipeline, API or CLI. Items that
 > exist as a component but are not wired in, or that work only partly, stay `[ ]` with a
@@ -90,8 +90,8 @@
 - [x] Terraform: EKS, RDS, ElastiCache, S3, KMS
 
 ### Testing & evaluation
-- [x] 850 tests on `main` with this PR (unit, integration, Hypothesis property tests), about 870
-      with #16 and #17. Unit + integration coverage is 73%. Locust and k6 load-test scripts
+- [x] 868 tests (unit, integration, Hypothesis property tests). Unit + integration coverage
+      was 73% when measured before #15–#17. Locust and k6 load-test scripts
 - [x] Golden dataset: 119 QA pairs over 16 public filings. Every figure is traced to a quoted
       source passage (`provenance.json`, verified 209/209) and each derived number has an
       arithmetic check
