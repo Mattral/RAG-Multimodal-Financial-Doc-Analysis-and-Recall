@@ -46,6 +46,14 @@ This project follows [Semantic Versioning](https://semver.org/).
   filters like the vector store), and `HybridRetriever` searches only the caller's partition.
   The index is in memory and lost on restart (see ADR-001). BM25 also no longer pads results
   with zero-score chunks. The offline benchmark headline numbers are unchanged
+- Program-of-Thought in `RAGPipeline.query()` passed the text of retrieved chunks to
+  `execute_from_llm_response`, so it tried to extract and run code found in documents
+  (untrusted input) instead of computing what the question asked. It now asks the LLM to write
+  a calculation program from the context (`POT_CODEGEN_SYSTEM_PROMPT`) and runs only that, in
+  the existing AST-allowlisted sandbox. Retrieved text is never executed. This adds one LLM call
+  to queries routed to PoT
+- When PoT succeeded with no caller system prompt, the pipeline replaced the default grounding and
+  citation prompt with just the computed value. The note is now appended to the default prompt
 - `evals/run_evals.py` and `rag-financial evaluate` treated the eval report as a dict and raised
   `TypeError` (a regression from the 2026-09-04 lint commit `95f1c95`)
 - `LLM_CONFIG__PROVIDER=gemini` (and `local_vllm`) were rejected by config validation even
