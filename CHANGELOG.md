@@ -57,6 +57,9 @@ This project follows [Semantic Versioning](https://semver.org/).
   are drawn from `evals/results/` by `scripts/plot_benchmarks.py`
 
 ### Fixed
+- CI ran zero tests while reporting success. The test job lacked `typer`, `rich` and `pyyaml`, so
+  pytest aborted at collection, and the step was `continue-on-error`. Both are fixed, and failing
+  tests or coverage below 70% now fail CI
 - The pipeline's BM25 index was created empty and never populated, so production "hybrid"
   retrieval was dense-only. `RAGPipeline.ingest()` now adds every element to a tenant-partitioned
   `BM25Index` (own corpus and term statistics per tenant, upsert by `chunk_id`, exact-match
