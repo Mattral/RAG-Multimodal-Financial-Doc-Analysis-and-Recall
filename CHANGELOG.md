@@ -40,6 +40,12 @@ This project follows [Semantic Versioning](https://semver.org/).
   are drawn from `evals/results/` by `scripts/plot_benchmarks.py`
 
 ### Fixed
+- The pipeline's BM25 index was created empty and never populated, so production "hybrid"
+  retrieval was dense-only. `RAGPipeline.ingest()` now adds every element to a tenant-partitioned
+  `BM25Index` (own corpus and term statistics per tenant, upsert by `chunk_id`, exact-match
+  filters like the vector store), and `HybridRetriever` searches only the caller's partition.
+  The index is in memory and lost on restart (see ADR-001). BM25 also no longer pads results
+  with zero-score chunks. The offline benchmark headline numbers are unchanged
 - `evals/run_evals.py` and `rag-financial evaluate` treated the eval report as a dict and raised
   `TypeError` (a regression from the 2026-09-04 lint commit `95f1c95`)
 - `LLM_CONFIG__PROVIDER=gemini` (and `local_vllm`) were rejected by config validation even

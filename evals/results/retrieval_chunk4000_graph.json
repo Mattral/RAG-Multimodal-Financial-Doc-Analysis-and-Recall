@@ -35,9 +35,9 @@
     "hybrid+graph": {
       "n": 119,
       "evidence_hit@5": 0.723,
-      "doc_hit@5": 0.908,
-      "doc_precision@5": 0.587,
-      "mrr@10": 0.47
+      "doc_hit@5": 0.899,
+      "doc_precision@5": 0.583,
+      "mrr@10": 0.474
     }
   },
   "per_question_evidence_hit": {
@@ -642,9 +642,9 @@
       "calculation": {
         "n": 24,
         "evidence_hit@5": 0.667,
-        "doc_hit@5": 0.792,
-        "doc_precision@5": 0.575,
-        "mrr@10": 0.415
+        "doc_hit@5": 0.75,
+        "doc_precision@5": 0.567,
+        "mrr@10": 0.421
       },
       "chart": {
         "n": 9,
@@ -658,21 +658,21 @@
         "evidence_hit@5": 0.647,
         "doc_hit@5": 0.882,
         "doc_precision@5": 0.482,
-        "mrr@10": 0.56
+        "mrr@10": 0.555
       },
       "factual": {
         "n": 56,
         "evidence_hit@5": 0.75,
         "doc_hit@5": 0.946,
-        "doc_precision@5": 0.625,
-        "mrr@10": 0.474
+        "doc_precision@5": 0.621,
+        "mrr@10": 0.471
       },
       "table": {
         "n": 13,
         "evidence_hit@5": 0.769,
         "doc_hit@5": 0.923,
         "doc_precision@5": 0.554,
-        "mrr@10": 0.417
+        "mrr@10": 0.455
       }
     }
   }

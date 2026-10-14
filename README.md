@@ -46,7 +46,7 @@ repo's BM25, local `bge-small` embeddings and RRF fusion with default settings a
 | BM25 only | 0.71 | 0.87 |
 | Dense only | 0.61 | 0.99 |
 | **Hybrid RRF** | **0.71** | 0.93 |
-| Hybrid RRF + knowledge graph (optional) | 0.72 | 0.91 |
+| Hybrid RRF + knowledge graph (optional) | 0.72 | 0.90 |
 
 With 1,000-character chunks, hybrid reaches 0.53 versus 0.42 (BM25) and 0.46 (dense), so fusion
 helps there. At the default chunk size it only ties BM25. About 3 in 10 questions get no

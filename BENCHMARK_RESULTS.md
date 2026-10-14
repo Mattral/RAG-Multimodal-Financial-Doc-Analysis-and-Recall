@@ -85,7 +85,7 @@ tokens. The result is a graph of 4,959 entities and 7,705 relations
 | Strategy (4,000-char chunks) | Evidence hit@5 | Doc hit@5 | Doc precision@5 | MRR@10 |
 |---|---|---|---|---|
 | Hybrid RRF | 0.706 | 0.933 | 0.570 | 0.468 |
-| **Hybrid RRF + graph** (defaults: 1 hop, weight 0.5) | **0.723** | 0.908 | 0.587 | 0.470 |
+| **Hybrid RRF + graph** (defaults: 1 hop, weight 0.5) | **0.723** | 0.899 | 0.583 | 0.474 |
 
 Evidence hit@5 by question type:
 
