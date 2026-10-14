@@ -33,7 +33,11 @@ One JSON object per line, loaded into `EvalSample` (`src/rag_system/components/e
 * **`tags[0]` is the question type**: `factual`, `calculation`, `table`, `comparative` or `chart`.
   The other tags are topical and may repeat a type (a calculation over a table also carries `table`).
 * **`expected_numeric_values`**: every value listed appears in `ground_truth`. A unit test enforces this.
-  The runner reports how many of them each generated answer states (*expected-value recall*).
+  **The first value is the figure the question asks for** (the *headline*). The rest are
+  supporting figures such as prior periods, inputs or growth rates. The runner reports
+  *expected-value recall* over all of them, and `evals/answer_eval.py` also reports whether
+  the headline was stated. In v2.1, 16 samples were reordered to follow this rule. No values
+  changed.
 * **`source_documents`**: canonical file names. The *source hit rate* metric only works if you
   ingest the documents under these names.
 * **`expected_page`**: the page printed in the filing's footer for SEC 10-K/10-Q documents.

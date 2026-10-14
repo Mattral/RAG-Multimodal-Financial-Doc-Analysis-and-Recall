@@ -16,6 +16,9 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Deterministic eval metrics that need no LLM: expected-value recall and source hit rate
 - `evals/retrieval_benchmark.py` (offline BM25 / dense / hybrid benchmark on the real filings)
   and `evals/answer_eval.py` (retrieval + generation, rate-limited and resumable)
+- Full answer-quality run on all 119 questions with `gemini-3.8-flash`, with deterministic
+  scoring plus a number-grounding check (`--regrade` re-scores saved answers offline). No
+  fabricated numbers found, and headline figure stated in 68% of answers
 - BENCHMARK_RESULTS.md and README rewritten around measured numbers. Earlier quality,
   retrieval, latency and cost figures were withdrawn as unreproducible
 
@@ -26,7 +29,9 @@ This project follows [Semantic Versioning](https://semver.org/).
   though `build_generator` supports them
 - `GOOGLE_API_KEY` in `.env` was ignored. Gemini text and vision now read it through config and
   send it in the `x-goog-api-key` header instead of the URL
-- `GeminiGenerator` no longer fails on responses with multiple or missing text parts
+- `GeminiGenerator` no longer fails on responses with multiple or missing text parts, skips thought parts, and gives thinking its own token budget
+  (`LLM_CONFIG__THINKING_BUDGET_TOKENS`, default 1024). Before this, reasoning could use up
+  `maxOutputTokens` and truncate answers. It now logs a warning on `MAX_TOKENS`
 - `scripts/seed_golden_dataset.py` no longer overwrites the main golden dataset by default
 - Restored `tests/unit/test_cli.py`, which a lint commit had truncated into a syntax error;
   tests no longer read a developer's local `.env`

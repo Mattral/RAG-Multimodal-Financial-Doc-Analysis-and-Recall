@@ -10,7 +10,7 @@
 |---|---|---|
 | Golden dataset integrity (119 samples) | **Measured.** 209/209 evidence strings found in the source filings; 42/42 calculations reproduce | Section 1 |
 | Retrieval quality on the real source documents | **Measured** offline (no API key needed) | Section 2 |
-| Answer quality with an LLM | **Pilot only**: 11 of 119 questions before free-tier quota ran out | Section 3 |
+| Answer quality with an LLM (`gemini-3.8-flash`) | **Measured** on all 119 questions, with deterministic scoring and a number-grounding check | Section 3 |
 | RAGAS faithfulness / answer relevancy / LLM-judged numeric accuracy | **Not measured.** The judge in `RagasEvaluator` currently calls OpenAI only | — |
 | Latency under load, throughput, cost per query | **Not reproduced** | Section 4 |
 
@@ -73,48 +73,94 @@ What this shows:
 Raw output: [`retrieval_chunk4000.json`](evals/results/retrieval_chunk4000.json),
 [`retrieval_chunk1000.json`](evals/results/retrieval_chunk1000.json).
 
-## 3. Answer quality: pilot with `gemini-3.8-flash` (n = 11)
+## 3. Answer quality: `gemini-3.8-flash`, all 119 questions
 
-`python -m evals.answer_eval` retrieves the top-5 hybrid chunks (1,000-character setting),
-generates an answer with the configured generator (`GeminiGenerator`, `gemini-3.8-flash`,
-model routing off), and scores the answer text with no LLM judge. The run stopped after **11 of
-119** questions when the Gemini free tier started returning sustained 429s and timeouts. These
-are the first 11 questions in the file, mostly Tesla and single-value factual or table lookups.
-**They are not representative and should not be quoted as system performance.**
+`python -m evals.answer_eval` retrieves the top-5 hybrid chunks (1,000-character setting from
+section 2) and generates an answer with the repository's `GeminiGenerator`
+(`gemini-3.8-flash`, model routing off, `thinking_budget_tokens=1024`, default system prompt).
+It then scores the answer text with no LLM judge:
 
-| Metric (11 answers) | Value |
-|---|---|
-| Headline value stated (first expected value appears in the answer) | 8 / 10 |
-| All expected values stated | 1 / 10 |
-| Answer cites an expected source document | 8 / 11 |
-| Abstained ("not available in the provided documents") | 2 / 11 |
-| Answer-bearing chunk was in the context | 6 / 11 |
-| Latency p50 / p95 (free tier, includes model thinking time) | 20.3 s / 48.0 s |
+* **Headline value stated**: the figure the question asks for (the first of
+  `expected_numeric_values`) appears in the answer, with units normalised and a 1% tolerance.
+* **Expected-value recall**: share of all expected values stated (headline plus supporting figures).
+* **Cites expected document**: the answer cites one of the sample's `source_documents`.
+* **Abstained**: the answer says the information is not available. This includes partial
+  answers that give some figures and then say the rest is missing.
+* **Has ungrounded number**: the answer states a number that does not appear anywhere in the
+  context it was given. Every flagged answer was reviewed by hand (see below).
 
-Observations from reading all 11 answers:
+| Metric | All 119 | When the answer-bearing chunk was retrieved (63) |
+|---|---|---|
+| Headline value stated | **0.684** | **0.839** |
+| Expected-value recall | 0.501 | 0.671 |
+| All expected values stated | 0.239 | 0.387 |
+| Cites an expected source document | 0.748 | 0.952 |
+| Abstained (fully or partly) | 0.345 | 0.159 |
+| Answer-bearing chunk in context | 0.529 | 1.000 |
+| States a number absent from its context | 0.050 | 0.063 |
 
-* No answer contained a wrong figure.
-* Both abstentions happened when retrieval missed the supporting text. One was the 2023
-  deliveries question, where a 1,000-character chunk split Tesla's annual table.
-* **4 of 11 answers were cut off mid-sentence** even though each used fewer than 100 output
-  tokens. `GeminiGenerator` sends `maxOutputTokens=2048`, and on thinking models that budget
-  probably includes thinking tokens. This needs a fix (a separate thinking budget or a larger
-  limit) before a full run.
-* **Cited page numbers are invented** ("Page 1", "Page 20"). Benchmark chunks carry no page
-  metadata, so the prompt's instruction to cite pages produces pages the context never gave.
-* Most answers gave the headline figure only and left out the comparison figures, which is why
-  "all expected values" is low. Truncation contributes too.
+By question type:
 
-To finish the run (it resumes where it stopped and never repeats a request):
+| Type (n) | Headline stated | Abstained | Answer-bearing chunk in context |
+|---|---|---|---|
+| Factual (56) | 0.82 | 0.20 | 0.52 |
+| Comparative (17) | 0.82 | 0.35 | 0.47 |
+| Chart (9) | 0.67 | 0.44 | 0.67 |
+| Table (13) | 0.62 | 0.38 | 0.62 |
+| Calculation (24) | 0.33 | 0.63 | 0.50 |
+
+Generation latency was p50 3.0 s / p95 5.0 s on Google's paid tier, excluding retrieval. The
+run used 221,539 input and 14,986 output tokens. No cost figure is given because no
+verified price for `gemini-3.8-flash` was available.
+
+What this shows:
+
+* **No fabricated numbers were found.** Six answers (5%) stated a number absent from their
+  context. Checked by hand, all six were correct derivations from context values (shares,
+  differences, a ratio) or a restatement ("flat" as 0%). The check cannot catch a real number
+  used for the wrong thing. Reading the six headline misses that were not abstentions found one
+  such case: a full-year question answered with Q3 figures. The other 113 answers were not read
+  individually.
+* **Retrieval is the main bottleneck.** When the supporting text reached the model it stated
+  the headline figure 84% of the time. Overall it did so 68% of the time, because only 53% of
+  questions got that text in their top-5 context.
+* **The model abstains rather than guesses.** Most misses are explicit "not available" answers:
+  31 of the 41 abstentions had no answer-bearing chunk in context.
+* **Calculation questions are weakest.** The model abstained on 15 of 24. Eight of those lacked
+  any supporting passage. Most of the other seven had only some of the inputs, but in at least
+  one (NVIDIA's segment operating margin) both inputs were in the answer itself and the model
+  still declined to divide. The default system prompt says "NEVER extrapolate, estimate, or
+  invent numbers", which the model appears to read partly as "do not compute". The pipeline's
+  Program-of-Thought executor, which handles calculations in production, is not part of this
+  harness.
+* **Cited page numbers are unreliable.** Benchmark chunks carry no page metadata, so pages in
+  citations are invented or written as "Page N". Document-level citations are meaningful
+  (0.95 when the evidence was retrieved).
+
+Notes on this run:
+
+* A first attempt on 2026-10-13 truncated 4 of its first 11 answers because Gemini's thinking
+  tokens used up `maxOutputTokens`. That was fixed before this run: thinking now gets its own
+  budget, and the generator logs a warning on any `MAX_TOKENS` finish. None were logged.
+* After the run, reading the misses showed that in 16 samples the first expected value was a
+  supporting figure rather than the one the question asks for (for example, "By what
+  percentage…" listing a dollar amount first). Those samples were reordered. No values changed,
+  and the answers were re-scored without new API calls. This lowered headline-value-stated from
+  0.709 to 0.684, because calculation answers rarely contain the computed figure.
+
+To reproduce or re-score:
 
 ```bash
 LLM_CONFIG__MODEL=gemini-3.8-flash LLM_CONFIG__ENABLE_MODEL_ROUTING=false \
-  python -m evals.answer_eval --rpm 5 --answers evals/results/answers_gemini-3.8-flash.jsonl \
+  python -m evals.answer_eval --rpm 30 --answers evals/results/answers_gemini-3.8-flash.jsonl \
   --output evals/results/answer_eval_gemini-3.8-flash.json
+python -m evals.answer_eval --regrade --answers evals/results/answers_gemini-3.8-flash.jsonl \
+  --output evals/results/answer_eval_gemini-3.8-flash.json      # offline, no API calls
 ```
 
-Raw output: [`answers_gemini-3.8-flash.jsonl`](evals/results/answers_gemini-3.8-flash.jsonl),
-[`answer_eval_gemini-3.8-flash_pilot.json`](evals/results/answer_eval_gemini-3.8-flash_pilot.json).
+Raw output: [`answers_gemini-3.8-flash.jsonl`](evals/results/answers_gemini-3.8-flash.jsonl)
+(every answer, its context documents and flags) and
+[`answer_eval_gemini-3.8-flash.json`](evals/results/answer_eval_gemini-3.8-flash.json).
 
 ## 4. Previously published figures (not reproduced)
 
@@ -163,6 +209,9 @@ python -m evals.answer_eval --rpm 5                            # section 3 (need
   `RetrieverConfig` would change them.
 * **Strict evidence matching.** Evidence hit@k needs the exact recorded text, so it
   undercounts chunks that state the answer differently.
-* **The answer eval has no LLM judge.** Expected-value recall checks that numbers appear, not
-  that the reasoning is right. The 11-answer pilot is too small to support any conclusion
-  about answer quality.
+* **The answer eval has no LLM judge.** The metrics check that the right numbers appear and are
+  grounded in context, not that the explanation is right. Only flagged answers and headline
+  misses were read by hand.
+* **One model, one run, one prompt.** The results are for `gemini-3.8-flash` with the default
+  system prompt and temperature 0.1. Other generators, or a prompt that allows arithmetic,
+  will score differently.

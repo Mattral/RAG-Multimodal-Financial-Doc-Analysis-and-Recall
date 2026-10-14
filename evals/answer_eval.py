@@ -45,7 +45,7 @@ from evals.sources import (
     source_urls,
 )
 from src.rag_system.components.embedder import LocalEmbedder
-from src.rag_system.components.evaluator import numeric_recall
+from src.rag_system.components.evaluator import _parse_numbers, numeric_recall
 from src.rag_system.components.generator import build_generator
 from src.rag_system.components.retriever import BM25Index, _reciprocal_rank_fusion
 from src.rag_system.config import RetrieverConfig, get_config
@@ -70,10 +70,40 @@ def score_text(answer: str, row: Dict) -> Dict:
     }
 
 
+_CITATION_RE = re.compile(r"\[[^\]]*Source[^\]]*\]", re.I)
+
+
+def ungrounded_numbers(answer: str, context_texts: List[str], rel_tol: float = 0.005) -> List[str]:
+    """Numbers stated in the answer that do not appear in the context it was given.
+
+    Citations are stripped first, and years and small integers (dates, ranks, page
+    references) are ignored. Values match across thousand/million/billion scaling,
+    so "$23,350M" is grounded by a table cell "23,350". A hit is a candidate for
+    review, not proof of fabrication: correct derived figures (growth rates, sums)
+    are not in the context either.
+    """
+    stated = _parse_numbers(_CITATION_RE.sub(" ", answer))
+    available = [v for text in context_texts for v, _ in _parse_numbers(text)]
+    flagged = []
+    for value, kind in stated:
+        if kind != "pct" and float(value).is_integer() and (value <= 31 or 1990 <= value <= 2035):
+            continue
+        scales = (1.0, 1e-3, 1e-6, 1e-9, 1e-12)
+        grounded = any(
+            abs(c - value * s) <= rel_tol * max(abs(value * s), 1e-9)
+            for c in available
+            for s in scales
+        )
+        if not grounded:
+            flagged.append(f"{value:g}{'%' if kind == 'pct' else ''}")
+    return flagged
+
+
 def score_answer(answer: str, row: Dict, evidence: List[str], context) -> Dict:
     return {
         **score_text(answer, row),
         "evidence_in_context": any(e in c.text for c in context for e in evidence),
+        "ungrounded_numbers": ungrounded_numbers(answer, [c.text for c in context]),
     }
 
 
@@ -102,6 +132,29 @@ async def generate_with_backoff(generator, question, context, max_attempts: int 
     raise RuntimeError("still failing after retries")
 
 
+async def build_retriever(provenance: Dict[str, Dict], args: argparse.Namespace):
+    """Index the source documents; return an async ``retrieve(question)`` -> top chunks."""
+    chunks = []
+    for doc, url in sorted(source_urls(list(provenance.values())).items()):
+        text = extract_text(fetch(url, Path(args.cache_dir)))
+        chunks.extend(chunk_text(text, doc, args.chunk_size, args.overlap))
+    cfg = RetrieverConfig()
+    bm25 = BM25Index()
+    bm25.build(chunks)
+    dense = DenseIndex(LocalEmbedder(), chunks)
+    await dense.build(cache_dir=Path(args.cache_dir))
+    print(f"indexed {len(chunks):,} chunks")
+
+    async def retrieve(question: str):
+        fused = _reciprocal_rank_fusion(
+            [await dense.search(question, cfg.top_k_dense), bm25.search(question, cfg.top_k_bm25)],
+            k=cfg.rrf_k,
+        )
+        return fused[: args.context_k]
+
+    return retrieve
+
+
 async def run(args: argparse.Namespace) -> None:
     provenance = {p["question"]: p for p in load_provenance()}
     rows = [
@@ -126,34 +179,33 @@ async def run(args: argparse.Namespace) -> None:
     generator = build_generator()
     print(f"generator: {generator.name}; routing={get_config().llm_config.enable_model_routing}")
 
-    if todo:
-        chunks = []
-        for doc, url in sorted(source_urls(list(provenance.values())).items()):
-            chunks.extend(
-                chunk_text(
-                    extract_text(fetch(url, Path(args.cache_dir))),
-                    doc,
-                    args.chunk_size,
-                    args.overlap,
-                )
-            )
-        cfg = RetrieverConfig()
-        bm25 = BM25Index()
-        bm25.build(chunks)
-        dense = DenseIndex(LocalEmbedder(), chunks)
-        await dense.build(cache_dir=Path(args.cache_dir))
-        print(f"indexed {len(chunks):,} chunks")
+    def evidence_for(q: str) -> List[str]:
+        return [normalize(e) for s in provenance[q]["sources"] for e in s["evidence"]]
 
+    if todo or args.regrade:
+        retrieve = await build_retriever(provenance, args)
+
+    if args.regrade:
+        # Retrieval is deterministic, so each answer's context can be rebuilt offline.
+        by_q = {r["question"]: r for r in rows}
+        for q, rec in done.items():
+            if q in by_q:
+                context = await retrieve(q)
+                rec.update(score_answer(rec["answer"], by_q[q], evidence_for(q), context))
+                rec["context_documents"] = [c.source_document for c in context]
+        answers_path.write_text(
+            "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in done.values()),
+            encoding="utf-8",
+        )
+        print(f"regraded {len(done)} saved answers (no generator calls)")
+
+    if todo:
         spacing = 60.0 / args.rpm
         last_call = 0.0
         with open(answers_path, "a", encoding="utf-8") as out:
             for i, row in enumerate(todo, 1):
                 q = row["question"]
-                fused = _reciprocal_rank_fusion(
-                    [await dense.search(q, cfg.top_k_dense), bm25.search(q, cfg.top_k_bm25)],
-                    k=cfg.rrf_k,
-                )
-                context = fused[: args.context_k]
+                context = await retrieve(q)
                 wait = spacing - (time.monotonic() - last_call)
                 if wait > 0:
                     await asyncio.sleep(wait)
@@ -166,7 +218,7 @@ async def run(args: argparse.Namespace) -> None:
                 except Exception as exc:  # record the failure, keep going
                     print(f"  [{i}/{len(todo)}] error: {type(exc).__name__}: {str(exc)[:120]}")
                     continue
-                evidence = [normalize(e) for s in provenance[q]["sources"] for e in s["evidence"]]
+                evidence = evidence_for(q)
                 rec = {
                     "question": q,
                     "type": row["tags"][0],
@@ -219,6 +271,11 @@ def summarize(records: List[Dict], output: str | None) -> None:
             "evidence_in_context": round(
                 sum(r["evidence_in_context"] for r in recs) / len(recs), 3
             ),
+            # Share of answers stating at least one number absent from their context
+            # (flags for review; includes correct derived figures).
+            "has_ungrounded_number": round(
+                sum(bool(r.get("ungrounded_numbers")) for r in recs) / len(recs), 3
+            ),
         }
 
     with_ctx = [r for r in records if r["evidence_in_context"]]
@@ -262,7 +319,15 @@ def main() -> None:
         action="store_true",
         help="score saved answers without calling the generator",
     )
+    parser.add_argument(
+        "--regrade",
+        action="store_true",
+        help="rebuild each saved answer's context offline and recompute context-based "
+        "fields; never calls the generator",
+    )
     args = parser.parse_args()
+    if args.regrade:
+        args.summarize_only = True
     asyncio.run(run(args))
 
 

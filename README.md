@@ -115,10 +115,20 @@ vllm serve Qwen/Qwen2-VL-7B-Instruct --port 8080 --host 0.0.0.0
 * **Scoring:** RAGAS and an LLM-as-judge numeric scorer (needs an OpenAI key), plus two
   deterministic checks that need no LLM: whether the answer states the expected values, and
   whether it cites the expected source document.
-* **Answer quality:** not yet measured on the full set. An 11-question pilot with
-  `gemini-3.8-flash` stopped at free-tier limits. It found no wrong figures, but also found
-  truncated answers and invented page citations. See
-  [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md#3-answer-quality-pilot-with-gemini-38-flash-n--11).
+* **Answer quality:** run on all 119 questions with `gemini-3.8-flash` over top-5 hybrid
+  context, with deterministic scoring:
+
+  | Metric | All 119 | When retrieval found the supporting text (63) |
+  |---|---|---|
+  | Asked-for figure stated | 0.68 | 0.84 |
+  | Cites an expected document | 0.75 | 0.95 |
+  | Abstained ("not available") | 0.35 | 0.16 |
+  | Fabricated numbers found | 0 | 0 |
+
+  Six answers stated numbers absent from their context, and all six were correct derivations.
+  Most misses are honest abstentions caused by retrieval. Calculation questions are weakest:
+  the model abstained on 15 of 24. Details are in
+  [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md#3-answer-quality-gemini-38-flash-all-119-questions).
 
 ```bash
 pytest tests/unit/test_golden_dataset.py      # dataset integrity, offline
@@ -274,9 +284,10 @@ make query Q="What was Q3 revenue?"
 
 ## Limitations
 
-* **Evaluation is partial.** Dataset integrity and offline retrieval are measured. End-to-end
-  answer quality, RAGAS scores, latency and cost have not been measured on a reproducible run
-  yet (see [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md)).
+* **Evaluation is partial.** Dataset integrity, offline retrieval and retrieval-plus-generation
+  with one model are measured. The full ingest pipeline (unstructured parsing, reranker,
+  guardrails, Program-of-Thought), RAGAS scores, load latency and cost have not been measured
+  on a reproducible run yet (see [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md)).
 * **Retrieval misses often.** About 30% of golden questions get no answer-bearing chunk in the
   top 5 at default settings, and multi-row tables are the weakest case when chunks are small.
 * **Small, single-author golden set.** 119 questions on fiscal 2023, Tesla-heavy (40 of 119),
@@ -285,9 +296,13 @@ make query Q="What was Q3 revenue?"
   appear in tables, so they do not isolate the vision path.
 * **Gemini judge not wired.** The LLM-as-judge and RAGAS scorers call OpenAI. With only a Gemini
   key, just the deterministic metrics are available.
-* **Thinking models can truncate answers.** On `gemini-3.8-flash`, answers were cut off
-  under the current `maxOutputTokens=2048`, and cited page numbers are unreliable when chunks
-  lack page metadata.
+* **Calculations are often declined.** Under the default "never estimate" system prompt the
+  model frequently refuses to compute derived figures (ratios, sums) unless Program-of-Thought
+  handles them.
+* **Page citations are unreliable** when chunks lack page metadata. The model invents them.
+* **Thinking-token budget.** On Gemini thinking models, reasoning tokens count against the
+  output limit. `LLM_CONFIG__THINKING_BUDGET_TOKENS` (default 1024) now reserves them
+  separately; with it unset, answers can truncate.
 * **Retired model names.** Google no longer serves `gemini-2.5-*` to new API keys. Defaults
   that still name them need a current model such as `gemini-3.8-flash`.
 
