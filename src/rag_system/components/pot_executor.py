@@ -345,9 +345,29 @@ class _Evaluator:
             raise ValueError("Unsupported function call")
         args = [self._argument(a) for a in node.args]
         kwargs = {kw.arg: self._number(self._expr(kw.value)) for kw in node.keywords if kw.arg}
-        if node.func.id == "pow" and len(args) >= 2:
-            return self._binop(ast.Pow(), args[0], args[1])
+        if node.func.id == "pow":
+            return self._pow(args, kwargs)
         return self._number(_FUNCTIONS[node.func.id](*args, **kwargs))
+
+    def _pow(self, args: List[Any], kwargs: Dict[str, Any]) -> Any:
+        """pow(base, exp[, mod]) with the same limits as ``**``, however it is called."""
+        names = ("base", "exp", "mod")
+        if len(args) > len(names):
+            raise ValueError("pow() takes at most 3 arguments")
+        params: Dict[str, Any] = dict(zip(names, args, strict=False))  # args may be shorter
+        for key, value in kwargs.items():
+            if key not in names or key in params:
+                raise ValueError(f"Unsupported pow() argument: {key}")
+            params[key] = value
+        if "base" not in params or "exp" not in params:
+            raise ValueError("pow() needs base and exp")
+        base, exp, mod = params["base"], params["exp"], params.get("mod")
+        if mod is None:
+            return self._binop(ast.Pow(), base, exp)
+        # Modular pow stays small: every operand is at most MAX_INT_BITS, and so is the result.
+        if not all(isinstance(v, int) and not isinstance(v, bool) for v in (base, exp, mod)):
+            raise ValueError("pow() with a modulus needs integer arguments")
+        return self._number(pow(base, exp, mod))
 
     def _argument(self, node: ast.expr) -> Any:
         value = self._expr(node)

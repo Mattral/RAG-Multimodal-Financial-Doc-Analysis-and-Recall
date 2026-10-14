@@ -42,6 +42,10 @@ This project follows [Semantic Versioning](https://semver.org/).
   rejected at validation. Exponent, integer-size and program-size limits stop inputs like
   `9 ** 9 ** 9 ** 9` that the timeout could not interrupt. Regression tests cover both cases.
   See the update note in ADR 004
+- PoT `pow()`: keyword calls such as `pow(base=3, exp=20000000)` skipped the exponent check
+  and computed the number before rejecting it, which could stall the event loop. Every call
+  form now goes through the same limits as `**`. Three-argument `pow(a, b, m)` ignored the
+  modulus (`pow(2, 10, 7)` returned 1024); it now returns the modular result
 
 ### Streaming
 - `POST /api/v1/query/stream`: server-sent events `sources` -> `token`... -> `done` (the same payload
