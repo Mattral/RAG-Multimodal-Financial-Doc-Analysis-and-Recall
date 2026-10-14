@@ -34,11 +34,14 @@ This project follows [Semantic Versioning](https://semver.org/).
   scoring plus a number-grounding check (`--regrade` re-scores saved answers offline). No
   fabricated numbers found, and headline figure stated in 68% of answers
 - BENCHMARK_RESULTS.md and README rewritten around measured numbers. Earlier quality,
-  retrieval, latency and cost figures were withdrawn as unreproducible
+  retrieval, latency and cost figures are no longer cited. The retrieval chart could not have
+  come from this repo, and the others are unverified because no run outputs were committed. The
+  original charts are kept in BENCHMARK_RESULTS.md section 4 with a provenance note. New charts
+  are drawn from `evals/results/` by `scripts/plot_benchmarks.py`
 
 ### Fixed
 - `evals/run_evals.py` and `rag-financial evaluate` treated the eval report as a dict and raised
-  `TypeError`
+  `TypeError` (a regression from the 2026-09-04 lint commit `95f1c95`)
 - `LLM_CONFIG__PROVIDER=gemini` (and `local_vllm`) were rejected by config validation even
   though `build_generator` supports them
 - `GOOGLE_API_KEY` in `.env` was ignored. Gemini text and vision now read it through config and
