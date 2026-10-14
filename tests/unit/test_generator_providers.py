@@ -211,6 +211,40 @@ class TestGeminiGenerator:
         assert "23.35B" in result.answer
         assert result.prompt_tokens == 150
 
+    @pytest.mark.asyncio
+    async def test_generate_skips_thought_parts_and_sends_key_in_header(
+        self, sample_chunks, monkeypatch
+    ):
+        monkeypatch.setenv("GOOGLE_API_KEY", "test-google-key")
+        gen = GeminiGenerator()
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "candidates": [{"content": {"parts": [
+                {"text": "The user wants Q3 revenue...", "thought": True},
+                {"text": "Revenue was "},
+                {"text": "$23.35B."},
+            ]}}],
+            "usageMetadata": {"promptTokenCount": 150, "candidatesTokenCount": 30},
+        }
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client_cls.return_value.__aenter__.return_value = mock_client
+
+            result = await gen.generate("What was revenue?", sample_chunks, tenant_id="test")
+
+        assert result.answer == "Revenue was $23.35B."
+        url = mock_client.post.call_args.args[0]
+        assert "key=" not in url
+        assert mock_client.post.call_args.kwargs["headers"] == {"x-goog-api-key": "test-google-key"}
+        # Reasoning gets its own budget on top of max_tokens (defaults 1024 + 2048).
+        gen_cfg = mock_client.post.call_args.kwargs["json"]["generationConfig"]
+        assert gen_cfg["thinkingConfig"] == {"thinkingBudget": 1024}
+        assert gen_cfg["maxOutputTokens"] == 2048 + 1024
+
     def test_name_property(self):
         gen = GeminiGenerator()
         assert "gemini" in gen.name

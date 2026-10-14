@@ -1,0 +1,85 @@
+{
+  "model": [
+    "gemini-3.8-flash"
+  ],
+  "overall": {
+    "n": 119,
+    "headline_value_stated": 0.684,
+    "expected_value_recall": 0.501,
+    "all_values_stated": 0.239,
+    "cites_expected_doc": 0.748,
+    "abstained": 0.345,
+    "evidence_in_context": 0.529,
+    "has_ungrounded_number": 0.05
+  },
+  "when_evidence_retrieved": {
+    "n": 63,
+    "headline_value_stated": 0.839,
+    "expected_value_recall": 0.671,
+    "all_values_stated": 0.387,
+    "cites_expected_doc": 0.952,
+    "abstained": 0.159,
+    "evidence_in_context": 1.0,
+    "has_ungrounded_number": 0.063
+  },
+  "by_type": {
+    "calculation": {
+      "n": 24,
+      "headline_value_stated": 0.333,
+      "expected_value_recall": 0.344,
+      "all_values_stated": 0.125,
+      "cites_expected_doc": 0.667,
+      "abstained": 0.625,
+      "evidence_in_context": 0.5,
+      "has_ungrounded_number": 0.167
+    },
+    "chart": {
+      "n": 9,
+      "headline_value_stated": 0.667,
+      "expected_value_recall": 0.602,
+      "all_values_stated": 0.333,
+      "cites_expected_doc": 0.778,
+      "abstained": 0.444,
+      "evidence_in_context": 0.667,
+      "has_ungrounded_number": 0.0
+    },
+    "comparative": {
+      "n": 17,
+      "headline_value_stated": 0.824,
+      "expected_value_recall": 0.522,
+      "all_values_stated": 0.235,
+      "cites_expected_doc": 0.765,
+      "abstained": 0.353,
+      "evidence_in_context": 0.471,
+      "has_ungrounded_number": 0.059
+    },
+    "factual": {
+      "n": 56,
+      "headline_value_stated": 0.815,
+      "expected_value_recall": 0.583,
+      "all_values_stated": 0.315,
+      "cites_expected_doc": 0.768,
+      "abstained": 0.196,
+      "evidence_in_context": 0.518,
+      "has_ungrounded_number": 0.018
+    },
+    "table": {
+      "n": 13,
+      "headline_value_stated": 0.615,
+      "expected_value_recall": 0.351,
+      "all_values_stated": 0.077,
+      "cites_expected_doc": 0.769,
+      "abstained": 0.385,
+      "evidence_in_context": 0.615,
+      "has_ungrounded_number": 0.0
+    }
+  },
+  "latency_ms": {
+    "p50": 3004,
+    "p95": 4969
+  },
+  "tokens": {
+    "prompt": 221539,
+    "completion": 14986
+  }
+}

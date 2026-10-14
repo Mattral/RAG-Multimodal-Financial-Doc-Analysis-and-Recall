@@ -21,6 +21,7 @@ import structlog
 
 from src.rag_system.components.base import BaseVisionDescriber, DocumentElement
 from src.rag_system.components.vision import FINANCIAL_CHART_PROMPT
+from src.rag_system.config import get_config
 from src.rag_system.utils.cost_tracker import get_cost_tracker
 
 logger = structlog.get_logger(__name__)
@@ -60,12 +61,8 @@ class GeminiVisionDescriber(BaseVisionDescriber):
         return f"gemini/{self._model}"
 
     def _get_api_key(self) -> str:
-        import os
-
-        key = os.environ.get("GOOGLE_API_KEY", "")
-        if not key:
-            raise ValueError("GOOGLE_API_KEY not set")
-        return key
+        # Reads GOOGLE_API_KEY from .env (via Config) or the process environment.
+        return get_config().get_google_key()
 
     def _encode_image(self, image_path: str) -> str:
         with open(image_path, "rb") as f:
@@ -78,9 +75,10 @@ class GeminiVisionDescriber(BaseVisionDescriber):
             api_key = self._get_api_key()
             image_b64 = await asyncio.to_thread(self._encode_image, image_path)
 
+            # Key goes in a header, not the query string, so it never lands in URL logs.
             url = (
                 f"https://generativelanguage.googleapis.com/v1beta/models/"
-                f"{self._model}:generateContent?key={api_key}"
+                f"{self._model}:generateContent"
             )
             payload = {
                 "contents": [
@@ -98,7 +96,7 @@ class GeminiVisionDescriber(BaseVisionDescriber):
             }
 
             async with httpx.AsyncClient(timeout=self._timeout) as client:
-                resp = await client.post(url, json=payload)
+                resp = await client.post(url, json=payload, headers={"x-goog-api-key": api_key})
                 resp.raise_for_status()
                 data = resp.json()
 

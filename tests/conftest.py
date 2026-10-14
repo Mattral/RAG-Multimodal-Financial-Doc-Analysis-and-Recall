@@ -24,6 +24,11 @@ os.environ.setdefault("LOGGING_CONFIG__LEVEL", "WARNING")
 os.environ.setdefault("SECURITY_CONFIG__ENABLE_PII_REDACTION", "false")
 os.environ.setdefault("SECURITY_CONFIG__ENABLE_GUARDRAILS", "false")
 
+# Tests must not pick up a developer's local .env (real API keys, provider choices).
+from src.rag_system.config import Config  # noqa: E402
+
+Config.model_config["env_file"] = None
+
 
 # ── Async event loop ────────────────────────────────────────────────────────
 @pytest.fixture(scope="session")

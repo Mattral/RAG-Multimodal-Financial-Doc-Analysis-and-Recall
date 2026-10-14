@@ -1,0 +1,1933 @@
+{
+  "version": 2,
+  "samples": [
+    {
+      "question": "What was Tesla's total revenue in Q3 2023?",
+      "sources": [
+        {
+          "document": "tesla_10q_q3_2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1318605/000162828023034847/tsla-20230930.htm",
+          "evidence": [
+            "Total revenues 23,350 21,454"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "23350 / 21454 - 1",
+          "expected": 0.088,
+          "tolerance": 0.005
+        }
+      ]
+    },
+    {
+      "question": "What was the gross profit margin for Tesla in Q3 2023?",
+      "sources": [
+        {
+          "document": "tesla_q3_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q3-2023-Update-3.pdf",
+          "evidence": [
+            "Total GAAP gross margin 25.1% 23.8% 19.3% 18.2% 17.9% -719 bp"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How many vehicles did Tesla deliver in full-year 2023?",
+      "sources": [
+        {
+          "document": "tesla_q4_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2023-Update.pdf",
+          "evidence": [
+            "Total deliveries 367,656 499,647 936,222 1,313,851 1,808,581 38%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What are the key risk factors related to competition mentioned in Tesla's 10-K?",
+      "sources": [
+        {
+          "document": "tesla_10k_2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1318605/000162828024002390/tsla-20231231.htm",
+          "evidence": [
+            "We face strong competition for our products and services from a growing list of established and new competitors",
+            "price reductions, revenue shortfalls, loss of customers and loss of market share"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was Apple's revenue for fiscal year 2023?",
+      "sources": [
+        {
+          "document": "apple_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019323000106/aapl-20230930.htm",
+          "evidence": [
+            "Total net sales 383,285 394,328"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "383285 / 394328 - 1",
+          "expected": -0.028,
+          "tolerance": 0.005
+        }
+      ]
+    },
+    {
+      "question": "What was Microsoft's cloud revenue growth rate in FY2023?",
+      "sources": [
+        {
+          "document": "msft_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/789019/000095017023035122/msft-20230630.htm",
+          "evidence": [
+            "Intelligent Cloud 87,907 74,965 17%",
+            "Server products and cloud services revenue increased 19% driven by Azure and other cloud services growth of 29%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What were Tesla's free cash flows in Q3 2023?",
+      "sources": [
+        {
+          "document": "tesla_q3_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q3-2023-Update-3.pdf",
+          "evidence": [
+            "Free cash flow 3,297 1,420 441 1,005 848 -74%",
+            "Net cash provided by operating activities 5,100 3,278 2,513 3,065 3,308"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "3308 - 2460",
+          "expected": 848,
+          "tolerance": 0
+        }
+      ]
+    },
+    {
+      "question": "What was Tesla's energy generation and storage revenue in Q3 2023?",
+      "sources": [
+        {
+          "document": "tesla_q3_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q3-2023-Update-3.pdf",
+          "evidence": [
+            "Energy generation and storage revenue 1,117 1,310 1,529 1,509 1,559 40%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was Tesla's operating income margin in Q3 2023?",
+      "sources": [
+        {
+          "document": "tesla_q3_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q3-2023-Update-3.pdf",
+          "evidence": [
+            "Operating margin 17.2% 16.0% 11.4% 9.6% 7.6% -964 bp"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was Google's advertising revenue in Q3 2023?",
+      "sources": [
+        {
+          "document": "alphabet_10q_q3_2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1652044/000165204423000094/goog-20230930.htm",
+          "evidence": [
+            "Google advertising 54,482 59,647"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "59647 / 54482 - 1",
+          "expected": 0.095,
+          "tolerance": 0.001
+        }
+      ]
+    },
+    {
+      "question": "What was Amazon's AWS revenue growth in Q3 2023?",
+      "sources": [
+        {
+          "document": "amazon_10q_q3_2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1018724/000101872423000018/amzn-20230930.htm",
+          "evidence": [
+            "AWS sales increased 12% in Q3 2023",
+            "AWS 20,538 23,059"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was NVIDIA's revenue in fiscal Q2 2024?",
+      "sources": [
+        {
+          "document": "nvidia_q2_fy2024_press_release.pdf",
+          "url": "https://nvidianews.nvidia.com/news/nvidia-announces-financial-results-for-second-quarter-fiscal-2024",
+          "evidence": [
+            "Revenue $ 13,507 $ 6,704",
+            "Data Center revenue of $10.32 billion"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "13507 / 6704 - 1",
+          "expected": 1.01,
+          "tolerance": 0.005
+        }
+      ]
+    },
+    {
+      "question": "What was Meta's advertising revenue in Q2 2023?",
+      "sources": [
+        {
+          "document": "meta_q2_2023_press_release.pdf",
+          "url": "https://investor.atmeta.com/investor-news/press-release-details/2023/Meta-Reports-Second-Quarter-2023-Results/default.aspx",
+          "evidence": [
+            "Advertising $ 31,498 $ 28,152"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "31498 / 28152 - 1",
+          "expected": 0.119,
+          "tolerance": 0.001
+        }
+      ]
+    },
+    {
+      "question": "What is JPMorgan's Common Equity Tier 1 ratio as of Q3 2023?",
+      "sources": [
+        {
+          "document": "jpmorgan_3q23_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000508/a3q23erfexhibit991narrative.htm",
+          "evidence": [
+            "Basel III common equity Tier 1 capital 3 of $242 billion and Standardized ratio 3 of 14.3 %"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was Goldman Sachs' net revenue in 2023?",
+      "sources": [
+        {
+          "document": "goldman_4q23_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/886982/000119312524008077/d615098dex991.htm",
+          "evidence": [
+            "net revenues of $46.25 billion and net earnings of $8.52 billion",
+            "Total net revenues $ 46,254 $ 47,365 (2)"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What were the main drivers of Tesla's gross margin decline in 2023?",
+      "sources": [
+        {
+          "document": "tesla_10k_2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1318605/000162828024002390/tsla-20231231.htm",
+          "evidence": [
+            "Gross margin for total automotive decreased from 28.5% to 19.4%",
+            "primarily due to a lower average selling price on our vehicles partially offset by the favorable change in our average combined cost per unit"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was the total debt of Apple as of FY2023?",
+      "sources": [
+        {
+          "document": "apple_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019323000106/aapl-20230930.htm",
+          "evidence": [
+            "Commercial paper 5,985 9,982 Term debt 9,822",
+            "95,281"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "9822 + 95281",
+          "expected": 105103,
+          "tolerance": 0
+        },
+        {
+          "expression": "9822 + 95281 + 5985",
+          "expected": 111088,
+          "tolerance": 0
+        }
+      ]
+    },
+    {
+      "question": "What was Microsoft's net income in FY2023?",
+      "sources": [
+        {
+          "document": "msft_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/789019/000095017023035122/msft-20230630.htm",
+          "evidence": [
+            "Net income 72,361 72,738 (1)%",
+            "Adjusted net income (non-GAAP) 73,307 69,447 6%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was Tesla's cash and cash equivalents at end of Q3 2023?",
+      "sources": [
+        {
+          "document": "tesla_q3_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q3-2023-Update-3.pdf",
+          "evidence": [
+            "Cash, cash equivalents and investments 21,107 22,185 22,402 23,075 26,077 24%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What were Berkshire Hathaway's operating earnings in 2023?",
+      "sources": [
+        {
+          "document": "berkshire_2023_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1067983/000119312524045977/d795719dex991.htm",
+          "evidence": [
+            "Operating earnings 8,481 6,625 37,350 30,853",
+            "Insurance-underwriting $ 848 $ 160 $ 5,428 $ (30",
+            "Railroad 1,355 1,469 5,087 5,946"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "37350 / 30853 - 1",
+          "expected": 0.21,
+          "tolerance": 0.005
+        }
+      ]
+    },
+    {
+      "question": "What guidance did Tesla provide for vehicle deliveries in Q4 2023?",
+      "sources": [
+        {
+          "document": "tesla_q3_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q3-2023-Update-3.pdf",
+          "evidence": [
+            "around 1.8 million vehicles for the year",
+            "Total deliveries 343,830 405,278 422,875 466,140 435,059"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "1800000 - (422875 + 466140 + 435059)",
+          "expected": 475926,
+          "tolerance": 0
+        }
+      ]
+    },
+    {
+      "question": "What were the total assets of JPMorgan Chase as of Q3 2023?",
+      "sources": [
+        {
+          "document": "jpmorgan_3q23_financial_supplement.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000508/a3q23erfex992supplement.htm",
+          "evidence": [
+            "Total assets $ 3,898,333 $ 3,868,240"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was Tesla's total revenue in Q4 2023 and how did it change year-over-year?",
+      "sources": [
+        {
+          "document": "tesla_q4_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2023-Update.pdf",
+          "evidence": [
+            "Total revenues 24,318 23,329 24,927 23,350 25,167 3%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was Tesla's full-year 2023 total revenue and growth rate?",
+      "sources": [
+        {
+          "document": "tesla_10k_2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1318605/000162828024002390/tsla-20231231.htm",
+          "evidence": [
+            "Total revenues $ 96,773 $ 81,462 $ 53,823 $ 15,311 19 %"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How did Tesla's full-year GAAP gross margin change from 2022 to 2023?",
+      "sources": [
+        {
+          "document": "tesla_q4_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2023-Update.pdf",
+          "evidence": [
+            "Total GAAP gross margin 16.6% 21.0% 25.3% 25.6% 18.2% -735 bp",
+            "Total gross profit 4,069 6,630 13,606 20,853 17,660 -15%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was the gross margin of Tesla's energy generation and storage segment in 2023 versus 2022?",
+      "sources": [
+        {
+          "document": "tesla_10k_2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1318605/000162828024002390/tsla-20231231.htm",
+          "evidence": [
+            "Gross profit energy generation and storage segment $ 1,141 $ 288",
+            "Gross margin for energy generation and storage increased from 7.4% to 18.9%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How much did Tesla spend on research and development in 2023, and why did it increase?",
+      "sources": [
+        {
+          "document": "tesla_10k_2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1318605/000162828024002390/tsla-20231231.htm",
+          "evidence": [
+            "Research and development $ 3,969 $ 3,075",
+            "R&D expenses increased $894 million, or 29%",
+            "pre-production phase for Cybertruck, AI and other programs"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What share of Tesla's 2023 total revenue came from automotive regulatory credits?",
+      "sources": [
+        {
+          "document": "tesla_10k_2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1318605/000162828024002390/tsla-20231231.htm",
+          "evidence": [
+            "Automotive regulatory credits 1,790 1,776 1,465 14 1 %",
+            "Total revenues $ 96,773"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "1790 / 96773",
+          "expected": 0.0185,
+          "tolerance": 0.0005
+        }
+      ]
+    },
+    {
+      "question": "By what percentage did Tesla's automotive regulatory credits revenue change in Q3 2023 versus Q3 2022?",
+      "sources": [
+        {
+          "document": "tesla_10q_q3_2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1318605/000162828023034847/tsla-20230930.htm",
+          "evidence": [
+            "Automotive regulatory credits 554 286 1,357 1,309"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "554 / 286 - 1",
+          "expected": 0.937,
+          "tolerance": 0.005
+        }
+      ]
+    },
+    {
+      "question": "Why did Tesla report a negative effective tax rate in 2023?",
+      "sources": [
+        {
+          "document": "tesla_10k_2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1318605/000162828024002390/tsla-20231231.htm",
+          "evidence": [
+            "we released $6.54 billion of our valuation allowance",
+            "Our effective tax rate changed from an expense of 8% to a benefit of 50%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "Compare Tesla's 2023 GAAP and non-GAAP net income. What explains the gap?",
+      "sources": [
+        {
+          "document": "tesla_q4_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2023-Update.pdf",
+          "evidence": [
+            "Net (loss) income attributable to common stockholders (GAAP) (862) 721 5,519 12,556 14,997 19%",
+            "Net income attributable to common stockholders (non-GAAP) 36 2,455 7,640 14,116 10,882 -23%",
+            "One-time non-cash tax benefit of $5.9B recorded in Q4"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "Calculate Tesla's full-year 2023 free cash flow from operating cash flow and capital expenditures.",
+      "sources": [
+        {
+          "document": "tesla_q4_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2023-Update.pdf",
+          "evidence": [
+            "Net cash provided by operating activities 2,405 5,943 11,497 14,724 13,256 -10%",
+            "Capital expenditures (1,327) (3,157) (6,482) (7,158) (8,898) 24%",
+            "Free cash flow 1,078 2,786 5,015 7,566 4,358 -42%"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "13256 - 8898",
+          "expected": 4358,
+          "tolerance": 0
+        }
+      ]
+    },
+    {
+      "question": "How much did Tesla's capital expenditures increase in 2023 compared to 2022?",
+      "sources": [
+        {
+          "document": "tesla_10k_2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1318605/000162828024002390/tsla-20231231.htm",
+          "evidence": [
+            "Capital expenditures amounted to $8.90 billion in 2023, compared to $7.16 billion in 2022, representing an increase of $1.74 billion"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How many vehicles did Tesla deliver in Q4 2023?",
+      "sources": [
+        {
+          "document": "tesla_q4_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2023-Update.pdf",
+          "evidence": [
+            "Total deliveries 405,278 422,875 466,140 435,059 484,507 20%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "By how many units did Tesla's 2023 vehicle production exceed its deliveries?",
+      "sources": [
+        {
+          "document": "tesla_q4_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2023-Update.pdf",
+          "evidence": [
+            "Total production 365,232 509,737 930,422 1,369,611 1,845,985 35%",
+            "Total deliveries 367,656 499,647 936,222 1,313,851 1,808,581 38%"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "1845985 - 1808581",
+          "expected": 37404,
+          "tolerance": 0
+        }
+      ]
+    },
+    {
+      "question": "What percentage of Tesla's 2023 deliveries were Model 3 and Model Y?",
+      "sources": [
+        {
+          "document": "tesla_q4_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2023-Update.pdf",
+          "evidence": [
+            "Model 3/Y deliveries 300,885 442,562 911,242 1,247,146 1,739,707 39%"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "1739707 / 1808581",
+          "expected": 0.962,
+          "tolerance": 0.0005
+        }
+      ]
+    },
+    {
+      "question": "According to the energy storage deployments chart in Tesla's Q3 2023 update, how much storage did Tesla deploy in Q3 2023?",
+      "sources": [
+        {
+          "document": "tesla_q3_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q3-2023-Update-3.pdf",
+          "evidence": [
+            "Energy Storage deployments (GWh)",
+            "Energy storage deployments increased by 90% YoY in Q3 to 4.0 GWh, our highest quarterly deployment ever"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was Tesla's cost of goods sold per vehicle in Q3 2023, as shown in the Q3 2023 update's cost-per-vehicle chart?",
+      "sources": [
+        {
+          "document": "tesla_q3_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q3-2023-Update-3.pdf",
+          "evidence": [
+            "Cost of goods sold per vehicle",
+            "Our cost of goods sold per vehicle 4 decreased to ~$37,500 in Q3"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How did Tesla's cost of goods sold per vehicle change from Q3 2023 to Q4 2023?",
+      "sources": [
+        {
+          "document": "tesla_q3_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q3-2023-Update-3.pdf",
+          "evidence": [
+            "our average vehicle cost was ~$37,500"
+          ]
+        },
+        {
+          "document": "tesla_q4_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2023-Update.pdf",
+          "evidence": [
+            "Cost of goods sold per vehicle declined sequentially to slightly above $36,000"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How did Tesla's operating margin change from Q3 2023 to Q4 2023?",
+      "sources": [
+        {
+          "document": "tesla_q4_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2023-Update.pdf",
+          "evidence": [
+            "Operating margin 16.0% 11.4% 9.6% 7.6% 8.2% -784 bp",
+            "Income from operations 3,901 2,664 2,399 1,764 2,064 -47%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What drove the increase in Tesla's cash and investments during Q3 2023?",
+      "sources": [
+        {
+          "document": "tesla_q3_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q3-2023-Update-3.pdf",
+          "evidence": [
+            "increased sequentially by $3.0B to $26.1B in Q3, driven by financing activities of $2.3B and free cash flow of $0.8B"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How many vehicles did Tesla's Fremont factory produce in 2023 compared with the previous owner's record?",
+      "sources": [
+        {
+          "document": "tesla_q4_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2023-Update.pdf",
+          "evidence": [
+            "the record output of the previous owner was nearly 430,000 vehicles made in a single year",
+            "Fremont factory produced nearly 560,000 vehicles"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was Tesla's installed annual vehicle capacity in Shanghai at the end of 2023?",
+      "sources": [
+        {
+          "document": "tesla_q4_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2023-Update.pdf",
+          "evidence": [
+            "Shanghai Model 3 / Model Y >950,000 Production"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How many Supercharger stations and connectors did Tesla have at the end of 2023?",
+      "sources": [
+        {
+          "document": "tesla_q4_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2023-Update.pdf",
+          "evidence": [
+            "Supercharger stations 1,821 2,564 3,476 4,678 5,952 27%",
+            "Supercharger connectors 16,104 23,277 31,498 42,419 54,892 29%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "Using Tesla's Q3 2023 figures, estimate total automotive revenue per vehicle delivered.",
+      "sources": [
+        {
+          "document": "tesla_q3_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q3-2023-Update-3.pdf",
+          "evidence": [
+            "Total automotive revenues 18,692 21,307 19,963 21,268 19,625 5%",
+            "Total deliveries 343,830 405,278 422,875 466,140 435,059 27%"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "19625e6 / 435059",
+          "expected": 45108,
+          "tolerance": 50
+        }
+      ]
+    },
+    {
+      "question": "In Tesla's Q4 2023 update, what does the Services & Other gross profit chart show about the business's trajectory since 2019?",
+      "sources": [
+        {
+          "document": "tesla_q4_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2023-Update.pdf",
+          "evidence": [
+            "Services & Other gross profit ($M)",
+            "Gross profit of our Services & Other business increased from a ~$500M loss in 2019 to a ~$500M profit in 2023"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "According to the annual energy storage deployments chart in Tesla's Q4 2023 update, how much storage did Tesla deploy in 2023 and how did Q4 compare with Q3?",
+      "sources": [
+        {
+          "document": "tesla_q4_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2023-Update.pdf",
+          "evidence": [
+            "Energy Storage deployments (GWh)",
+            "Storage deployed (MWh) 1,651 3,022 3,992 6,541 14,724 125%",
+            "Storage deployed (MWh) 2,462 3,889 3,653 3,980 3,202 30%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "In the quarterly free cash flow chart of Tesla's Q4 2023 update, which 2023 quarter had the highest and lowest free cash flow?",
+      "sources": [
+        {
+          "document": "tesla_q4_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2023-Update.pdf",
+          "evidence": [
+            "Free Cash Flow ($B)",
+            "Free cash flow 1,420 441 1,005 848 2,064 45%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "Why does the quarterly net income chart in Tesla's Q4 2023 update spike in Q4 2023?",
+      "sources": [
+        {
+          "document": "tesla_q4_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2023-Update.pdf",
+          "evidence": [
+            "Net Income ($B)",
+            "Net income attributable to common stockholders (GAAP) 3,687 2,513 2,703 1,853 7,928 115%",
+            "Net income attributable to common stockholders (non-GAAP) 4,106 2,931 3,148 2,318 2,485 -39%",
+            "One-time non-cash tax benefit of $5.9B recorded in Q4"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "The quarterly vehicle deliveries chart in Tesla's Q3 2023 update dips in Q3 2023. How large was the decline and why?",
+      "sources": [
+        {
+          "document": "tesla_q3_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q3-2023-Update-3.pdf",
+          "evidence": [
+            "Vehicle Deliveries",
+            "Total deliveries 343,830 405,278 422,875 466,140 435,059 27%",
+            "we brought down several production lines for upgrades"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "466140 - 435059",
+          "expected": 31081,
+          "tolerance": 0
+        },
+        {
+          "expression": "435059 / 466140 - 1",
+          "expected": -0.0667,
+          "tolerance": 0.0005
+        }
+      ]
+    },
+    {
+      "question": "What does the trailing-twelve-month operating cash flow chart in Tesla's Q4 2023 update show for 2023 versus 2022?",
+      "sources": [
+        {
+          "document": "tesla_q4_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2023-Update.pdf",
+          "evidence": [
+            "Operating Cash Flow ($B)",
+            "Net cash provided by operating activities 2,405 5,943 11,497 14,724 13,256 -10%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What did Tesla's Q4 2023 update say about expected vehicle volume growth in 2024?",
+      "sources": [
+        {
+          "document": "tesla_q4_2023_update.pdf",
+          "url": "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q4-2023-Update.pdf",
+          "evidence": [
+            "our vehicle volume growth rate may be notably lower than the growth rate achieved in 2023",
+            "the growth rate of deployments and revenue in our Energy Storage business should outpace the Automotive business"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What were Apple's Services net sales in fiscal 2023 and how fast did they grow?",
+      "sources": [
+        {
+          "document": "apple_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019323000106/aapl-20230930.htm",
+          "evidence": [
+            "Services net sales increased 9% or $7.1 billion during 2023"
+          ]
+        },
+        {
+          "document": "apple_fy23_q4_statements.pdf",
+          "url": "https://www.apple.com/newsroom/pdfs/fy2023-q4/FY23_Q4_Consolidated_Financial_Statements.pdf",
+          "evidence": [
+            "Services 22,314 19,188 85,200 78,129"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How did iPhone and Mac net sales change in Apple's fiscal 2023?",
+      "sources": [
+        {
+          "document": "apple_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019323000106/aapl-20230930.htm",
+          "evidence": [
+            "iPhone net sales decreased 2% or $4.9 billion during 2023",
+            "Mac net sales decreased 27% or $10.8 billion during 2023"
+          ]
+        },
+        {
+          "document": "apple_fy23_q4_statements.pdf",
+          "url": "https://www.apple.com/newsroom/pdfs/fy2023-q4/FY23_Q4_Consolidated_Financial_Statements.pdf",
+          "evidence": [
+            "iPhone $ 43,805 $ 42,626 $ 200,583 $ 205,489",
+            "Mac 7,614 11,508 29,357 40,177"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What were Apple's products and services gross margin percentages in fiscal 2023?",
+      "sources": [
+        {
+          "document": "apple_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019323000106/aapl-20230930.htm",
+          "evidence": [
+            "Gross margin percentage: Products 36.5 % 36.3 % 35.3 % Services 70.8 % 71.7 % 69.7 % Total gross margin percentage 44.1 % 43.3 %"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What share of Apple's fiscal 2023 total net sales and total gross margin came from Services?",
+      "sources": [
+        {
+          "document": "apple_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019323000106/aapl-20230930.htm",
+          "evidence": [
+            "Services 60,345 56,054 47,710 Total gross margin $ 169,148"
+          ]
+        },
+        {
+          "document": "apple_fy23_q4_statements.pdf",
+          "url": "https://www.apple.com/newsroom/pdfs/fy2023-q4/FY23_Q4_Consolidated_Financial_Statements.pdf",
+          "evidence": [
+            "Services 22,314 19,188 85,200 78,129"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "85200 / 383285",
+          "expected": 0.222,
+          "tolerance": 0.0005
+        },
+        {
+          "expression": "60345 / 169148",
+          "expected": 0.357,
+          "tolerance": 0.0005
+        }
+      ]
+    },
+    {
+      "question": "How did Apple's Greater China net sales perform in fiscal 2023?",
+      "sources": [
+        {
+          "document": "apple_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019323000106/aapl-20230930.htm",
+          "evidence": [
+            "Greater China net sales decreased 2% or $1.6 billion during 2023"
+          ]
+        },
+        {
+          "document": "apple_fy23_q4_statements.pdf",
+          "url": "https://www.apple.com/newsroom/pdfs/fy2023-q4/FY23_Q4_Consolidated_Financial_Statements.pdf",
+          "evidence": [
+            "Greater China 15,084 15,470 72,559 74,200"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "By what percentage did Apple's research and development expense grow in fiscal 2023?",
+      "sources": [
+        {
+          "document": "apple_fy23_q4_statements.pdf",
+          "url": "https://www.apple.com/newsroom/pdfs/fy2023-q4/FY23_Q4_Consolidated_Financial_Statements.pdf",
+          "evidence": [
+            "Research and development 7,307 6,761 29,915 26,251"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "29915 / 26251 - 1",
+          "expected": 0.14,
+          "tolerance": 0.001
+        }
+      ]
+    },
+    {
+      "question": "What was Apple's net income and diluted EPS for fiscal 2023 compared to fiscal 2022?",
+      "sources": [
+        {
+          "document": "apple_fy23_q4_statements.pdf",
+          "url": "https://www.apple.com/newsroom/pdfs/fy2023-q4/FY23_Q4_Consolidated_Financial_Statements.pdf",
+          "evidence": [
+            "Net income $ 22,956 $ 20,721 $ 96,995 $ 99,803",
+            "Diluted $ 1.46 $ 1.29 $ 6.13 $ 6.11"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "96995 / 99803 - 1",
+          "expected": -0.028,
+          "tolerance": 0.0005
+        }
+      ]
+    },
+    {
+      "question": "Estimate Apple's fiscal 2023 free cash flow from its cash flow statement.",
+      "sources": [
+        {
+          "document": "apple_fy23_q4_statements.pdf",
+          "url": "https://www.apple.com/newsroom/pdfs/fy2023-q4/FY23_Q4_Consolidated_Financial_Statements.pdf",
+          "evidence": [
+            "Cash generated by operating activities 110,543 122,151",
+            "Payments for acquisition of property, plant and equipment (10,959) (10,708)"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "110543 - 10959",
+          "expected": 99584,
+          "tolerance": 0
+        }
+      ]
+    },
+    {
+      "question": "How much capital did Apple return to shareholders in fiscal 2023?",
+      "sources": [
+        {
+          "document": "apple_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019323000106/aapl-20230930.htm",
+          "evidence": [
+            "the Company repurchased $76.6 billion of its common stock and paid dividends and dividend equivalents of $15.0 billion",
+            "new share repurchase program of up to $90 billion"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What were Apple's revenue and diluted EPS in the fourth quarter of fiscal 2023?",
+      "sources": [
+        {
+          "document": "apple_fy23_q4_statements.pdf",
+          "url": "https://www.apple.com/newsroom/pdfs/fy2023-q4/FY23_Q4_Consolidated_Financial_Statements.pdf",
+          "evidence": [
+            "Total net sal es (1) 89,498 90,146 383,285 394,328",
+            "Diluted $ 1.46 $ 1.29 $ 6.13 $ 6.11"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "89498 / 90146 - 1",
+          "expected": -0.0072,
+          "tolerance": 0.0005
+        },
+        {
+          "expression": "1.46 / 1.29 - 1",
+          "expected": 0.132,
+          "tolerance": 0.001
+        }
+      ]
+    },
+    {
+      "question": "How many full-time equivalent employees did Apple have at the end of fiscal 2023?",
+      "sources": [
+        {
+          "document": "apple_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019323000106/aapl-20230930.htm",
+          "evidence": [
+            "the Company had approximately 161,000 full-time equivalent employees"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was Apple's total cash, cash equivalents and marketable securities at the end of fiscal 2023?",
+      "sources": [
+        {
+          "document": "apple_fy23_q4_statements.pdf",
+          "url": "https://www.apple.com/newsroom/pdfs/fy2023-q4/FY23_Q4_Consolidated_Financial_Statements.pdf",
+          "evidence": [
+            "Cash and cash equivalents $ 29,965 $ 23,646",
+            "Marketable securities 31,590 24,658",
+            "Marketable securities 100,544 120,805"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "29965 + 31590 + 100544",
+          "expected": 162099,
+          "tolerance": 0
+        }
+      ]
+    },
+    {
+      "question": "Compare the year-over-year change in Apple's iPhone and Mac revenue in the September 2023 quarter.",
+      "sources": [
+        {
+          "document": "apple_fy23_q4_statements.pdf",
+          "url": "https://www.apple.com/newsroom/pdfs/fy2023-q4/FY23_Q4_Consolidated_Financial_Statements.pdf",
+          "evidence": [
+            "iPhone $ 43,805 $ 42,626",
+            "Mac 7,614 11,508"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "43805 / 42626 - 1",
+          "expected": 0.0277,
+          "tolerance": 0.0005
+        },
+        {
+          "expression": "7614 / 11508 - 1",
+          "expected": -0.338,
+          "tolerance": 0.001
+        }
+      ]
+    },
+    {
+      "question": "What were Microsoft's FY2023 revenue and operating income, and how did they change?",
+      "sources": [
+        {
+          "document": "msft_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/789019/000095017023035122/msft-20230630.htm",
+          "evidence": [
+            "Revenue $ 211,915 $ 198,270 7% Gross margin 146,052 135,620 8% Operating income 88,523 83,383 6%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was Microsoft Cloud revenue in FY2023?",
+      "sources": [
+        {
+          "document": "msft_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/789019/000095017023035122/msft-20230630.htm",
+          "evidence": [
+            "Microsoft Cloud revenue increased 22% to $111.6 billion"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was the Microsoft Cloud gross margin percentage in FY2023?",
+      "sources": [
+        {
+          "document": "msft_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/789019/000095017023035122/msft-20230630.htm",
+          "evidence": [
+            "Microsoft Cloud gross margin percentage increased 2 points to 72%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was operating income for each of Microsoft's three segments in FY2023?",
+      "sources": [
+        {
+          "document": "msft_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/789019/000095017023035122/msft-20230630.htm",
+          "evidence": [
+            "Productivity and Business Processes $ 34,189 $ 29,690 15% Intelligent Cloud 37,884 33,203 14% More Personal Computing 16,450 20,490 (20)%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was the operating margin of Microsoft's Intelligent Cloud segment in FY2023?",
+      "sources": [
+        {
+          "document": "msft_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/789019/000095017023035122/msft-20230630.htm",
+          "evidence": [
+            "Intelligent Cloud 87,907 74,965 17%",
+            "Intelligent Cloud 37,884 33,203 14%"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "37884 / 87907",
+          "expected": 0.431,
+          "tolerance": 0.0005
+        },
+        {
+          "expression": "33203 / 74965",
+          "expected": 0.443,
+          "tolerance": 0.0005
+        }
+      ]
+    },
+    {
+      "question": "What was the 'Q2 charge' Microsoft recorded in fiscal 2023?",
+      "sources": [
+        {
+          "document": "msft_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/789019/000095017023035122/msft-20230630.htm",
+          "evidence": [
+            "we recorded a $1.2 billion charge in the second quarter of fiscal year 2023",
+            "employee severance expenses of $800 million",
+            "approximately 10,000 jobs"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was the financial impact of Microsoft extending the useful lives of its servers in fiscal 2023?",
+      "sources": [
+        {
+          "document": "msft_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/789019/000095017023035122/msft-20230630.htm",
+          "evidence": [
+            "from four years to six years",
+            "an increase in operating income of $3.7 billion and net income of $3.0 billion, or $0.40 per both basic and diluted share"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How did Microsoft's Windows OEM and Devices revenue perform in FY2023?",
+      "sources": [
+        {
+          "document": "msft_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/789019/000095017023035122/msft-20230630.htm",
+          "evidence": [
+            "Windows OEM revenue decreased 25% as elevated channel inventory levels",
+            "Devices revenue decreased $1.8 billion or 24%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How did LinkedIn and Office 365 Commercial grow in Microsoft's FY2023?",
+      "sources": [
+        {
+          "document": "msft_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/789019/000095017023035122/msft-20230630.htm",
+          "evidence": [
+            "LinkedIn revenue increased $1.3 billion or 10% driven by Talent Solutions",
+            "Office 365 Commercial revenue grew 13% with seat growth of 11%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was Microsoft's research and development expense in FY2023?",
+      "sources": [
+        {
+          "document": "msft_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/789019/000095017023035122/msft-20230630.htm",
+          "evidence": [
+            "Research and development $ 27,195 $ 24,512 11% As a percent of revenue 13% 12%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How much cash and short-term investments did Microsoft hold at the end of FY2023?",
+      "sources": [
+        {
+          "document": "msft_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/789019/000095017023035122/msft-20230630.htm",
+          "evidence": [
+            "Cash, cash equivalents, and short-term investments totaled $111.3 billion and $104.8 billion as of June 30, 2023 and 2022"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "Why did Microsoft's GAAP net income decline in FY2023 while adjusted net income grew?",
+      "sources": [
+        {
+          "document": "msft_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/789019/000095017023035122/msft-20230630.htm",
+          "evidence": [
+            "Net income 72,361 72,738 (1)%",
+            "decreases of $152 million, $1.2 billion, $946 million, and $0.13",
+            "increase to net income and diluted EPS of $3.3 billion and $0.44"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How did More Personal Computing's share of Microsoft's revenue change between FY2022 and FY2023?",
+      "sources": [
+        {
+          "document": "msft_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/789019/000095017023035122/msft-20230630.htm",
+          "evidence": [
+            "More Personal Computing 54,734 59,941 (9)% Total $ 211,915 $ 198,270 7%"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "54734 / 211915",
+          "expected": 0.258,
+          "tolerance": 0.0005
+        },
+        {
+          "expression": "59941 / 198270",
+          "expected": 0.302,
+          "tolerance": 0.0005
+        }
+      ]
+    },
+    {
+      "question": "What was NVIDIA's total revenue for fiscal year 2024?",
+      "sources": [
+        {
+          "document": "nvidia_10k_fy2024.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581024000029/nvda-20240128.htm",
+          "evidence": [
+            "Revenue $ 60,922 $ 26,974 Up 126%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was NVIDIA's Data Center revenue in fiscal 2024?",
+      "sources": [
+        {
+          "document": "nvidia_10k_fy2024.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581024000029/nvda-20240128.htm",
+          "evidence": [
+            "Data Center revenue for fiscal year 2024 was $47.5 billion, up 217%",
+            "Data Center compute revenue was up 244% in the fiscal year. Networking revenue was up 133%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How did NVIDIA's Gaming revenue perform in fiscal 2024?",
+      "sources": [
+        {
+          "document": "nvidia_10k_fy2024.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581024000029/nvda-20240128.htm",
+          "evidence": [
+            "Gaming revenue for fiscal year 2024 was $10.4 billion, up 15%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was NVIDIA's gross margin in fiscal 2024 versus fiscal 2023?",
+      "sources": [
+        {
+          "document": "nvidia_10k_fy2024.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581024000029/nvda-20240128.htm",
+          "evidence": [
+            "Gross margin 72.7 % 56.9 % Up 15.8 pts",
+            "Our overall gross margin increased to 72.7% in fiscal year 2024 from 56.9%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What were NVIDIA's net income and diluted EPS in fiscal 2024?",
+      "sources": [
+        {
+          "document": "nvidia_10k_fy2024.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581024000029/nvda-20240128.htm",
+          "evidence": [
+            "Net income $ 29,760 $ 4,368 Up 581% Net income per diluted share $ 11.93 $ 1.74 Up 586%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How concentrated was NVIDIA's revenue among customers in fiscal 2024?",
+      "sources": [
+        {
+          "document": "nvidia_10k_fy2024.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581024000029/nvda-20240128.htm",
+          "evidence": [
+            "Sales to one customer, Customer A, represented 13% of total revenue for fiscal year 2024",
+            "is estimated to have represented approximately 19% of total revenue"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What share of NVIDIA's fiscal 2024 Data Center revenue was estimated to come from AI inference?",
+      "sources": [
+        {
+          "document": "nvidia_10k_fy2024.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581024000029/nvda-20240128.htm",
+          "evidence": [
+            "approximately 40% of Data Center revenue was for AI inference"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was the operating margin of NVIDIA's Compute & Networking segment in fiscal 2024?",
+      "sources": [
+        {
+          "document": "nvidia_10k_fy2024.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581024000029/nvda-20240128.htm",
+          "evidence": [
+            "Compute & Networking $ 47,405 $ 15,068 $ 32,337 215 %",
+            "Compute & Networking $ 32,016 $ 5,083 $ 26,933 530 %"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "32016 / 47405",
+          "expected": 0.675,
+          "tolerance": 0.0005
+        }
+      ]
+    },
+    {
+      "question": "How did NVIDIA's research and development expense change in fiscal 2024, in dollars and as a share of revenue?",
+      "sources": [
+        {
+          "document": "nvidia_10k_fy2024.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581024000029/nvda-20240128.htm",
+          "evidence": [
+            "Research and development expenses $ 8,675 $ 7,339 $ 1,336 18 % % of net revenue 14.2 % 27.2 %"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was the Arm acquisition termination cost and in which fiscal year did NVIDIA record it?",
+      "sources": [
+        {
+          "document": "nvidia_10k_fy2024.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581024000029/nvda-20240128.htm",
+          "evidence": [
+            "Acquisition termination cost — 1,353 (1,353)",
+            "We recorded an acquisition termination cost related to the Arm transaction of $1.4 billion in fiscal year 2023"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was NVIDIA's effective tax rate in fiscal 2024?",
+      "sources": [
+        {
+          "document": "nvidia_10k_fy2024.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581024000029/nvda-20240128.htm",
+          "evidence": [
+            "Income tax as a percentage of income before income tax was an expense of 12.0% for fiscal year 2024 and a benefit of 4.5%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How did NVIDIA's operating cash flow and cash position change in fiscal 2024?",
+      "sources": [
+        {
+          "document": "nvidia_10k_fy2024.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581024000029/nvda-20240128.htm",
+          "evidence": [
+            "Cash, cash equivalents, and marketable securities $ 25,984 $ 13,296",
+            "Net cash provided by operating activities $ 28,090 $ 5,641"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What percentage of NVIDIA's revenue came from customers outside the United States in fiscal 2024?",
+      "sources": [
+        {
+          "document": "nvidia_10k_fy2024.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581024000029/nvda-20240128.htm",
+          "evidence": [
+            "accounted for 56% and 69% of total revenue for fiscal years 2024 and 2023"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was NVIDIA's Data Center revenue in Q2 fiscal 2024?",
+      "sources": [
+        {
+          "document": "nvidia_q2_fy2024_press_release.pdf",
+          "url": "https://nvidianews.nvidia.com/news/nvidia-announces-financial-results-for-second-quarter-fiscal-2024",
+          "evidence": [
+            "Data Center revenue of $10.32 billion, up 141% from Q1, up 171% from year ago"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What revenue outlook did NVIDIA give for Q3 fiscal 2024 when it reported Q2 results?",
+      "sources": [
+        {
+          "document": "nvidia_q2_fy2024_press_release.pdf",
+          "url": "https://nvidianews.nvidia.com/news/nvidia-announces-financial-results-for-second-quarter-fiscal-2024",
+          "evidence": [
+            "Revenue is expected to be $16.00 billion, plus or minus 2%",
+            "71.5%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was JPMorgan Chase's net income and EPS in Q3 2023?",
+      "sources": [
+        {
+          "document": "jpmorgan_3q23_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000508/a3q23erfexhibit991narrative.htm",
+          "evidence": [
+            "Net income $ 13,151 $ 14,472 $ 9,737",
+            "Earnings per share - diluted $ 4.33 $ 4.75 $ 3.12"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What were JPMorgan's reported and managed revenue in Q3 2023?",
+      "sources": [
+        {
+          "document": "jpmorgan_3q23_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000508/a3q23erfexhibit991narrative.htm",
+          "evidence": [
+            "Reported revenue of $39.9 billion and managed revenue of $40.7 billion"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was JPMorgan's net interest income in Q3 2023?",
+      "sources": [
+        {
+          "document": "jpmorgan_3q23_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000508/a3q23erfexhibit991narrative.htm",
+          "evidence": [
+            "Net interest income (NII) was $22.9 billion, up 30%, or up 21% excluding First Republic"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What made up JPMorgan's provision for credit losses in Q3 2023?",
+      "sources": [
+        {
+          "document": "jpmorgan_3q23_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000508/a3q23erfexhibit991narrative.htm",
+          "evidence": [
+            "The provision for credit losses was $1.4 billion, reflecting net charge-offs of $1.5 billion and a net reserve release of $113 million",
+            "Net charge-offs of $1.5 billion were up $770 million"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How much did First Republic contribute to JPMorgan's Q3 2023 net income?",
+      "sources": [
+        {
+          "document": "jpmorgan_3q23_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000508/a3q23erfexhibit991narrative.htm",
+          "evidence": [
+            "Net income attributable to First Republic was $1.1 billion in the quarter",
+            "Net income was $13.2 billion, up 35%, or up 24% excluding First Republic"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What were the Q3 2023 results of JPMorgan's Consumer & Community Banking segment?",
+      "sources": [
+        {
+          "document": "jpmorgan_3q23_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000508/a3q23erfexhibit991narrative.htm",
+          "evidence": [
+            "Net income was $5.9 billion, up 36%, or up 22% excluding First Republic. Net revenue was $18.4 billion, up 29%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was the net charge-off rate in JPMorgan's Card Services in Q3 2023?",
+      "sources": [
+        {
+          "document": "jpmorgan_3q23_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000508/a3q23erfexhibit991narrative.htm",
+          "evidence": [
+            "Card Services net charge-off rate of 2.49%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How did JPMorgan's Markets revenue break down in Q3 2023?",
+      "sources": [
+        {
+          "document": "jpmorgan_3q23_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000508/a3q23erfexhibit991narrative.htm",
+          "evidence": [
+            "Markets revenue was $6.6 billion, down 3%. Fixed Income Markets revenue was $4.5 billion, up 1%",
+            "Equity Markets revenue was $2.1 billion, down 10%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What were JPMorgan's assets under management and client assets at the end of Q3 2023?",
+      "sources": [
+        {
+          "document": "jpmorgan_3q23_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000508/a3q23erfexhibit991narrative.htm",
+          "evidence": [
+            "Assets under management were $3.2 trillion, up 22%, and client assets were $4.6 trillion, up 21%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "Using JPMorgan's Q3 2023 noninterest expense and managed revenue, compute the managed overhead ratio.",
+      "sources": [
+        {
+          "document": "jpmorgan_3q23_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000508/a3q23erfexhibit991narrative.htm",
+          "evidence": [
+            "Net revenue - managed 40,686 42,401 33,491",
+            "Noninterest expense 21,757 20,822 19,178",
+            "reported overhead ratio of 55%; managed overhead ratio 2 of 53%"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "21757 / 40686",
+          "expected": 0.535,
+          "tolerance": 0.0005
+        },
+        {
+          "expression": "21757 / 39874",
+          "expected": 0.546,
+          "tolerance": 0.0005
+        }
+      ]
+    },
+    {
+      "question": "What were JPMorgan's book value and tangible book value per share at the end of Q3 2023?",
+      "sources": [
+        {
+          "document": "jpmorgan_3q23_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000508/a3q23erfexhibit991narrative.htm",
+          "evidence": [
+            "Book value per share of $100.30, up 15%; tangible book value per share 2 of $82.04, up 17%"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What significant items affected JPMorgan's Q3 2023 earnings per share?",
+      "sources": [
+        {
+          "document": "jpmorgan_3q23_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000508/a3q23erfexhibit991narrative.htm",
+          "evidence": [
+            "$669 million of net investment securities losses in Corporate ($0.17 decrease in earnings per share (EPS))",
+            "$665 million of Firmwide legal expense 8 ($0.22 decrease in EPS)"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How did JPMorgan's Q3 2023 net income compare with Q2 2023?",
+      "sources": [
+        {
+          "document": "jpmorgan_3q23_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000508/a3q23erfexhibit991narrative.htm",
+          "evidence": [
+            "Net income $ 13,151 $ 14,472 $ 9,737 $ (1,321) (9) %"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "Do JPMorgan's Q3 2023 segment net incomes add up to the firmwide total?",
+      "sources": [
+        {
+          "document": "jpmorgan_3q23_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000508/a3q23erfexhibit991narrative.htm",
+          "evidence": [
+            "Net income $ 5,895 $ 5,306 $ 4,344",
+            "Net income $ 3,092 $ 4,092 $ 3,522",
+            "Net income $ 1,935 $ 1,208 $ 946",
+            "Net income $ 1,417 $ 1,226 $ 1,219",
+            "Net income/(loss) $ 812 $ 2,640 $ (294)"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "5895 + 3092 + 1935 + 1417 + 812",
+          "expected": 13151,
+          "tolerance": 0
+        }
+      ]
+    },
+    {
+      "question": "How much capital did JPMorgan distribute to shareholders in Q3 2023?",
+      "sources": [
+        {
+          "document": "jpmorgan_3q23_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000508/a3q23erfexhibit991narrative.htm",
+          "evidence": [
+            "Common dividend of $3.1 billion or $1.05 per share",
+            "of common stock net repurchases"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How did JPMorgan's Commercial Banking segment perform in Q3 2023?",
+      "sources": [
+        {
+          "document": "jpmorgan_3q23_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000508/a3q23erfexhibit991narrative.htm",
+          "evidence": [
+            "Net income was $1.9 billion, up 105%, or up 79% excluding First Republic"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "By how much did Amazon's advertising services revenue grow in Q3 2023?",
+      "sources": [
+        {
+          "document": "amazon_10q_q3_2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1018724/000101872423000018/amzn-20230930.htm",
+          "evidence": [
+            "Advertising services (5) 9,548 12,060"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "12060 / 9548 - 1",
+          "expected": 0.263,
+          "tolerance": 0.001
+        }
+      ]
+    },
+    {
+      "question": "What was Google Cloud revenue in Q3 2023 and its year-over-year growth?",
+      "sources": [
+        {
+          "document": "alphabet_10q_q3_2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1652044/000165204423000094/goog-20230930.htm",
+          "evidence": [
+            "Google Cloud 6,868 8,411"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "8411 / 6868 - 1",
+          "expected": 0.225,
+          "tolerance": 0.0005
+        }
+      ]
+    },
+    {
+      "question": "How did YouTube ads revenue change in Q3 2023?",
+      "sources": [
+        {
+          "document": "alphabet_10q_q3_2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1652044/000165204423000094/goog-20230930.htm",
+          "evidence": [
+            "YouTube ads 7,071 7,952"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "7952 / 7071 - 1",
+          "expected": 0.125,
+          "tolerance": 0.0005
+        }
+      ]
+    },
+    {
+      "question": "In Q3 2023, how did AWS revenue compare in size with Google Cloud revenue?",
+      "sources": [
+        {
+          "document": "amazon_10q_q3_2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1018724/000101872423000018/amzn-20230930.htm",
+          "evidence": [
+            "AWS 20,538 23,059",
+            "AWS sales increased 12% in Q3 2023"
+          ]
+        },
+        {
+          "document": "alphabet_10q_q3_2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1652044/000165204423000094/goog-20230930.htm",
+          "evidence": [
+            "Google Cloud 6,868 8,411"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "23059 / 8411",
+          "expected": 2.74,
+          "tolerance": 0.01
+        }
+      ]
+    },
+    {
+      "question": "Which spent a larger share of revenue on R&D in their fiscal 2023/2024 years: Microsoft, Apple or NVIDIA?",
+      "sources": [
+        {
+          "document": "nvidia_10k_fy2024.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581024000029/nvda-20240128.htm",
+          "evidence": [
+            "% of net revenue 14.2 % 27.2 %"
+          ]
+        },
+        {
+          "document": "msft_10k_fy2023.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/789019/000095017023035122/msft-20230630.htm",
+          "evidence": [
+            "Research and development $ 27,195 $ 24,512 11% As a percent of revenue 13% 12%"
+          ]
+        },
+        {
+          "document": "apple_fy23_q4_statements.pdf",
+          "url": "https://www.apple.com/newsroom/pdfs/fy2023-q4/FY23_Q4_Consolidated_Financial_Statements.pdf",
+          "evidence": [
+            "Research and development 7,307 6,761 29,915 26,251"
+          ]
+        }
+      ],
+      "calculations": [
+        {
+          "expression": "29915 / 383285",
+          "expected": 0.078,
+          "tolerance": 0.0005
+        },
+        {
+          "expression": "27195 / 211915",
+          "expected": 0.128,
+          "tolerance": 0.0005
+        }
+      ]
+    },
+    {
+      "question": "What was the operating loss of Meta's Reality Labs segment in Q2 2023?",
+      "sources": [
+        {
+          "document": "meta_q2_2023_press_release.pdf",
+          "url": "https://investor.atmeta.com/investor-news/press-release-details/2023/Meta-Reports-Second-Quarter-2023-Results/default.aspx",
+          "evidence": [
+            "Reality Labs (3,739) (2,806) (7,732) (5,766)",
+            "Reality Labs 276 452 616 1,146"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What was Meta's headcount at the end of Q2 2023?",
+      "sources": [
+        {
+          "document": "meta_q2_2023_press_release.pdf",
+          "url": "https://investor.atmeta.com/investor-news/press-release-details/2023/Meta-Reports-Second-Quarter-2023-Results/default.aspx",
+          "evidence": [
+            "Headcount was 71,469 as of June 30, 2023, a decrease of 14% year-over-year"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "Which Berkshire Hathaway businesses saw lower operating earnings in 2023?",
+      "sources": [
+        {
+          "document": "berkshire_2023_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1067983/000119312524045977/d795719dex991.htm",
+          "evidence": [
+            "Railroad 1,355 1,469 5,087 5,946",
+            "Utilities and energy 632 739 2,331 3,904"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "How much did Berkshire Hathaway spend on share repurchases in 2023, and what was its insurance float?",
+      "sources": [
+        {
+          "document": "berkshire_2023_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/1067983/000119312524045977/d795719dex991.htm",
+          "evidence": [
+            "bringing the total for the year to approximately $9.2 billion",
+            "was approximately $169 billion, an increase of $5 billion"
+          ]
+        }
+      ],
+      "calculations": []
+    },
+    {
+      "question": "What were Goldman Sachs' full-year 2023 net earnings and diluted EPS?",
+      "sources": [
+        {
+          "document": "goldman_4q23_earnings_release.pdf",
+          "url": "https://www.sec.gov/Archives/edgar/data/886982/000119312524008077/d615098dex991.htm",
+          "evidence": [
+            "net earnings of $8.52 billion for the year ended December 31, 2023",
+            "22.87",
+            "30.06"
+          ]
+        }
+      ],
+      "calculations": []
+    }
+  ]
+}

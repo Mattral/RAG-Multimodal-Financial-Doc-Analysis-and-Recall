@@ -11,7 +11,14 @@ PATCH = "src.rag_system.pipeline.create_pipeline"
 def _pipeline():
     p = MagicMock()
     p.ingest = AsyncMock(return_value={"status": "success", "num_files": 1, "num_chunks": 5, "tenant_id": "default", "latency_s": 0.1})
-    p.query = AsyncMock(return_value={"status": "success", "query": "q", "answer": "Revenue was $23.35B [Source: f.pdf, Page 1].", "sources": [{"document": "f.pdf", "page": 1, "score": 0.9, "text_[...]
+    p.query = AsyncMock(return_value={
+        "status": "success",
+        "query": "q",
+        "answer": "Revenue was $23.35B [Source: f.pdf, Page 1].",
+        "sources": [{"document": "f.pdf", "page": 1, "score": 0.9, "text_preview": "Revenue..."}],
+        "guardrails": {"overall_passed": True},
+        "metrics": {"total_latency_ms": 100.0, "cost_usd": 0.0002, "num_chunks": 1},
+    })
     p.health_check = AsyncMock(return_value={"status": "healthy", "components": {"vector_store": "ok", "embedder": "ok"}})
     return p
 
@@ -103,7 +110,7 @@ class TestEvaluateCommand:
         dataset = tmp_path / "golden.jsonl"
         dataset.write_text('{"question": "Revenue?", "ground_truth": "$23.35B"}\n')
         mock_report = MagicMock()
-        for attr in ["pass_rate","avg_faithfulness","avg_numeric_accuracy","avg_answer_relevancy","regression_detected","avg_latency_ms","total_cost_usd","run_id"]:
+        for attr in ["pass_rate","avg_faithfulness","avg_numeric_accuracy","avg_answer_relevancy","regression_detected","avg_latency_ms","total_cost_usd","run_id","avg_numeric_recall","source_hit_rate"]:
             setattr(mock_report, attr, 0.9 if "rate" in attr or "avg" in attr else ("id" if attr == "run_id" else False))
         mock_report.num_samples = 1
         mock_report.passed = 1

@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import re
 import time
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 import structlog
@@ -206,17 +206,8 @@ class GeminiGenerator(BaseGenerator):
         return f"gemini/{self._default_model}"
 
     def _get_api_key(self) -> str:
-        import os
-
-        key = os.environ.get("GOOGLE_API_KEY", "")
-        if not key:
-            from src.rag_system.utils.exceptions import ConfigurationError
-
-            raise ConfigurationError(
-                "GOOGLE_API_KEY not set — required for LLM_CONFIG__PROVIDER=gemini",
-                config_key="GOOGLE_API_KEY",
-            )
-        return key
+        # Reads GOOGLE_API_KEY from .env (via Config) or the process environment.
+        return get_config().get_google_key()
 
     async def generate(
         self,
@@ -238,16 +229,21 @@ class GeminiGenerator(BaseGenerator):
             f"Context:\n{context_block}\n\nQuestion: {query}"
         )
 
-        url = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{model}:generateContent?key={api_key}"
-        )
+        # Key goes in a header, not the query string, so it never lands in URL logs.
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        generation_config: Dict[str, Any] = {
+            "temperature": self._cfg.temperature,
+            "maxOutputTokens": self._cfg.max_tokens,
+        }
+        # On thinking models maxOutputTokens covers reasoning + answer; without a
+        # separate budget the reasoning can consume it and truncate the answer.
+        budget = self._cfg.thinking_budget_tokens
+        if budget is not None:
+            generation_config["maxOutputTokens"] = self._cfg.max_tokens + budget
+            generation_config["thinkingConfig"] = {"thinkingBudget": budget}
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": self._cfg.temperature,
-                "maxOutputTokens": self._cfg.max_tokens,
-            },
+            "generationConfig": generation_config,
         }
 
         start = time.perf_counter()
@@ -255,13 +251,24 @@ class GeminiGenerator(BaseGenerator):
             async_trace_span("llm_generation", {"model": model, "tenant_id": tenant_id or ""}),
             httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client,
         ):
-            response = await client.post(url, json=payload)
+            response = await client.post(url, json=payload, headers={"x-goog-api-key": api_key})
             response.raise_for_status()
             data = response.json()
         latency_ms = (time.perf_counter() - start) * 1000
 
-        answer_text = data["candidates"][0]["content"]["parts"][0]["text"]
+        # Thinking models may return several parts (or none, if the token budget was
+        # spent on thinking). Join the text parts, skipping any marked as thoughts.
+        candidate = data["candidates"][0]
+        parts = candidate.get("content", {}).get("parts", [])
+        answer_text = "".join(p.get("text", "") for p in parts if not p.get("thought"))
         usage = data.get("usageMetadata", {})
+        if candidate.get("finishReason") == "MAX_TOKENS":
+            logger.warning(
+                "gemini_answer_truncated",
+                model=model,
+                thoughts_tokens=usage.get("thoughtsTokenCount", 0),
+                answer_tokens=usage.get("candidatesTokenCount", 0),
+            )
         prompt_tokens = usage.get("promptTokenCount", 0)
         completion_tokens = usage.get("candidatesTokenCount", 0)
 

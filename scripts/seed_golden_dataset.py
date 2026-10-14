@@ -2,10 +2,12 @@
 """Seed the golden evaluation dataset with additional samples.
 
 Usage:
-    python scripts/seed_golden_dataset.py --output evals/golden_datasets/financial_qa.jsonl
+    python scripts/seed_golden_dataset.py --output my_golden.jsonl
 
-Generates high-quality financial QA samples for pipeline evaluation.
-Extend this script to add domain-specific samples for your use case.
+Writes a small starter set (8 samples) in the golden-dataset JSONL format, as a
+template for building a domain-specific set. The maintained, source-verified
+set lives in evals/golden_datasets/financial_qa.jsonl (see the README there);
+this script refuses to overwrite an existing file unless --force is given.
 """
 import argparse
 import json
@@ -33,13 +35,13 @@ SAMPLES = [
      "source_documents": ["apple_10k_fy2023.pdf"], "expected_page": 22,
      "expected_numeric_values": ["383.3 billion", "394.3 billion", "3%"], "tags": ["revenue", "annual"]},
     {"question": "What was Microsoft's cloud revenue growth in FY2023?",
-     "ground_truth": "Microsoft's Intelligent Cloud segment grew 19% to $87.9 billion; Azure and cloud services grew 29%.",
-     "source_documents": ["msft_10k_fy2023.pdf"], "expected_page": 33,
-     "expected_numeric_values": ["19%", "87.9 billion", "29%"], "tags": ["cloud", "growth"]},
+     "ground_truth": "Microsoft's Intelligent Cloud segment grew 17% to $87.9 billion; Server products and cloud services grew 19%, driven by Azure and other cloud services growth of 29%.",
+     "source_documents": ["msft_10k_fy2023.pdf"], "expected_page": 45,
+     "expected_numeric_values": ["17%", "87.9 billion", "19%", "29%"], "tags": ["cloud", "growth"]},
     {"question": "What were Tesla's free cash flows in Q3 2023?",
-     "ground_truth": "Free cash flow was $4.4 billion in Q3 2023: $5.1B operating cash minus $0.7B capex.",
-     "source_documents": ["tesla_10q_q3_2023.pdf"], "expected_page": 8,
-     "expected_numeric_values": ["4.4 billion", "5.1 billion", "0.7 billion"], "tags": ["cash_flow", "fcf"]},
+     "ground_truth": "Free cash flow was $848 million in Q3 2023: $3,308M operating cash flow minus $2,460M capex.",
+     "source_documents": ["tesla_q3_2023_update.pdf"], "expected_page": 4,
+     "expected_numeric_values": ["848 million", "3.3 billion", "2.46 billion"], "tags": ["cash_flow", "fcf"]},
     {"question": "What was Tesla's energy generation and storage revenue in Q3 2023?",
      "ground_truth": "Tesla's energy generation and storage segment revenue was $1.56 billion in Q3 2023.",
      "source_documents": ["tesla_10q_q3_2023.pdf"], "expected_page": 6,
@@ -48,11 +50,15 @@ SAMPLES = [
 
 def main():
     parser = argparse.ArgumentParser(description="Seed golden QA dataset")
-    parser.add_argument("--output", default="evals/golden_datasets/financial_qa.jsonl")
+    parser.add_argument("--output", default="evals/golden_datasets/starter_qa.jsonl")
     parser.add_argument("--append", action="store_true", help="Append to existing file")
+    parser.add_argument("--force", action="store_true", help="Overwrite an existing file")
     args = parser.parse_args()
 
     output_path = Path(args.output)
+    if output_path.exists() and not (args.append or args.force):
+        print(f"❌ {output_path} already exists; use --append or --force")
+        raise SystemExit(1)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     mode = "a" if args.append else "w"
 

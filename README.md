@@ -35,9 +35,21 @@ Financial documents are mixed-media: narrative text, tables, charts, footnotes, 
 
 ## Retrieval Quality
 
-![Retrieval Quality](docs/assets/retrieval_quality.png)
+Measured offline on the 16 real filings behind the golden dataset (119 questions), using this
+repo's BM25, local `bge-small` embeddings and RRF fusion with default settings and no reranker.
+*Evidence hit@5* means a top-5 chunk contains the exact supporting text for the answer.
 
-*Hybrid RRF achieves 89% Recall@5 and 84% Precision@5 on our 22-sample financial QA benchmark — 25% better recall than dense-only and 41% better than BM25-only.*
+| Strategy (4,000-char chunks, default) | Evidence hit@5 | Doc hit@5 |
+|---|---|---|
+| BM25 only | 0.71 | 0.87 |
+| Dense only | 0.61 | 0.99 |
+| **Hybrid RRF** | **0.71** | 0.93 |
+
+With 1,000-character chunks, hybrid reaches 0.53 versus 0.42 (BM25) and 0.46 (dense), so fusion
+helps there. At the default chunk size it only ties BM25. About 3 in 10 questions get no
+answer-bearing chunk in the top 5. Full results, method and caveats are in
+[BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md). Earlier versions of this README claimed 89%
+Recall@5. That figure could not be reproduced and has been withdrawn.
 
 ---
 
@@ -95,25 +107,43 @@ vllm serve Qwen/Qwen2-VL-7B-Instruct --port 8080 --host 0.0.0.0
 
 ## Evaluation Quality
 
-![Evaluation Quality](docs/assets/eval_quality_radar.png)
+* **Golden dataset:** [119 QA pairs](evals/golden_datasets/README.md) over 16 public filings
+  from 10 companies. The mix is 56 factual, 24 calculation, 17 comparative, 13 table and 9 chart
+  questions. Every figure is traced to a quoted passage in its source document (209/209 verified
+  against the primary documents) and every derived number has an arithmetic check.
+  Re-checking found errors in 9 of the original 22 samples, and those have been corrected.
+* **Scoring:** RAGAS and an LLM-as-judge numeric scorer (needs an OpenAI key), plus two
+  deterministic checks that need no LLM: whether the answer states the expected values, and
+  whether it cites the expected source document.
+* **Answer quality:** run on all 119 questions with `gemini-3.8-flash` over top-5 hybrid
+  context, with deterministic scoring:
 
-*All five quality metrics exceed the 70% SLO threshold. Evaluated with RAGAS + LLM-as-judge numeric scorer on 22 financial QA samples across Tesla, Apple, Microsoft, Google, NVIDIA, JPMorgan, and Goldman Sachs filings.*
+  | Metric | All 119 | When retrieval found the supporting text (63) |
+  |---|---|---|
+  | Asked-for figure stated | 0.68 | 0.84 |
+  | Cites an expected document | 0.75 | 0.95 |
+  | Abstained ("not available") | 0.35 | 0.16 |
+  | Fabricated numbers found | 0 | 0 |
+
+  Six answers stated numbers absent from their context, and all six were correct derivations.
+  Most misses are honest abstentions caused by retrieval. Calculation questions are weakest:
+  the model abstained on 15 of 24. Details are in
+  [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md#3-answer-quality-gemini-38-flash-all-119-questions).
+
+```bash
+pytest tests/unit/test_golden_dataset.py      # dataset integrity, offline
+python -m evals.retrieval_benchmark           # retrieval, offline
+python -m evals.answer_eval --rpm 5           # retrieval + generation, needs an LLM key
+```
 
 ---
 
-## Query Latency
+## Latency and Cost
 
-![Latency Benchmarks](docs/assets/latency_benchmarks.png)
-
-*All modes comfortably within the p99 < 8s SLO. Measured at 1000 queries with 50 concurrent users.*
-
----
-
-## Cost Per Query
-
-![Cost Per Query](docs/assets/cost_per_query.png)
-
-*Smart routing (gpt-4o-mini for simple queries, gpt-4o only for complex ones) combined with Redis embedding cache achieves ~$0.00011/query at 72% cache hit rate.*
+Not yet measured in a reproducible run. Earlier latency, load-test and cost-per-query figures
+were withdrawn because no run outputs or scripts reproduce them. `tests/load/locustfile.py`
+and `scripts/benchmark.py` can measure them against a running deployment. The SLO targets
+(p99 < 8 s, < 1% errors) are configured in `src/rag_system/config.py` and the alerting rules.
 
 ---
 
@@ -242,13 +272,39 @@ spaces/            Standalone HuggingFace Space demos
 ```bash
 make setup          # Install deps + copy .env
 make dev            # Start full stack with observability
-make test           # Run all 520 tests with coverage
+make test           # Run the test suite with coverage
 make eval           # Run RAGAS evaluation against golden dataset
 make lint           # Ruff lint
 make typecheck      # mypy
 make docs           # Serve MkDocs site
 make query Q="What was Q3 revenue?"
 ```
+
+---
+
+## Limitations
+
+* **Evaluation is partial.** Dataset integrity, offline retrieval and retrieval-plus-generation
+  with one model are measured. The full ingest pipeline (unstructured parsing, reranker,
+  guardrails, Program-of-Thought), RAGAS scores, load latency and cost have not been measured
+  on a reproducible run yet (see [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md)).
+* **Retrieval misses often.** About 30% of golden questions get no answer-bearing chunk in the
+  top 5 at default settings, and multi-row tables are the weakest case when chunks are small.
+* **Small, single-author golden set.** 119 questions on fiscal 2023, Tesla-heavy (40 of 119),
+  written by one person from the filings themselves. Their wording favors keyword search.
+* **Chart questions are text-checkable.** The 9 chart questions use charts whose values also
+  appear in tables, so they do not isolate the vision path.
+* **Gemini judge not wired.** The LLM-as-judge and RAGAS scorers call OpenAI. With only a Gemini
+  key, just the deterministic metrics are available.
+* **Calculations are often declined.** Under the default "never estimate" system prompt the
+  model frequently refuses to compute derived figures (ratios, sums) unless Program-of-Thought
+  handles them.
+* **Page citations are unreliable** when chunks lack page metadata. The model invents them.
+* **Thinking-token budget.** On Gemini thinking models, reasoning tokens count against the
+  output limit. `LLM_CONFIG__THINKING_BUDGET_TOKENS` (default 1024) now reserves them
+  separately; with it unset, answers can truncate.
+* **Retired model names.** Google no longer serves `gemini-2.5-*` to new API keys. Defaults
+  that still name them need a current model such as `gemini-3.8-flash`.
 
 ---
 

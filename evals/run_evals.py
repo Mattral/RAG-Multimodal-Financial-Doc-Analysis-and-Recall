@@ -54,28 +54,30 @@ async def _run(args: argparse.Namespace) -> dict:
     print("\n" + "=" * 60)
     print("EVALUATION REPORT")
     print("=" * 60)
-    print(f"Run ID:              {report['run_id']}")
-    print(f"Timestamp:           {report['timestamp']}")
-    print(f"Samples:             {report['num_samples']}")
-    print(f"Pass Rate:           {report['pass_rate']:.1%}")
-    print(f"Avg Faithfulness:    {report['avg_faithfulness']:.3f}")
-    print(f"Avg Answer Relevancy:{report['avg_answer_relevancy']:.3f}")
-    print(f"Avg Numeric Accuracy:{report['avg_numeric_accuracy']:.3f}")
-    print(f"Avg Latency:         {report['avg_latency_ms']:.0f}ms")
-    print(f"Total Cost:          ${report['total_cost_usd']:.4f}")
-    regression_status = "YES ⚠" if report["regression_detected"] else "No ✅"
+    print(f"Run ID:              {report.run_id}")
+    print(f"Timestamp:           {report.timestamp}")
+    print(f"Samples:             {report.num_samples}")
+    print(f"Pass Rate:           {report.pass_rate:.1%}")
+    print(f"Avg Faithfulness:    {report.avg_faithfulness:.3f}")
+    print(f"Avg Answer Relevancy:{report.avg_answer_relevancy:.3f}")
+    print(f"Avg Numeric Accuracy:{report.avg_numeric_accuracy:.3f}")
+    print(f"Expected-Value Recall:{report.avg_numeric_recall:.3f}")
+    print(f"Source Hit Rate:     {report.source_hit_rate:.1%}")
+    print(f"Avg Latency:        {report.avg_latency_ms:.0f}ms")
+    print(f"Total Cost:          ${report.total_cost_usd:.4f}")
+    regression_status = "YES ⚠" if report.regression_detected else "No ✅"
     print(f"Regression Detected: {regression_status}")
     print("=" * 60)
 
     # Per-sample failures
-    failures = [r for r in report["results"] if not r["passed"]]
+    failures = [r for r in report.results if not r.passed]
     if failures:
         print(f"\nFailed samples ({len(failures)}):")
         for r in failures[:5]:
-            print(f"  Q: {r['question'][:80]}")
+            print(f"  Q: {r.question[:80]}")
             print(
-                f"     faithfulness={r['faithfulness']:.2f}, "
-                f"numeric_accuracy={r['numeric_accuracy']:.2f}"
+                f"     faithfulness={r.faithfulness:.2f}, "
+                f"numeric_accuracy={r.numeric_accuracy:.2f}"
             )
 
     # Save JSON report
@@ -83,12 +85,14 @@ async def _run(args: argparse.Namespace) -> dict:
         Path(args.output).write_text(
             json.dumps(
                 {
-                    "run_id": report["run_id"],
-                    "pass_rate": report["pass_rate"],
-                    "avg_faithfulness": report["avg_faithfulness"],
-                    "avg_numeric_accuracy": report["avg_numeric_accuracy"],
-                    "regression_detected": report["regression_detected"],
-                    "num_samples": report["num_samples"],
+                    "run_id": report.run_id,
+                    "pass_rate": report.pass_rate,
+                    "avg_faithfulness": report.avg_faithfulness,
+                    "avg_numeric_accuracy": report.avg_numeric_accuracy,
+                    "avg_numeric_recall": report.avg_numeric_recall,
+                    "source_hit_rate": report.source_hit_rate,
+                    "regression_detected": report.regression_detected,
+                    "num_samples": report.num_samples,
                 },
                 indent=2,
             )
@@ -115,7 +119,7 @@ def main() -> None:
         logger.error("eval_run_failed", error=str(exc))
         sys.exit(2)
 
-    if args.fail_on_regression and report["regression_detected"]:
+    if args.fail_on_regression and report.regression_detected:
         print("\n❌ CI GATE FAILED: Quality regression detected")
         sys.exit(1)
 

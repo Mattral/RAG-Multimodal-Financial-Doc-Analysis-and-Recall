@@ -238,16 +238,18 @@ def evaluate(
     )
     table.add_column("Metric")
     table.add_column("Value", style="cyan")
-    table.add_row("Run ID", report["run_id"])
-    table.add_row("Samples", str(report["num_samples"]))
-    table.add_row("Pass Rate", f"{report['pass_rate']:.1%}")
-    table.add_row("Avg Faithfulness", f"{report['avg_faithfulness']:.3f}")
-    table.add_row("Avg Answer Relevancy", f"{report['avg_answer_relevancy']:.3f}")
-    table.add_row("Avg Numeric Accuracy", f"{report['avg_numeric_accuracy']:.3f}")
-    table.add_row("Avg Latency", f"{report['avg_latency_ms']:.0f}ms")
-    table.add_row("Total Cost", f"${report['total_cost_usd']:.4f}")
+    table.add_row("Run ID", report.run_id)
+    table.add_row("Samples", str(report.num_samples))
+    table.add_row("Pass Rate", f"{report.pass_rate:.1%}")
+    table.add_row("Avg Faithfulness", f"{report.avg_faithfulness:.3f}")
+    table.add_row("Avg Answer Relevancy", f"{report.avg_answer_relevancy:.3f}")
+    table.add_row("Avg Numeric Accuracy", f"{report.avg_numeric_accuracy:.3f}")
+    table.add_row("Expected-Value Recall", f"{report.avg_numeric_recall:.3f}")
+    table.add_row("Source Hit Rate", f"{report.source_hit_rate:.1%}")
+    table.add_row("Avg Latency", f"{report.avg_latency_ms:.0f}ms")
+    table.add_row("Total Cost", f"${report.total_cost_usd:.4f}")
     table.add_row(
-        "Regression", "⚠ YES" if report["regression_detected"] else "✅ None"
+        "Regression", "⚠ YES" if report.regression_detected else "✅ None"
     )
     console.print(table)
 
@@ -255,17 +257,17 @@ def evaluate(
         Path(output).write_text(
             json.dumps(
                 {
-                    "run_id": report["run_id"],
-                    "pass_rate": report["pass_rate"],
-                    "avg_faithfulness": report["avg_faithfulness"],
-                    "regression_detected": report["regression_detected"],
+                    "run_id": report.run_id,
+                    "pass_rate": report.pass_rate,
+                    "avg_faithfulness": report.avg_faithfulness,
+                    "regression_detected": report.regression_detected,
                 },
                 indent=2,
             )
         )
         console.print(f"[dim]Report saved to {output}[/dim]")
 
-    if fail_on_regression and report["regression_detected"]:
+    if fail_on_regression and report.regression_detected:
         console.print("[red]✗ Quality regression detected — CI gate FAILED[/red]")
         raise typer.Exit(1)
 
