@@ -30,19 +30,21 @@ logger = structlog.get_logger(__name__)
 def _reciprocal_rank_fusion(
     ranked_lists: List[List[RetrievedChunk]],
     k: int = 60,
+    weights: Optional[List[float]] = None,
 ) -> List[RetrievedChunk]:
-    """Merge multiple ranked lists using Reciprocal Rank Fusion.
+    """Merge multiple ranked lists using (optionally weighted) Reciprocal Rank Fusion.
 
-    Score for chunk c = Σ 1 / (k + rank_i(c))
+    Score for chunk c = Σ w_i / (k + rank_i(c)), with every w_i = 1 by default.
     """
     scores: Dict[str, float] = defaultdict(float)
     chunk_map: Dict[str, RetrievedChunk] = {}
+    weights = weights or [1.0] * len(ranked_lists)
 
-    for ranked_list in ranked_lists:
+    for weight, ranked_list in zip(weights, ranked_lists, strict=True):
         for rank, chunk in enumerate(ranked_list, start=1):
             # Use chunk text hash as unique key
             key = f"{chunk.source_document}_{chunk.page_number}_{hash(chunk.text)}"
-            scores[key] += 1.0 / (k + rank)
+            scores[key] += weight / (k + rank)
             if key not in chunk_map:
                 chunk_map[key] = chunk
 

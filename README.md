@@ -189,7 +189,10 @@ and `scripts/benchmark.py` can measure them against a running deployment. The SL
 - **Cross-encoder reranking**: ms-marco-MiniLM-L-6-v2 or Cohere Rerank v3
 - **Query analyzer**: intent classification → cost routing, entity extraction, query rewriting
 - **Semantic cache**: similar queries served from cache (~1800ms saved per hit)
-- **Knowledge graph**: LLM-extracted entities/relations (COMPANY, METRIC, REPORTED_REVENUE, etc.)
+- **Knowledge graph (optional, `ENABLE_KNOWLEDGE_GRAPH=true`)**: LLM-extracted entities/relations
+  (COMPANY, METRIC, DATE; REPORTED_METRIC, FOR_PERIOD, …) and graph-augmented retrieval that walks
+  query entities to related metrics/periods and RRF-fuses the linked chunks with hybrid results.
+  The graph is in memory only ([tutorial](docs/tutorials/graphrag.md))
 
 ### Quality assurance
 - **Numeric grounding guardrail**: every number in the answer is verified against context

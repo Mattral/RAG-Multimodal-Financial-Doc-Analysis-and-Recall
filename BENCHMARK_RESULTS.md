@@ -10,6 +10,7 @@
 |---|---|---|
 | Golden dataset integrity (119 samples) | **Measured.** 209/209 evidence strings found in the source filings; 42/42 calculations reproduce | Section 1 |
 | Retrieval quality on the real source documents | **Measured** offline (no API key needed) | Section 2 |
+| Knowledge-graph-augmented retrieval | **Measured** offline on a graph extracted once with `gemini-3.8-flash` | Section 2b |
 | Answer quality with an LLM (`gemini-3.8-flash`) | **Measured** on all 119 questions, with deterministic scoring and a number-grounding check | Section 3 |
 | RAGAS faithfulness / answer relevancy / LLM-judged numeric accuracy | **Not measured.** The judge in `RagasEvaluator` currently calls OpenAI only | — |
 | Latency under load, throughput, cost per query | **Not reproduced** | Section 4 |
@@ -72,6 +73,54 @@ What this shows:
 
 Raw output: [`retrieval_chunk4000.json`](evals/results/retrieval_chunk4000.json),
 [`retrieval_chunk1000.json`](evals/results/retrieval_chunk1000.json).
+
+### 2b. Knowledge-graph augmentation (`ENABLE_KNOWLEDGE_GRAPH`)
+
+`python -m evals.build_graph` ran the repository's `EntityExtractor` (`gemini-3.8-flash`) once
+over all 601 chunks of the 4,000-character index, with 0 failures and 951k input / 516k output
+tokens. The result is a graph of 4,959 entities and 7,705 relations
+(`graph_extractions_chunk4000.jsonl`). `retrieval_benchmark --graph-cache` then fuses
+`GraphAugmentedRetriever` results onto the hybrid top 10, the same input it gets in the pipeline.
+
+| Strategy (4,000-char chunks) | Evidence hit@5 | Doc hit@5 | Doc precision@5 | MRR@10 |
+|---|---|---|---|---|
+| Hybrid RRF | 0.706 | 0.933 | 0.570 | 0.468 |
+| **Hybrid RRF + graph** (defaults: 1 hop, weight 0.5) | **0.723** | 0.908 | 0.587 | 0.470 |
+
+Evidence hit@5 by question type:
+
+| | Factual (56) | Calculation (24) | Comparative (17) | Table (13) | Chart (9) |
+|---|---|---|---|---|---|
+| Hybrid RRF | 0.68 | 0.71 | 0.65 | 0.85 | 0.78 |
+| + graph | 0.75 | 0.67 | 0.65 | 0.77 | 0.78 |
+
+**The gain is small and mixed.** The graph helped on 7 questions and hurt on 5, a net of +2 of
+119. It helps factual lookups, for example finding the statement chunk for "Apple's R&D growth"
+that hybrid ranked 10th, and it hurts some table lookups by pushing a correct hybrid hit out of
+the top 5. This is within noise for 119 questions, so treat the feature as "does not hurt, may
+help factual queries", not as a proven improvement.
+
+How the defaults were chosen. The design was tuned on this golden set, so the questions were
+split into dev (even positions, 60) and test (odd positions, 59):
+
+| Version | All 119 | Dev | Test |
+|---|---|---|---|
+| Hybrid RRF (baseline) | 0.706 | 0.683 | 0.729 |
+| v1: summed entity weights, equal-weight RRF | 0.664 | — | — |
+| v2: concept-match scoring, equal-weight RRF | 0.689 | 0.650 | 0.729 |
+| v3: v2 + graph weight 0.5 (chosen on dev) | **0.723** | 0.700 | **0.746** |
+
+* v1 was the first implementation. Entity-dense statement chunks matched every query, and
+  generic metric names ("Revenue") pulled in hundreds of nodes.
+* v2 scores a chunk by the number of distinct query concepts (company, metric name, period)
+  it mentions directly, and only follows metrics from a named company.
+* v3 gives the graph half the weight of the hybrid list in fusion. Every weight ≤ 0.75 scored
+  the same on dev, and 0.5 was picked from that plateau.
+
+On the held-out test half v3 gains one question (0.729 → 0.746).
+
+Raw output: [`retrieval_chunk4000_graph.json`](evals/results/retrieval_chunk4000_graph.json)
+(includes per-question hits).
 
 ## 3. Answer quality: `gemini-3.8-flash`, all 119 questions
 
@@ -194,6 +243,9 @@ RAG_EVAL_USER_AGENT="Your Name you@example.com" \
   python scripts/verify_golden_dataset.py                      # evidence vs. primary sources
 python -m evals.retrieval_benchmark --chunk-size 4000          # section 2
 python -m evals.retrieval_benchmark --chunk-size 1000
+python -m evals.build_graph --chunk-size 4000 --rpm 60 --concurrency 8   # 2b, needs an LLM key
+python -m evals.retrieval_benchmark --chunk-size 4000 \
+  --graph-cache evals/results/graph_extractions_chunk4000.jsonl
 python -m evals.answer_eval --rpm 5                            # section 3 (needs an LLM key)
 ```
 
