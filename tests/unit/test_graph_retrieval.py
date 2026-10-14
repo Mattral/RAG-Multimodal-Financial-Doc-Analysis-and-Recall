@@ -135,6 +135,25 @@ class TestGraphAugmentedRetrieval:
         assert [c.chunk_id for c in no_hops.graph_chunks("Tesla results", "t1")] == ["c_margin"]
 
     @pytest.mark.asyncio
+    async def test_period_alone_does_not_anchor_retrieval(self, tesla_graph):
+        r = GraphAugmentedRetriever(graph_store=tesla_graph)
+        assert r.graph_chunks("What happened in Q3 2023?", "t1") == []
+        base = [_chunk("b1", "x")]
+        assert (
+            await r.retrieve_with_graph("What happened in Q3 2023?", base, tenant_id="t1") is base
+        )
+
+    def test_period_boosts_matching_chunk_without_adding_new_ones(self):
+        s = InMemoryGraphStore()
+        tesla, q3, q4 = _ent("COMPANY", "Tesla"), _ent("DATE", "Q3 2023"), _ent("DATE", "Q4 2023")
+        s.add_chunk_extraction(_chunk("c_q4", "Tesla Q4 2023 results"), [tesla, q4], [], "t1")
+        s.add_chunk_extraction(_chunk("c_q3", "Tesla Q3 2023 results"), [tesla, q3], [], "t1")
+        other = _ent("COMPANY", "Apple")
+        s.add_chunk_extraction(_chunk("c_apple_q3", "Apple Q3 2023"), [other, q3], [], "t1")
+        ranked = GraphAugmentedRetriever(graph_store=s).graph_chunks("Tesla in Q3 2023", "t1")
+        assert [c.chunk_id for c in ranked] == ["c_q3", "c_q4"]  # Apple's Q3 chunk not added
+
+    @pytest.mark.asyncio
     async def test_no_matching_entity_returns_base_unchanged(self, tesla_graph):
         r = GraphAugmentedRetriever(graph_store=tesla_graph)
         base = [_chunk("b1", "x")]

@@ -47,6 +47,11 @@ from evals.sources import (
 )
 from src.rag_system.components.base import RetrievedChunk
 from src.rag_system.components.embedder import LocalEmbedder
+from src.rag_system.components.knowledge_graph import (
+    EntityExtractor,
+    GraphAugmentedRetriever,
+    InMemoryGraphStore,
+)
 from src.rag_system.components.retriever import BM25Index, _reciprocal_rank_fusion
 from src.rag_system.config import RetrieverConfig
 
@@ -127,6 +132,30 @@ def score_ranking(ranked: List[RetrievedChunk], evidence: List[str], docs: set, 
     }
 
 
+def load_graph(cache_path: str, chunks: List[RetrievedChunk]) -> GraphAugmentedRetriever:
+    """Build a graph from cached extractions (see evals/build_graph.py) for these chunks."""
+    by_id = {c.chunk_id: c for c in chunks}
+    store = InMemoryGraphStore()
+    extractor = EntityExtractor()
+    used = 0
+    for line in Path(cache_path).read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        rec = json.loads(line)
+        chunk = by_id.get(rec["chunk_id"])
+        if chunk is None:
+            continue  # cache built with different chunking
+        entities, relations = extractor.parse(rec["raw"], chunk.source_document)
+        store.add_chunk_extraction(chunk, entities, relations)
+        used += 1
+    stats = store.stats()
+    print(
+        f"graph: {used}/{len(chunks)} chunks extracted, {stats['entities']:,} entities, "
+        f"{stats['relations']:,} relations"
+    )
+    return GraphAugmentedRetriever(graph_store=store)
+
+
 async def run(args: argparse.Namespace) -> Dict:
     provenance = {p["question"]: p for p in load_provenance()}
     rows = [
@@ -160,6 +189,8 @@ async def run(args: argparse.Namespace) -> Dict:
     await dense.build(cache_dir=Path(args.cache_dir))
     print(f"index build took {time.perf_counter() - t0:.0f}s")
 
+    graph = load_graph(args.graph_cache, chunks) if args.graph_cache else None
+
     per_mode: Dict[str, List[Dict]] = defaultdict(list)
     for row in rows:
         prov = provenance[row["question"]]
@@ -172,6 +203,12 @@ async def run(args: argparse.Namespace) -> Dict:
             "dense": dense_hits,
             "hybrid_rrf": _reciprocal_rank_fusion([dense_hits, bm25_hits], k=cfg.rrf_k),
         }
+        if graph is not None:
+            # Same input the pipeline gives it: the hybrid retriever's top_k_final results.
+            hybrid_final = rankings["hybrid_rrf"][: cfg.top_k_final]
+            rankings["hybrid+graph"] = await graph.retrieve_with_graph(
+                row["question"], hybrid_final, top_k=cfg.top_k_final
+            )
         for mode, ranked in rankings.items():
             result = score_ranking(ranked, evidence, docs, args.k)
             result["type"] = row["tags"][0]
@@ -219,17 +256,22 @@ def main() -> None:
     parser.add_argument("--model", default="BAAI/bge-small-en-v1.5")
     parser.add_argument("--cache-dir", default=str(DEFAULT_CACHE))
     parser.add_argument("--output", default=None, help="Write the JSON report here")
+    parser.add_argument(
+        "--graph-cache",
+        default=None,
+        help="extractions from evals/build_graph.py; adds a hybrid+graph mode",
+    )
     args = parser.parse_args()
 
     report = asyncio.run(run(args))
     k = args.k
     print(
-        f"\n{'mode':<12} {'evidence_hit@' + str(k):>15} {'doc_hit@' + str(k):>10} "
+        f"\n{'mode':<13} {'evidence_hit@' + str(k):>15} {'doc_hit@' + str(k):>10} "
         f"{'doc_prec@' + str(k):>11} {'mrr@10':>8}"
     )
     for mode, m in report["overall"].items():
         print(
-            f"{mode:<12} {m[f'evidence_hit@{k}']:>15.3f} {m[f'doc_hit@{k}']:>10.3f} "
+            f"{mode:<13} {m[f'evidence_hit@{k}']:>15.3f} {m[f'doc_hit@{k}']:>10.3f} "
             f"{m[f'doc_precision@{k}']:>11.3f} {m['mrr@10']:>8.3f}"
         )
     print("\nevidence_hit by question type:")
@@ -237,7 +279,7 @@ def main() -> None:
         cells = ", ".join(
             f"{t}={m[f'evidence_hit@{k}']:.2f} (n={m['n']})" for t, m in by_type.items()
         )
-        print(f"  {mode:<12} {cells}")
+        print(f"  {mode:<13} {cells}")
     if args.output:
         Path(args.output).parent.mkdir(parents=True, exist_ok=True)
         Path(args.output).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

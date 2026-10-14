@@ -234,15 +234,24 @@ Return ONLY a valid JSON object (no markdown, no explanation) with this exact st
 Entity types: COMPANY, PERSON, METRIC, DATE, PRODUCT, LOCATION, REGULATION
 Relation predicates: SUBSIDIARY_OF, REPORTED_REVENUE, REPORTED_METRIC, FOR_PERIOD, SUPPLIES_TO, CITES, MANAGED_BY, ISSUED_BY, REGULATED_BY, COMPETES_WITH
 
-Use DATE entities for reporting periods (e.g. "Q3 2023", "fiscal 2023"). Link each METRIC
-to the company that reported it (REPORTED_REVENUE or REPORTED_METRIC) and to its period
-(FOR_PERIOD). Use the company's common name (e.g. "Tesla", "Microsoft").
+Rules:
+- Every reported financial figure (revenue, margin, income, cash flow, deliveries,
+  growth rate, ratio, ...) is a METRIC whose "name" is the line item ("Gross margin",
+  "Data Center revenue") and whose "value" is the figure as written ("17.9%", "$10.32B").
+  Extract the most important figures first, at most 20 METRIC entities.
+- Name DATE entities the way an analyst would write the period: "Q3 2023",
+  "fiscal 2023", "full-year 2023", "nine months 2023". Never use ISO date ranges.
+- Name companies by their common name ("Tesla", "Microsoft", "JPMorgan"), not legal names.
+- Link every METRIC to the company that reported it (REPORTED_REVENUE for revenue,
+  otherwise REPORTED_METRIC) and to its period (FOR_PERIOD).
 
 Text:
 {text}"""
 
     def __init__(self, model: Optional[str] = None) -> None:
         self._model = model
+        # Provider-reported tokens of the last call (input, output incl. thinking).
+        self.last_usage: Dict[str, int] = {}
 
     def _get_api_key(self) -> str:
         cfg = get_config()
@@ -254,7 +263,8 @@ Text:
 
         cfg = get_config()
         llm = cfg.llm_config
-        async with httpx.AsyncClient(timeout=60) as client:
+        # Extraction responses are long JSON documents; allow more time than a chat reply.
+        async with httpx.AsyncClient(timeout=max(llm.timeout_seconds, 120)) as client:
             if llm.provider in ("gemini", "google"):
                 model = self._model or llm.model
                 generation_config: Dict[str, Any] = {
@@ -276,7 +286,14 @@ Text:
                     },
                 )
                 response.raise_for_status()
-                parts = response.json()["candidates"][0].get("content", {}).get("parts", [])
+                data = response.json()
+                usage = data.get("usageMetadata", {})
+                self.last_usage = {
+                    "input": usage.get("promptTokenCount", 0),
+                    "output": usage.get("candidatesTokenCount", 0)
+                    + usage.get("thoughtsTokenCount", 0),
+                }
+                parts = data["candidates"][0].get("content", {}).get("parts", [])
                 return "".join(p.get("text", "") for p in parts if not p.get("thought"))
 
             response = await client.post(
@@ -291,7 +308,18 @@ Text:
                 },
             )
             response.raise_for_status()
-            return response.json()["choices"][0]["message"]["content"]
+            data = response.json()
+            usage = data.get("usage", {})
+            self.last_usage = {
+                "input": usage.get("prompt_tokens", 0),
+                "output": usage.get("completion_tokens", 0),
+            }
+            return data["choices"][0]["message"]["content"]
+
+    def build_prompt(self, text: str) -> str:
+        """Extraction prompt for one chunk, truncated to the parser's max chunk size."""
+        limit = get_config().pdf_parsing_config.max_characters
+        return self.EXTRACTION_PROMPT.replace("{text}", text[:limit])
 
     def parse(
         self, raw: str, source_document: str, tenant_id: str = "default"
@@ -351,7 +379,7 @@ Text:
             # own braces, so .format(text=...) would raise KeyError trying
             # to interpret those braces as placeholders. Use a direct
             # string replace of the single {text} marker instead.
-            prompt = self.EXTRACTION_PROMPT.replace("{text}", text[:3000])
+            prompt = self.build_prompt(text)
             entities, relations = self.parse(
                 await self._complete(prompt), source_document, tenant_id
             )
@@ -372,18 +400,23 @@ class GraphAugmentedRetriever(BaseRetriever):
     """Fuses a base retriever's results with chunks found by graph traversal.
 
     1. Find entities named in the query (whole-word match on entity names).
-    2. Expand to their neighbours up to ``max_hops`` (metrics, periods, related
-       companies), without expanding through hub entities.
+       Companies, metrics, products etc. are *anchors*; periods (DATE) are not,
+       because every company shares them.
+    2. Expand the anchors to their neighbours up to ``max_hops`` (e.g. a
+       company's reported metrics), without expanding through hub entities.
     3. Score each linked chunk by the entities that reach it: an entity at hop
        h contributes 1/(1+h), divided by log2(2 + number of chunks it appears
-       in) so entities mentioned everywhere count for less. Chunks reached by
-       several query entities (e.g. "Tesla" and "Q3 2023") rank highest.
+       in) so entities mentioned everywhere count for less. Periods named in
+       the query add the same kind of weight, but only to chunks already
+       reached, so "Tesla ... Q3 2023" favours Tesla's Q3 2023 chunks.
     4. Fuse the top graph chunks with the base results using Reciprocal Rank
        Fusion, the same method the hybrid retriever uses.
 
-    Falls back to the base results unchanged when the graph has no entity
-    matching the query or no linked chunks.
+    Falls back to the base results unchanged when the query names no anchor
+    entity in the graph or nothing linked is found.
     """
+
+    PERIOD_TYPES = frozenset({"DATE"})
 
     def __init__(
         self,
@@ -432,25 +465,38 @@ class GraphAugmentedRetriever(BaseRetriever):
     def graph_chunks(self, query: str, tenant_id: str = "default") -> List[RetrievedChunk]:
         """Chunks reached from the query's entities, best first (no fusion)."""
         seeds = self._graph.find_entities_in_text(query, tenant_id)
-        if not seeds:
+        # Periods ("Q3 2023") are shared by every company, so they never anchor or
+        # expand the search on their own; they only boost chunks already reached.
+        anchors = [s for s in seeds if s.type not in self.PERIOD_TYPES]
+        periods = [s for s in seeds if s.type in self.PERIOD_TYPES]
+        if not anchors:
             return []
         hops = self._graph.neighborhood(
-            [s.id for s in seeds], max_hops=self._max_hops, max_degree=self._max_degree
+            [s.id for s in anchors], max_hops=self._max_hops, max_degree=self._max_degree
         )
 
         scores: Dict[str, float] = defaultdict(float)
         reached_by: Dict[str, Set[str]] = defaultdict(set)
         chunks: Dict[str, RetrievedChunk] = {}
-        for entity_id, hop in hops.items():
+
+        def add(entity_id: str, hop: int, only_existing: bool) -> None:
             linked = self._graph.chunks_for_entity(entity_id)
             if not linked:
-                continue
+                return
             weight = (1.0 / (1 + hop)) / math.log2(2 + len(linked))
             name = self._graph._entities[entity_id].name
             for key, chunk in linked:
+                if only_existing and key not in scores:
+                    continue
                 scores[key] += weight
                 reached_by[key].add(name)
                 chunks[key] = chunk
+
+        for entity_id, hop in hops.items():
+            if self._graph._entities[entity_id].type not in self.PERIOD_TYPES:
+                add(entity_id, hop, only_existing=False)
+        for period in periods:
+            add(period.id, 0, only_existing=True)
 
         ranked = sorted(scores, key=lambda k: scores[k], reverse=True)[: self._max_graph_chunks]
         return [
