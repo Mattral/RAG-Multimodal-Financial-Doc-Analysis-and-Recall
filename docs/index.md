@@ -43,6 +43,10 @@ See [Quickstart → Docker](quickstart/docker.md) for the full walkthrough.
 
 ## Evaluation
 
+![Retrieval quality, measured](assets/retrieval_measured.png)
+
+![Answer quality, measured](assets/answer_quality_measured.png)
+
 * **Golden dataset:** 119 QA pairs over 16 public filings from 10 companies, every figure
   traced to its source passage. See the
   [dataset README](https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/blob/main/evals/golden_datasets/README.md).
