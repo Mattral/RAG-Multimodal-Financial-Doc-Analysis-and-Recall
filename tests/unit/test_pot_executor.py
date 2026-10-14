@@ -181,3 +181,108 @@ def test_pot_result_formatted():
 def test_pot_result_formatted_error():
     r = PoTResult(success=False, error="Division by zero")
     assert "Error" in r.formatted()
+
+
+# ── Sandbox escape regressions ────────────────────────────────────────────────
+
+# Each of these reached Python's object model under the old exec()-based sandbox,
+# which allowed attribute access. `round.__self__` is the builtins module.
+_ESCAPE_ATTEMPTS = [
+    "result = round.__self__.__import__('os').getpid()",
+    "result = abs.__self__.open('/etc/passwd')",
+    "x = (1).__class__.__mro__[-1].__subclasses__()\nresult = 1",
+    "result = (1.0).real",
+    "f = lambda: 1\nresult = f()",
+    "def f():\n    return 1\nresult = f()",
+    "result = [x for x in (1, 2)][0]",
+    "result = [1, 2][0]",
+    "for i in (1, 2):\n    pass\nresult = 1",
+    "result = __name__",
+    "result = len('abc')",
+    "result = getattr(1, 'real')",
+    "result = type(1)",
+    "result = sorted([1])",
+]
+
+
+@pytest.mark.parametrize("code", _ESCAPE_ATTEMPTS)
+def test_validator_rejects_object_traversal(code):
+    assert ASTSandboxValidator().validate(code) is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("code", _ESCAPE_ATTEMPTS)
+async def test_execute_rejects_object_traversal_before_running(code, monkeypatch):
+    executor = PoTExecutor()
+
+    def _must_not_run(self, code):  # pragma: no cover - failure path
+        raise AssertionError("sandbox ran an invalid program")
+
+    monkeypatch.setattr(PoTExecutor, "_run_in_sandbox", _must_not_run)
+    result = await executor.execute_code(code)
+    assert not result.success
+    assert "Validation failed" in result.error
+
+
+def test_run_in_sandbox_revalidates():
+    with pytest.raises(ValueError):
+        PoTExecutor()._run_in_sandbox("result = round.__self__")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "code",
+    [
+        "result = 9 ** 9 ** 9 ** 9",
+        "result = 10 ** 100000",
+        "x = 2 ** 4000\nresult = x * x",
+        "result = pow(7, 99999)",
+    ],
+)
+async def test_execute_rejects_huge_numbers_quickly(code):
+    import time
+
+    start = time.perf_counter()
+    result = await PoTExecutor(timeout_seconds=5).execute_code(code)
+    assert not result.success
+    assert "too large" in result.error
+    assert time.perf_counter() - start < 1.0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "code, expected",
+    [
+        ('"""Docstring."""\nx = 10\nresult = x * 2', 20.0),
+        ("a = 3\na += 4\nresult = a", 7.0),
+        ("x: float = 2.5\nresult = x * 2", 5.0),
+        ("x = 5\nif x > 3:\n    result = 1\nelse:\n    result = 0", 1.0),
+        ("result = round(sum([1.234, 2.345]), 2)", 3.58),
+        ("result = max(1, 7, 3) - min([4, 2])", 5.0),
+        ("result = abs(-3) if 1 < 2 <= 2 else 0", 3.0),
+        ("result = pow(2, 10)", 1024.0),
+        ("result = round(10 / 3, ndigits=1)", 3.3),
+        ("result = len([1, 2, 3])", 3.0),
+        ("result = 17 // 5 + 17 % 5", 5.0),
+    ],
+)
+async def test_execute_supported_language(code, expected):
+    result = await PoTExecutor().execute_code(code)
+    assert result.success, result.error
+    assert result.result == pytest.approx(expected)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "code, fragment",
+    [
+        ("result = 1 / 0", "RuntimeError"),
+        ("result = y + 1", "not defined"),
+        ("result = 10.0 ** 400", "RuntimeError"),
+        ("result = 1e308 * 10", "finite"),
+    ],
+)
+async def test_execute_runtime_errors(code, fragment):
+    result = await PoTExecutor().execute_code(code)
+    assert not result.success
+    assert fragment in result.error

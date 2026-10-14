@@ -45,8 +45,9 @@
 - [x] Model routing (simple vs. complex queries); OpenAI fallback model on 429/503
 - [x] Gemini thinking-token budget so reasoning cannot truncate answers
 - [x] Program-of-Thought: the LLM writes a calculation program over the retrieved figures and
-      an AST-allowlisted sandbox runs it (#16). Before #16 the pipeline tried to execute code
-      found in retrieved document text
+      a restricted arithmetic interpreter evaluates it (#16, #20). Before #16 the pipeline tried
+      to execute code found in retrieved document text. Before #20 the sandbox used `exec()`
+      and could be escaped through attribute access
 - [x] Numeric grounding guardrail, prompt-injection detection, citation-enforcing system prompt
 - [x] Streaming answers: `POST /api/v1/query/stream` (SSE) and `query_stream()`, with native
       token streaming for OpenAI and Gemini (#17). Guardrails run after the last token

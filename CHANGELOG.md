@@ -5,6 +5,17 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Security
+- Program-of-Thought sandbox escape fixed. The old sandbox validated an AST allowlist and then
+  ran the program with `exec()`. Attribute access was allowed, so
+  `round.__self__.__import__('os')` reached the real `os` module. Programs are now evaluated
+  by a restricted tree-walking interpreter (numbers, variables, arithmetic, comparisons,
+  `if`/`else`, assignment, and calls to `abs round min max sum len float int pow`). Attribute
+  access, subscripts, strings, loops, comprehensions, lambdas and function definitions are
+  rejected at validation. Exponent, integer-size and program-size limits stop inputs like
+  `9 ** 9 ** 9 ** 9` that the timeout could not interrupt. Regression tests cover both cases.
+  See the update note in ADR 004
+
 ### Streaming
 - `POST /api/v1/query/stream`: server-sent events `sources` -> `token`... -> `done` (the same payload
   as `POST /query`) or `error`. `POST /api/v1/query` is unchanged

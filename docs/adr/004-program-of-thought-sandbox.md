@@ -33,3 +33,23 @@ Security constraints:
 ## Security Note
 
 The sandbox is defense-in-depth, not a security boundary. Do not expose PoT to untrusted user input without additional rate limiting and monitoring. The AST allowlist is regularly reviewed as Python adds new syntax.
+
+## Update (2026-10): exec() replaced by a restricted interpreter
+
+A review found that the allowlist above could be escaped. `ast.Attribute` was allowed, and
+the blocked-name check only looked at bare names, so
+`round.__self__.__import__('os').getpid()` passed validation and ran with the real `os`
+module. The timeout could not stop runaway arithmetic either: `asyncio.wait_for` abandons the
+worker thread but cannot kill it, so `9 ** 9 ** 9 ** 9` kept a core busy.
+
+The executor no longer calls `exec()`. `pot_executor._Evaluator` walks the validated AST and
+implements a small arithmetic language: numeric literals, variables, arithmetic, comparison
+and boolean operators, `if`/`else`, assignment, list/tuple literals as arguments, and calls to
+`abs round min max sum len float int pow`. Attribute access, subscripts, strings (other than
+a leading docstring), loops, comprehensions, lambdas and function definitions are rejected by
+the validator, so Python's object model is unreachable. Size limits bound the work: at most
+2,000 AST nodes, exponents up to 1,000 and integers up to 4,096 bits. With no loops, every
+program finishes in bounded time, and the timeout remains as a backstop.
+
+Regression tests in `tests/unit/test_pot_executor.py` cover the traversal escape, other
+dunder and attribute probes, and huge-exponent inputs.
