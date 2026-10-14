@@ -60,9 +60,7 @@ class TestDocumentElement:
             e.text = "mutated"  # type: ignore
 
     def test_roundtrip(self):
-        e = DocumentElement(
-            type="graph", text="chart", source_document="d.pdf", page_number=3
-        )
+        e = DocumentElement(type="graph", text="chart", source_document="d.pdf", page_number=3)
         restored = DocumentElement(**e.model_dump())
         assert restored.page_number == 3
 
@@ -235,9 +233,7 @@ class TestLayoutParserComponents:
                 source_document="d.pdf",
                 page_number=1,
             ),
-            DocumentElement(
-                type="table", text="| X | Y |", source_document="d.pdf", page_number=2
-            ),
+            DocumentElement(type="table", text="| X | Y |", source_document="d.pdf", page_number=2),
             DocumentElement(
                 type="graph",
                 text="Chart: bar chart.",

@@ -149,7 +149,7 @@ class TestLocalVLLMDescriberSuccessPath:
     @pytest.mark.asyncio
     async def test_describe_success_returns_document_element(self, tmp_path):
         from unittest.mock import AsyncMock, MagicMock, patch
-        import json
+
         from src.rag_system.components.vision.local_vllm_adapter import LocalVLLMDescriber
 
         img = tmp_path / "chart.png"
@@ -157,10 +157,12 @@ class TestLocalVLLMDescriberSuccessPath:
 
         mock_resp = MagicMock()
         mock_resp.raise_for_status = MagicMock()
-        mock_resp.json = MagicMock(return_value={
-            "choices": [{"message": {"content": "Revenue bar chart showing $23B in Q3."}}],
-            "usage": {"prompt_tokens": 250, "completion_tokens": 80},
-        })
+        mock_resp.json = MagicMock(
+            return_value={
+                "choices": [{"message": {"content": "Revenue bar chart showing $23B in Q3."}}],
+                "usage": {"prompt_tokens": 250, "completion_tokens": 80},
+            }
+        )
 
         mock_client = MagicMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -178,8 +180,10 @@ class TestLocalVLLMDescriberSuccessPath:
 
     @pytest.mark.asyncio
     async def test_describe_connection_error_returns_none(self, tmp_path):
-        import httpx
         from unittest.mock import AsyncMock, MagicMock, patch
+
+        import httpx
+
         from src.rag_system.components.vision.local_vllm_adapter import LocalVLLMDescriber
 
         img = tmp_path / "chart.png"
@@ -198,11 +202,12 @@ class TestLocalVLLMDescriberSuccessPath:
 
     @pytest.mark.asyncio
     async def test_describe_batch_filters_none_results(self, tmp_path):
-        from unittest.mock import AsyncMock, patch
-        from src.rag_system.components.vision.local_vllm_adapter import LocalVLLMDescriber
-        from src.rag_system.components.base import DocumentElement
-        from datetime import datetime, UTC
         import hashlib
+        from datetime import UTC, datetime
+        from unittest.mock import AsyncMock, patch
+
+        from src.rag_system.components.base import DocumentElement
+        from src.rag_system.components.vision.local_vllm_adapter import LocalVLLMDescriber
 
         imgs = [str(tmp_path / f"img{i}.png") for i in range(3)]
         for img in imgs:
@@ -210,7 +215,8 @@ class TestLocalVLLMDescriberSuccessPath:
                 f.write(b"PNG")
 
         fake_elem = DocumentElement(
-            type="graph", text="A chart description",
+            type="graph",
+            text="A chart description",
             source_document="tesla.pdf",
             ingest_timestamp=datetime.now(UTC).isoformat(),
             content_hash=hashlib.sha256(b"A chart description").hexdigest()[:12],
@@ -227,6 +233,7 @@ class TestLocalVLLMDescriberSuccessPath:
     @pytest.mark.asyncio
     async def test_describe_batch_empty_input_returns_empty(self, tmp_path):
         from src.rag_system.components.vision.local_vllm_adapter import LocalVLLMDescriber
+
         d = LocalVLLMDescriber()
         result = await d.describe_batch([], "tesla.pdf")
         assert result == []

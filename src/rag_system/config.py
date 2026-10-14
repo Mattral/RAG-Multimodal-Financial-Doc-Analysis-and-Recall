@@ -151,8 +151,15 @@ class MultiTenancyConfig(BaseModel):
 class LLMConfig(BaseModel):
     # Keep in sync with the provider map in components/generator/build_generator().
     provider: Literal[
-        "openai", "azure_openai", "gemini", "google", "anthropic", "claude",
-        "local", "local_vllm", "together",
+        "openai",
+        "azure_openai",
+        "gemini",
+        "google",
+        "anthropic",
+        "claude",
+        "local",
+        "local_vllm",
+        "together",
     ] = "openai"
     model: str = "gpt-4o-mini"
     fallback_model: Optional[str] = "gpt-3.5-turbo"

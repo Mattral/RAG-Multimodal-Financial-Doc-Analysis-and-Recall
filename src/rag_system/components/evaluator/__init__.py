@@ -87,8 +87,16 @@ _NUMBER_RE = re.compile(
     r"(%|percent\b|trillion\b|billion\b|million\b|thousand\b|[TBMK]\b)?",
     re.IGNORECASE,
 )
-_SCALE = {"trillion": 1e12, "t": 1e12, "billion": 1e9, "b": 1e9, "million": 1e6, "m": 1e6,
-          "thousand": 1e3, "k": 1e3}
+_SCALE = {
+    "trillion": 1e12,
+    "t": 1e12,
+    "billion": 1e9,
+    "b": 1e9,
+    "million": 1e6,
+    "m": 1e6,
+    "thousand": 1e3,
+    "k": 1e3,
+}
 
 
 def _parse_numbers(text: str) -> List[tuple]:
@@ -114,7 +122,9 @@ def extract_numbers(text: str) -> List[tuple]:
     return [(value, kind == "pct") for value, kind in _parse_numbers(text)]
 
 
-def numeric_recall(answer: str, expected_values: List[str], rel_tol: float = 0.01) -> Optional[float]:
+def numeric_recall(
+    answer: str, expected_values: List[str], rel_tol: float = 0.01
+) -> Optional[float]:
     """Fraction of expected values that appear in the answer (within ``rel_tol``).
 
     Units are normalised, so "$26,077 million" matches an expected "26.1 billion".

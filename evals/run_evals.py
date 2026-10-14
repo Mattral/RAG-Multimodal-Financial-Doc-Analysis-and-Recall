@@ -105,9 +105,7 @@ async def _run(args: argparse.Namespace) -> dict:
 def main() -> None:
     """Main entry point for the evaluation runner."""
     parser = argparse.ArgumentParser(description="Run RAG quality evaluations")
-    parser.add_argument(
-        "--dataset", default="evals/golden_datasets/financial_qa.jsonl"
-    )
+    parser.add_argument("--dataset", default="evals/golden_datasets/financial_qa.jsonl")
     parser.add_argument("--output", default=None, help="Path to write JSON report")
     parser.add_argument("--regression-threshold", type=float, default=0.05)
     parser.add_argument("--fail-on-regression", action="store_true")

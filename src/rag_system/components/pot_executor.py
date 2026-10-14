@@ -238,15 +238,17 @@ class ASTSandboxValidator:
                 return "Import statements are not allowed"
             if type(node) not in _ALLOWED_AST_NODES:
                 return f"Disallowed AST node: {type(node).__name__}"
-            if isinstance(node, ast.Name):
-                if node.id in _BLOCKED_NAMES or node.id.startswith("__"):
-                    return f"Blocked identifier: {node.id}"
-            if isinstance(node, ast.Constant) and not _is_number(node.value):
-                if id(node) not in docstrings:
-                    return f"Disallowed constant: {type(node.value).__name__}"
-            if isinstance(node, ast.Call):
-                if not isinstance(node.func, ast.Name) or node.func.id not in _FUNCTIONS:
-                    return "Only calls to " + ", ".join(sorted(_FUNCTIONS)) + " are allowed"
+            if isinstance(node, ast.Name) and (
+                node.id in _BLOCKED_NAMES or node.id.startswith("__")
+            ):
+                return f"Blocked identifier: {node.id}"
+            is_docstring = id(node) in docstrings
+            if isinstance(node, ast.Constant) and not _is_number(node.value) and not is_docstring:
+                return f"Disallowed constant: {type(node.value).__name__}"
+            if isinstance(node, ast.Call) and not (
+                isinstance(node.func, ast.Name) and node.func.id in _FUNCTIONS
+            ):
+                return "Only calls to " + ", ".join(sorted(_FUNCTIONS)) + " are allowed"
             if isinstance(node, (ast.Assign, ast.AugAssign, ast.AnnAssign)):
                 targets = node.targets if isinstance(node, ast.Assign) else [node.target]
                 if not all(isinstance(t, ast.Name) for t in targets):
@@ -356,15 +358,18 @@ class _Evaluator:
         if func is None:
             raise ValueError(f"Unsupported operator: {type(op).__name__}")
         left, right = self._number(left), self._number(right)
+        both_int = isinstance(left, int) and isinstance(right, int)
         if isinstance(op, ast.Pow):
             if abs(right) > MAX_EXPONENT:
                 raise ValueError(f"Exponent too large (max {MAX_EXPONENT})")
-            if isinstance(left, int) and isinstance(right, int) and right > 0:
-                if left.bit_length() * right > MAX_INT_BITS:
-                    raise ValueError("Result too large")
-        if isinstance(op, ast.Mult) and isinstance(left, int) and isinstance(right, int):
-            if left.bit_length() + right.bit_length() > MAX_INT_BITS:
+            if both_int and right > 0 and left.bit_length() * right > MAX_INT_BITS:
                 raise ValueError("Result too large")
+        if (
+            isinstance(op, ast.Mult)
+            and both_int
+            and left.bit_length() + right.bit_length() > MAX_INT_BITS
+        ):
+            raise ValueError("Result too large")
         return self._number(func(left, right))
 
     @staticmethod
