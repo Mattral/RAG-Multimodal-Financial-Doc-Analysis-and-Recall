@@ -7,7 +7,16 @@ can be swapped via config without touching pipeline code.
 from __future__ import annotations
 
 import abc
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from typing import (
+    Any,
+    AsyncIterator,
+    Dict,
+    List,
+    Optional,
+    Protocol,
+    Union,
+    runtime_checkable,
+)
 
 from pydantic import BaseModel, ConfigDict
 
@@ -237,6 +246,25 @@ class BaseGenerator(abc.ABC):
     ) -> GeneratedAnswer:
         """Generate a grounded answer from context."""
         ...
+
+    async def generate_stream(
+        self,
+        query: str,
+        context: List[RetrievedChunk],
+        tenant_id: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+    ) -> AsyncIterator[Union[str, GeneratedAnswer]]:
+        """Yield the answer as text pieces, then exactly one complete GeneratedAnswer.
+
+        The default does not stream tokens: it runs :meth:`generate` and yields
+        the whole text at once. Providers with native streaming override this.
+        """
+        answer = await self.generate(
+            query, context, tenant_id=tenant_id, system_prompt=system_prompt
+        )
+        if answer.answer:
+            yield answer.answer
+        yield answer
 
     @property
     @abc.abstractmethod
