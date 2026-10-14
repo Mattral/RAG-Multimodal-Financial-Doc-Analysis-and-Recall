@@ -462,6 +462,11 @@ class GraphAugmentedRetriever(BaseRetriever):
     def graph_store(self) -> InMemoryGraphStore:
         return self._graph
 
+    @property
+    def bm25_index(self) -> Any:
+        """The wrapped retriever's keyword index, so the ingest path can populate it."""
+        return getattr(self._base, "bm25_index", None)
+
     async def retrieve(
         self,
         query: str,

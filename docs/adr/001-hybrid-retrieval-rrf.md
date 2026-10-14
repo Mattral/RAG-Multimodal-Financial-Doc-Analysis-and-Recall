@@ -25,6 +25,12 @@ RRF formula: `score(d) = Σ 1/(k + rank_i(d))` across all ranked lists.
 - **Positive:** Captures both "$23.35 billion" exact matches and "strong revenue growth" semantic matches. Consistently 5-15% better recall@5 vs dense-only in our eval set.
 - **Negative:** Two retrieval calls instead of one increases latency by ~30ms. BM25 index is in-process; distributed deployments need an external BM25 service (Elasticsearch/OpenSearch) for consistency.
 
+## Implementation Notes
+
+- `RAGPipeline.ingest()` adds every ingested element to the `BM25Index` after the vector-store upsert. Chunks are upserted by `chunk_id` (the element's `content_hash`), so re-ingesting a document does not duplicate it.
+- `BM25Index` is partitioned by tenant (`tenant_id or "default"`, the same key the vector stores use). Each partition has its own term statistics, so a tenant's search can neither return another tenant's chunks nor have its scores shaped by another tenant's corpus. `HybridRetriever` searches only the caller's partition and applies `filters` with the same exact-match AND semantics as the Qdrant adapter (a chunk missing a filtered field is excluded).
+- **The index is in-memory and is lost on restart.** It is not rebuilt from the vector store, because no adapter exposes a scan. Since `DocumentVersionManager` persists its registry to disk, documents ingested before a restart are skipped as "unchanged" on the next ingest and will be missing from BM25. Until an external BM25 backend lands, re-ingest them after startup with `skip_unchanged=False`. Retrieval still works in the meantime, but it is dense-only for those documents.
+
 ## Alternatives Considered
 
 - **Dense-only (rejected):** Misses exact financial figures in documents.
