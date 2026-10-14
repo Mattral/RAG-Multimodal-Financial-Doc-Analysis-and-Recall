@@ -1,7 +1,8 @@
 # Roadmap — RAG Financial Multimodal
 
-> Checked against the code on 2026-10-14 (`main` after #15 BM25, #16 Program-of-Thought and
-> #17 streaming; PR numbers are cited where a fix landed).
+> Checked against the code on 2026-10-14 (`main` after #15 BM25, #16 Program-of-Thought,
+> #17 streaming, #19 blocking tests and #20 the sandbox fix and blocking lint; PR numbers are
+> cited where a fix landed).
 >
 > `[x]` means the feature exists and is reachable from the pipeline, API or CLI. Items that
 > exist as a component but are not wired in, or that work only partly, stay `[ ]` with a
@@ -79,7 +80,8 @@
 - [x] FastAPI app: ingest, query, query/stream (#17), documents, tenants, feedback, health
 - [x] Python SDK (async + sync, YAML config); `query_stream()` (#17)
 - [x] Typer CLI: ingest, query, evaluate, serve, health
-- [x] Demo apps: `demo/app.py` and the Hugging Face Space in `spaces/rag-financial/` (Gradio)
+- [x] Demo app: the Hugging Face Space in `spaces/rag-financial/` (Gradio). The older Streamlit
+      `demo/` was removed in #20; the Space replaces it
 
 ### Infrastructure
 - [x] Multi-stage Dockerfile; docker-compose with Redis, OTel collector, Prometheus,
@@ -91,8 +93,9 @@
 - [x] Terraform: EKS, RDS, ElastiCache, S3, KMS
 
 ### Testing & evaluation
-- [x] 868 tests (unit, integration, Hypothesis property tests). Unit + integration coverage
-      was 73% when measured before #15–#17. Locust and k6 load-test scripts
+- [x] Unit, integration and Hypothesis property tests, run by CI on every PR. Unit +
+      integration coverage was 75% on 2026-10-14 (CI enforces 70%). Locust and k6 load-test
+      scripts
 - [x] Golden dataset: 119 QA pairs over 16 public filings. Every figure is traced to a quoted
       source passage (`provenance.json`, verified 209/209) and each derived number has an
       arithmetic check
@@ -126,7 +129,7 @@ Highest impact first:
 - [ ] **Provider-pluggable eval judge** (Gemini), so RAGAS and numeric-accuracy scores can be
       measured without OpenAI
 - [ ] **Retired model names.** `gemini-2.5-*` defaults in the code and the HF Space return 404
-      for new Google API keys
+      for new Google API keys. The Space needs a redeploy after the fix
 - [ ] **Load and cost measurement.** Run the Locust suite and publish latency and cost per query
 - [ ] Wire ColPali, the LangGraph agentic flow and the table extractor into the pipeline behind
       flags, or remove them
@@ -149,7 +152,7 @@ Highest impact first:
 - [ ] Cross-page figure and reference resolution
 - [ ] Agent tool use (calculator, screener APIs, web search) and a reflection loop in production
 - [ ] Cross-document reasoning (compare metrics across companies and periods via the graph)
-- [ ] Analyst web UI with source highlighting (beyond the Gradio / demo apps)
+- [ ] Analyst web UI with source highlighting (beyond the Gradio Space)
 - [ ] Slack / Teams bot
 - [ ] Scheduled batch export of structured reports
 - [ ] SOC 2 Type II controls
@@ -166,4 +169,4 @@ These are targets, not measurements. Measured values are in BENCHMARK_RESULTS.md
 | Faithfulness (RAGAS) | ≥ 0.70 | Not measured |
 | Numeric accuracy (LLM judge) | ≥ 0.70 | Not measured. No fabricated numbers in 119 answers (grounding check) |
 | Error rate | < 1% | Not measured |
-| Test coverage (unit + integration) | ≥ 70% | 73% |
+| Test coverage (unit + integration) | ≥ 70% | 75% (2026-10-14) |
