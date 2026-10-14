@@ -5,6 +5,17 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Streaming
+- `POST /api/v1/query/stream`: server-sent events `sources` -> `token`... -> `done` (the same payload
+  as `POST /query`) or `error`. `POST /api/v1/query` is unchanged
+- `RAGPipeline.query_stream()` and SDK `RAGPipeline.query_stream()`. `query()` is now split into
+  shared stages (`_begin_query`, `_retrieve_and_compute`, `_finish_query`) with unchanged behaviour
+- `BaseGenerator.generate_stream()`, with native token streaming for OpenAI (Chat Completions SSE,
+  falling back to the non-streaming fallback-model path on 429/503) and Gemini
+  (`streamGenerateContent?alt=sse`, thought parts skipped). Other providers stream the whole
+  answer as one piece
+- Guardrails still run on the complete answer, after the last token, and are reported in `done`
+
 ### Knowledge graph
 - `GraphAugmentedRetriever` now performs real graph traversal: query entities (companies,
   metrics, products) -> hop-limited neighbourhood -> chunks scored by matched query concepts ->

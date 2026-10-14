@@ -71,7 +71,15 @@ curl -X POST http://localhost:8000/api/v1/ingest \
 curl -X POST http://localhost:8000/api/v1/query \
   -H "Content-Type: application/json" \
   -d '{"query": "What was gross margin in Q3 2023?", "tenant_id": "demo"}'
+
+# Same query, answer streamed token by token (server-sent events)
+curl -N -X POST http://localhost:8000/api/v1/query/stream \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What was gross margin in Q3 2023?", "tenant_id": "demo"}'
 ```
+
+Streamed tokens are provisional: guardrails run on the full answer and are reported in the
+final `done` event ([REST API docs](docs/api/rest.md#streaming-answers-post-apiv1querystream)).
 
 Or use the CLI:
 ```bash

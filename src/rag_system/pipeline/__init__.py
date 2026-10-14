@@ -12,10 +12,11 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
-from src.rag_system.components.base import RetrievedChunk
+from src.rag_system.components.base import GeneratedAnswer, RetrievedChunk
 from src.rag_system.components.guardrails import FinancialGuardrails, PIIRedactor
 from src.rag_system.components.query_analyzer import QueryAnalyzer
 from src.rag_system.components.query_analyzer import QueryIntent as QueryIntent
@@ -64,6 +65,55 @@ def _element_to_chunk(element: Any, tenant_id: str) -> RetrievedChunk:
         chunk_id=chunk_id,
         metadata=metadata,
     )
+@dataclass
+class _QueryState:
+    """What one query carries between its stages (see RAGPipeline.query)."""
+
+    query_text: str
+    tenant_id: str
+    start: float
+    analysis: Any
+    effective_filters: Dict[str, Any]
+    effective_top_k: int
+    effective_query: str
+    system_prompt: Optional[str] = None
+    query_embedding: Optional[List[float]] = None
+    chunks: List[Any] = field(default_factory=list)
+    retrieval_latency_s: float = 0.0
+    pot_result: Any = None
+
+    def trace_attributes(self) -> Dict[str, str]:
+        return {
+            "tenant_id": self.tenant_id,
+            "intent": self.analysis.intent.value,
+            "complexity": self.analysis.complexity.value,
+        }
+
+    def analysis_summary(self) -> Dict[str, Any]:
+        return {
+            "intent": self.analysis.intent.value,
+            "complexity": self.analysis.complexity.value,
+            "rewritten_query": self.analysis.rewritten_query,
+            "filters_applied": self.effective_filters,
+            "use_pot": self.analysis.use_pot,
+        }
+
+
+def _source_entries(chunks: List[Any]) -> List[Dict[str, Any]]:
+    return [
+        {
+            "document": c.source_document,
+            "page": c.page_number,
+            "score": c.score,
+            "text_preview": c.text[:200],
+        }
+        for c in chunks
+    ]
+
+
+def _public_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Response payload without the in-process GeneratedAnswer object."""
+    return {k: v for k, v in payload.items() if k != "answer_obj"}
 
 
 class RAGPipeline:
@@ -476,6 +526,87 @@ class RAGPipeline:
         system_prompt: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Execute a full RAG query with QueryAnalyzer routing, guardrails, and audit."""
+        early, state = await self._begin_query(query_text, tenant_id, top_k, filters, system_prompt)
+        if early is not None:
+            return early
+
+        async with async_trace_span("query_pipeline", state.trace_attributes()):
+            await self._retrieve_and_compute(state)
+
+            t1 = time.perf_counter()
+            answer = None
+            if self._generator and state.chunks:
+                answer = await self._generator.generate(
+                    query=state.effective_query,
+                    context=state.chunks,
+                    tenant_id=state.tenant_id,
+                    system_prompt=self._generation_prompt(state),
+                )
+            return await self._finish_query(state, answer, time.perf_counter() - t1)
+
+    async def query_stream(
+        self,
+        query_text: str,
+        tenant_id: Optional[str] = None,
+        top_k: int = 5,
+        filters: Optional[Dict[str, Any]] = None,
+        system_prompt: Optional[str] = None,
+    ) -> AsyncIterator[Dict[str, Any]]:
+        """Same pipeline as :meth:`query`, but yields the answer as it is generated.
+
+        Events, in order:
+
+        * ``{"event": "sources", "sources": [...], "analysis": {...}}`` once
+          retrieval (and Program-of-Thought, if used) has finished;
+        * ``{"event": "token", "text": "..."}`` for each piece of the answer;
+        * ``{"event": "done", "result": {...}}`` with the same payload
+          :meth:`query` returns (guardrails, metrics, sources, ...).
+
+        Guardrails need the complete answer, so they run after the last token:
+        streamed text is unvalidated until the ``done`` event reports
+        ``result["guardrails"]``. Early exits (quota, blocked query) and
+        semantic-cache hits produce a single ``done`` event.
+        """
+        early, state = await self._begin_query(query_text, tenant_id, top_k, filters, system_prompt)
+        if early is not None:
+            yield {"event": "done", "result": _public_payload(early)}
+            return
+
+        async with async_trace_span("query_pipeline", state.trace_attributes()):
+            await self._retrieve_and_compute(state)
+            yield {
+                "event": "sources",
+                "sources": _source_entries(state.chunks),
+                "analysis": state.analysis_summary(),
+            }
+
+            t1 = time.perf_counter()
+            answer = None
+            if self._generator and state.chunks:
+                async for item in self._generator.generate_stream(
+                    query=state.effective_query,
+                    context=state.chunks,
+                    tenant_id=state.tenant_id,
+                    system_prompt=self._generation_prompt(state),
+                ):
+                    if isinstance(item, GeneratedAnswer):
+                        answer = item
+                    elif item:
+                        yield {"event": "token", "text": item}
+            payload = await self._finish_query(state, answer, time.perf_counter() - t1)
+            yield {"event": "done", "result": _public_payload(payload)}
+
+    # ── Query stages shared by query() and query_stream() ────────────────────
+
+    async def _begin_query(
+        self,
+        query_text: str,
+        tenant_id: Optional[str],
+        top_k: int,
+        filters: Optional[Dict[str, Any]],
+        system_prompt: Optional[str],
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[_QueryState]]:
+        """Quota, analysis and semantic cache. Returns (early payload, None) or (None, state)."""
         tenant_id = tenant_id or self._config.multi_tenancy_config.default_tenant
         start = time.perf_counter()
 
@@ -487,7 +618,7 @@ class RAGPipeline:
                 "status": "error",
                 "error": "Monthly token quota exceeded",
                 "tenant_id": tenant_id,
-            }
+            }, None
 
         # Query analysis — intent, filters, injection, rewrite
         analysis = self._query_analyzer.analyze(query_text, tenant_id=tenant_id)
@@ -496,23 +627,31 @@ class RAGPipeline:
                 "status": "error",
                 "error": f"Query blocked: {analysis.injection_reason}",
                 "tenant_id": tenant_id,
-            }
+            }, None
 
-        # Merge analysis-derived filters with caller-supplied filters
-        effective_filters = {**(filters or {}), **analysis.metadata_filters}
-        effective_top_k = max(top_k, analysis.suggested_top_k)
-        effective_query = analysis.rewritten_query
+        state = _QueryState(
+            query_text=query_text,
+            tenant_id=tenant_id,
+            start=start,
+            analysis=analysis,
+            # Merge analysis-derived filters with caller-supplied filters
+            effective_filters={**(filters or {}), **analysis.metadata_filters},
+            effective_top_k=max(top_k, analysis.suggested_top_k),
+            effective_query=analysis.rewritten_query,
+            system_prompt=system_prompt,
+        )
 
         # Semantic cache check — skip retrieval + generation entirely on a hit.
         # Only attempted for simple/non-PoT queries: numeric/agentic queries
         # have answers that depend on the exact retrieved figures, which is
         # already guaranteed fresh by retrieval, so we don't risk serving a
         # stale calculated value from a semantically-similar but distinct query.
-        query_embedding: Optional[List[float]] = None
         if self._semantic_cache and self._embedder and not analysis.use_pot:
             try:
-                query_embedding = await self._embedder.embed_query(effective_query)
-                cache_result = await self._semantic_cache.get(query_embedding, tenant_id=tenant_id)
+                state.query_embedding = await self._embedder.embed_query(state.effective_query)
+                cache_result = await self._semantic_cache.get(
+                    state.query_embedding, tenant_id=tenant_id
+                )
                 if cache_result.hit and cache_result.answer_payload:
                     record_cache_hit("semantic", tenant_id=tenant_id)
                     logger.info(
@@ -527,150 +666,124 @@ class RAGPipeline:
                         "matched_query": cache_result.matched_query,
                         "similarity": round(cache_result.similarity, 4),
                     }
-                    return payload
+                    return payload, None
             except Exception as exc:
                 logger.warning("semantic_cache_check_failed", error=str(exc))
-                query_embedding = None
+                state.query_embedding = None
 
-        async with async_trace_span(
-            "query_pipeline",
-            {
-                "tenant_id": tenant_id,
-                "intent": analysis.intent.value,
-                "complexity": analysis.complexity.value,
-            },
-        ):
-            # Retrieve
-            t0 = time.perf_counter()
-            chunks: List[Any] = []
-            if self._retriever:
-                chunks = await self._retriever.retrieve(
-                    query=effective_query,
-                    top_k=effective_top_k,
-                    filters=effective_filters,
-                    tenant_id=tenant_id,
-                )
-            retrieval_latency_s = time.perf_counter() - t0
+        return None, state
 
-            # PoT for numeric queries
-            pot_result = None
-            if analysis.use_pot and chunks and self._generator:
-                pot_result = await self._run_program_of_thought(effective_query, chunks, tenant_id)
+    async def _retrieve_and_compute(self, state: _QueryState) -> None:
+        """Retrieval, then Program-of-Thought for numeric queries."""
+        t0 = time.perf_counter()
+        if self._retriever:
+            state.chunks = await self._retriever.retrieve(
+                query=state.effective_query,
+                top_k=state.effective_top_k,
+                filters=state.effective_filters,
+                tenant_id=state.tenant_id,
+            )
+        state.retrieval_latency_s = time.perf_counter() - t0
 
-            # Generate
-            t1 = time.perf_counter()
-            answer = None
-            if self._generator and chunks:
-                # Inject PoT result into system prompt if available
-                effective_system = system_prompt
-                if pot_result and pot_result.success:
-                    effective_system = self._with_pot_note(system_prompt, pot_result)
-                answer = await self._generator.generate(
-                    query=effective_query,
-                    context=chunks,
-                    tenant_id=tenant_id,
-                    system_prompt=effective_system,
-                )
-            generation_latency_s = time.perf_counter() - t1
-            total_latency_s = time.perf_counter() - start
-
-            # Guardrails
-            guardrail_results: Dict[str, Any] = {}
-            if answer and self._config.security_config.enable_guardrails:
-                guardrail_results = self._guardrails.run_all_checks(
-                    query=query_text,
-                    answer=answer.answer,
-                    context_chunks=[c.text for c in chunks],
-                )
-
-            # Audit
-            if answer:
-                self._audit.log_query(
-                    tenant_id=tenant_id,
-                    query_hash=_sha256(query_text),
-                    answer_hash=_sha256(answer.answer),
-                    sources_cited=[c.source_document for c in answer.citations],
-                    model=answer.model_used,
-                    latency_ms=total_latency_s * 1000,
-                    cost_usd=answer.estimated_cost_usd,
-                    guardrail_passed=guardrail_results.get("overall_passed", True),
-                )
-
-            record_query(
-                tenant_id=tenant_id,
-                query_mode=self._config.query_mode,
-                status="success",
-                total_latency_s=total_latency_s,
-                retrieval_latency_s=retrieval_latency_s,
-                generation_latency_s=generation_latency_s,
-                cost_usd=answer.estimated_cost_usd if answer else 0.0,
-                model=answer.model_used if answer else "none",
-                prompt_tokens=answer.prompt_tokens if answer else 0,
-                completion_tokens=answer.completion_tokens if answer else 0,
-                num_chunks=len(chunks),
+        if state.analysis.use_pot and state.chunks and self._generator:
+            state.pot_result = await self._run_program_of_thought(
+                state.effective_query, state.chunks, state.tenant_id
             )
 
-            response_payload = {
-                "status": "success",
-                "tenant_id": tenant_id,
-                "query": query_text,
-                "analysis": {
-                    "intent": analysis.intent.value,
-                    "complexity": analysis.complexity.value,
-                    "rewritten_query": analysis.rewritten_query,
-                    "filters_applied": effective_filters,
-                    "use_pot": analysis.use_pot,
-                },
-                "answer": answer.answer if answer else None,
-                "answer_obj": answer,
-                "pot_result": (
-                    {"result": pot_result.result, "code": pot_result.code}
-                    if pot_result and pot_result.success
-                    else None
-                ),
-                "sources": [
-                    {
-                        "document": c.source_document,
-                        "page": c.page_number,
-                        "score": c.score,
-                        "text_preview": c.text[:200],
-                    }
-                    for c in chunks
-                ],
-                "guardrails": guardrail_results,
-                "metrics": {
-                    "total_latency_ms": round(total_latency_s * 1000, 1),
-                    "retrieval_latency_ms": round(retrieval_latency_s * 1000, 1),
-                    "generation_latency_ms": round(generation_latency_s * 1000, 1),
-                    "cost_usd": answer.estimated_cost_usd if answer else 0.0,
-                    "num_chunks": len(chunks),
-                },
-            }
+    def _generation_prompt(self, state: _QueryState) -> Optional[str]:
+        """System prompt for the answer: the caller's, plus the PoT result if any."""
+        if state.pot_result and state.pot_result.success:
+            return self._with_pot_note(state.system_prompt, state.pot_result)
+        return state.system_prompt
 
-            # Populate semantic cache for future similar queries. Only cache
-            # clean successful answers that passed guardrails — never cache
-            # a guardrail-flagged or empty answer, since a future "similar"
-            # query would then silently inherit the same problem.
-            if (
-                self._semantic_cache
-                and query_embedding
-                and answer
-                and guardrail_results.get("overall_passed", True)
-            ):
-                try:
-                    cacheable_payload = {
-                        k: v for k, v in response_payload.items() if k != "answer_obj"
-                    }
-                    await self._semantic_cache.set(
-                        query_text=effective_query,
-                        query_embedding=query_embedding,
-                        answer_payload=cacheable_payload,
-                        tenant_id=tenant_id,
-                    )
-                except Exception as exc:
-                    logger.warning("semantic_cache_store_failed", error=str(exc))
+    async def _finish_query(
+        self, state: _QueryState, answer: Optional[GeneratedAnswer], generation_latency_s: float
+    ) -> Dict[str, Any]:
+        """Guardrails, audit, metrics, response payload and semantic-cache write."""
+        tenant_id, chunks, pot_result = state.tenant_id, state.chunks, state.pot_result
+        retrieval_latency_s = state.retrieval_latency_s
+        total_latency_s = time.perf_counter() - state.start
 
-            return response_payload
+        # Guardrails
+        guardrail_results: Dict[str, Any] = {}
+        if answer and self._config.security_config.enable_guardrails:
+            guardrail_results = self._guardrails.run_all_checks(
+                query=state.query_text,
+                answer=answer.answer,
+                context_chunks=[c.text for c in chunks],
+            )
+
+        # Audit
+        if answer:
+            self._audit.log_query(
+                tenant_id=tenant_id,
+                query_hash=_sha256(state.query_text),
+                answer_hash=_sha256(answer.answer),
+                sources_cited=[c.source_document for c in answer.citations],
+                model=answer.model_used,
+                latency_ms=total_latency_s * 1000,
+                cost_usd=answer.estimated_cost_usd,
+                guardrail_passed=guardrail_results.get("overall_passed", True),
+            )
+
+        record_query(
+            tenant_id=tenant_id,
+            query_mode=self._config.query_mode,
+            status="success",
+            total_latency_s=total_latency_s,
+            retrieval_latency_s=retrieval_latency_s,
+            generation_latency_s=generation_latency_s,
+            cost_usd=answer.estimated_cost_usd if answer else 0.0,
+            model=answer.model_used if answer else "none",
+            prompt_tokens=answer.prompt_tokens if answer else 0,
+            completion_tokens=answer.completion_tokens if answer else 0,
+            num_chunks=len(chunks),
+        )
+
+        response_payload = {
+            "status": "success",
+            "tenant_id": tenant_id,
+            "query": state.query_text,
+            "analysis": state.analysis_summary(),
+            "answer": answer.answer if answer else None,
+            "answer_obj": answer,
+            "pot_result": (
+                {"result": pot_result.result, "code": pot_result.code}
+                if pot_result and pot_result.success
+                else None
+            ),
+            "sources": _source_entries(chunks),
+            "guardrails": guardrail_results,
+            "metrics": {
+                "total_latency_ms": round(total_latency_s * 1000, 1),
+                "retrieval_latency_ms": round(retrieval_latency_s * 1000, 1),
+                "generation_latency_ms": round(generation_latency_s * 1000, 1),
+                "cost_usd": answer.estimated_cost_usd if answer else 0.0,
+                "num_chunks": len(chunks),
+            },
+        }
+
+        # Populate semantic cache for future similar queries. Only cache
+        # clean successful answers that passed guardrails — never cache
+        # a guardrail-flagged or empty answer, since a future "similar"
+        # query would then silently inherit the same problem.
+        if (
+            self._semantic_cache
+            and state.query_embedding
+            and answer
+            and guardrail_results.get("overall_passed", True)
+        ):
+            try:
+                await self._semantic_cache.set(
+                    query_text=state.effective_query,
+                    query_embedding=state.query_embedding,
+                    answer_payload=_public_payload(response_payload),
+                    tenant_id=tenant_id,
+                )
+            except Exception as exc:
+                logger.warning("semantic_cache_store_failed", error=str(exc))
+
+        return response_payload
 
     # ── DOCUMENT MANAGEMENT ───────────────────────────────────────────────────
 

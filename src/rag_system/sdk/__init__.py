@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
 import yaml
 
@@ -92,6 +92,26 @@ class RAGPipeline:
             top_k=top_k,
             filters=filters,
         )
+
+    async def query_stream(
+        self,
+        question: str,
+        tenant_id: Optional[str] = None,
+        top_k: int = 5,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> AsyncIterator[Dict[str, Any]]:
+        """Query and receive the answer as it is generated.
+
+        Yields ``{"event": "sources" | "token" | "done", ...}`` dicts; see
+        ``RAGPipeline.query_stream`` in ``src.rag_system.pipeline``.
+        """
+        async for event in self._pipeline.query_stream(
+            query_text=question,
+            tenant_id=tenant_id or self._default_tenant,
+            top_k=top_k,
+            filters=filters,
+        ):
+            yield event
 
     def query_sync(self, question: str, **kwargs) -> Dict[str, Any]:
         """Synchronous query wrapper for non-async contexts."""
