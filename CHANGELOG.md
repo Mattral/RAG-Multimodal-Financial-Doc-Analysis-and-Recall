@@ -16,6 +16,12 @@ This project follows [Semantic Versioning](https://semver.org/).
   answer as one piece
 - Guardrails still run on the complete answer, after the last token, and are reported in `done`
 
+### Docs
+- `roadmap.md` rewritten against the code. The "completed" header no longer contradicts the
+  detailed sections. Components that exist but are not wired in (ColPali, LangGraph agentic flow,
+  table extractor, Helm ServiceMonitor) are marked as such, and so is CI's non-blocking
+  `continue-on-error` gates. SLO targets are separated from measurements
+
 ### Knowledge graph
 - `GraphAugmentedRetriever` now performs real graph traversal: query entities (companies,
   metrics, products) -> hop-limited neighbourhood -> chunks scored by matched query concepts ->
@@ -65,6 +71,8 @@ This project follows [Semantic Versioning](https://semver.org/).
   to queries routed to PoT
 - When PoT succeeded with no caller system prompt, the pipeline replaced the default grounding and
   citation prompt with just the computed value. The note is now appended to the default prompt
+- API-key middleware compared SHA-256 hex digests with `!=`, which is not constant-time. It now uses
+  `hmac.compare_digest`, and the middleware has its first tests
 - `evals/run_evals.py` and `rag-financial evaluate` treated the eval report as a dict and raised
   `TypeError` (a regression from the 2026-09-04 lint commit `95f1c95`)
 - `LLM_CONFIG__PROVIDER=gemini` (and `local_vllm`) were rejected by config validation even

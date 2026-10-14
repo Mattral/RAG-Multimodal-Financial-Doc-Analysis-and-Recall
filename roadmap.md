@@ -1,164 +1,165 @@
-## v2.0 Completed
+# Roadmap — RAG Financial Multimodal
 
-### Multi-provider architecture (all real, not stubs)
-- [x] Text generation: OpenAI, Gemini, Anthropic, Local vLLM
-- [x] Vision: GPT-4o, Gemini 2.5 Flash, Qwen2-VL, Local vLLM + fallback chain
-- [x] Embeddings: OpenAI, Voyage AI (voyage-finance-2), Cohere, local BAAI/bge
-- [x] Vector stores: DeepLake, pgvector (real async), Qdrant (real async, HNSW)
-- [x] Cloud connectors: S3, Azure Blob, GCS
+> Checked against the code on 2026-10-14 (`main` after #15 BM25, #16 Program-of-Thought and
+> #17 streaming; PR numbers are cited where a fix landed).
+>
+> `[x]` means the feature exists and is reachable from the pipeline, API or CLI. Items that
+> exist as a component but are not wired in, or that work only partly, stay `[ ]` with a
+> note saying what is there. Measured results live in
+> [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md), not here.
 
-### Implementations completed
-- [x] ColPali late-interaction visual retrieval (real MaxSim algorithm, index persistence)
-- [x] Knowledge graph entity extraction (real LLM call, structured JSON output)
-- [x] Semantic query cache (cosine similarity, Redis + memory fallback)
-- [x] Numeric grounding guardrail (regex extraction, context cross-check)
+## Implemented
 
-### Infrastructure
-- [x] Terraform IaC: EKS + RDS + ElastiCache + S3 + KMS (347 lines, brace-balanced)
-- [x] Multi-window multi-burn-rate SLO alerting (Google SRE Workbook pattern)
-- [x] 7 production charts embedded in README and MkDocs
-- [x] HuggingFace Space in spaces/rag-financial/ (Gradio, OpenAI + Gemini)
-- [x] 520 test functions across 37 test files
-
-# Roadmap — RAG Financial Multimodal v2.0+
-
-## ✅ v2.0 — Completed
-
-### Architecture
-- [x] Pluggable component system (BaseParser, BaseEmbedder, BaseVectorStore, BaseRetriever, BaseReranker, BaseGenerator) via ABCs and DI
-- [x] Pydantic v2 centralized config with full env-var override, nested sub-configs, feature flags
-- [x] Multi-tenant architecture: per-tenant vector namespaces, rate limits, token quotas, audit trail
-- [x] Async-first pipeline orchestrator with structured concurrency
+### Architecture & configuration
+- [x] Pluggable components via ABCs and dependency injection (parser, embedder, vector store,
+      retriever, reranker, generator, evaluator, vision describer)
+- [x] Pydantic v2 configuration with env-var overrides, nested sub-configs and feature flags
+- [x] Multi-tenancy: per-tenant vector namespaces, per-tenant BM25 partitions (#15), rate
+      limits, token quotas, audit trail
+- [x] Async pipeline orchestrator
 
 ### Ingestion
-- [x] Unstructured.io PDF parser with PyPDF2 fallback
-- [x] IBM Docling parser for superior table/layout fidelity
-- [x] Layout-aware semantic chunker: table-caption pairing, multi-page table merging, heading grouping, HTML wrapping
-- [x] GPT-4o vision describer with financial chart prompt (all axes, values, legends, trends)
-- [x] Qwen2-VL open-source vision alternative (5-20x cheaper, on-prem capable)
-- [x] Presidio PII redaction (PERSON, SSN, IBAN, CUSIP, ISIN, account numbers)
+- [x] Unstructured.io parser with PyPDF fallback; Docling and Marker parser adapters
+- [x] Layout-aware chunking (table–caption pairing, multi-page table merging, heading grouping)
+- [x] Chart/figure description: GPT-4o, Gemini, Qwen2-VL, local vLLM, with a fallback chain
+- [x] Presidio PII redaction with financial identifiers (CUSIP, ISIN, account numbers)
+- [x] Cloud connectors: S3, Azure Blob, GCS
+- [x] Delta detection and document versioning, including point-in-time lookup (`get_version_at`)
 
 ### Retrieval
-- [x] Hybrid retrieval: dense vector + in-memory BM25 fused via Reciprocal Rank Fusion
-- [x] Cross-encoder reranker (ms-marco-MiniLM-L-6-v2)
-- [x] Cohere Rerank v3 integration
-- [x] Metadata filters for tenant isolation
+- [x] Dense vector search: DeepLake, pgvector (asyncpg), Qdrant (async), in-memory
+- [x] Hybrid retrieval: dense + BM25 fused with Reciprocal Rank Fusion. The BM25 index is
+      populated at ingest and tenant-partitioned (#15). Before #15 it was never populated,
+      so the pipeline's hybrid search ran dense-only
+- [x] Rerankers: cross-encoder (ms-marco-MiniLM-L-6-v2) and Cohere Rerank
+- [x] Metadata filters (vector store and BM25)
+- [x] Optional knowledge-graph-augmented retrieval (`ENABLE_KNOWLEDGE_GRAPH`): LLM entity
+      extraction at ingest, traversal from query entities, weighted RRF fusion. In memory
+      only. Measured effect on the golden set is small (+0.017 evidence hit@5)
+- [ ] ColPali visual retrieval in the query path. *The MaxSim retriever with index persistence
+      exists in `components/colpali_retriever.py`, but the pipeline never calls it.*
 
-### Generation & Guardrails
-- [x] OpenAI generator with model routing (mini → full for numerical queries)
-- [x] Fallback model on 429/503
-- [x] Program-of-Thought sandboxed executor: AST whitelist, 5s timeout, financial templates (CAGR, ROI, margin, %)
-- [x] Numeric grounding guardrail: every number in answer must appear in context
-- [x] Prompt injection detection
-- [x] Financial answer system prompt with strict citation rules
+### Generation & guardrails
+- [x] Generators: OpenAI, Gemini, Anthropic, local vLLM / Together, selected by
+      `LLM_CONFIG__PROVIDER`
+- [x] Model routing (simple vs. complex queries); OpenAI fallback model on 429/503
+- [x] Gemini thinking-token budget so reasoning cannot truncate answers
+- [x] Program-of-Thought: the LLM writes a calculation program over the retrieved figures and
+      an AST-allowlisted sandbox runs it (#16). Before #16 the pipeline tried to execute code
+      found in retrieved document text
+- [x] Numeric grounding guardrail, prompt-injection detection, citation-enforcing system prompt
+- [x] Streaming answers: `POST /api/v1/query/stream` (SSE) and `query_stream()`, with native
+      token streaming for OpenAI and Gemini (#17). Guardrails run after the last token
+- [ ] LangGraph agentic flow (analyze → retrieve → verify → calculate → synthesize → guard).
+      *Implemented in `src/rag_system/agentic/`, but not reachable from the API, CLI or
+      pipeline, and `ENABLE_LANGGRAPH_AGENTIC` is defined but never read.*
 
-### Embeddings & Caching
-- [x] OpenAI text-embedding-3-small/large with Redis embedding cache (24h TTL)
-- [x] Local sentence-transformers embedder (BAAI/bge-small-en-v1.5)
-- [x] Semantic cache stub (threshold-based cache hit detection)
-
-### Vector Store
-- [x] DeepLake adapter with per-tenant dataset paths
-- [x] In-memory vector store for testing/dev
-- [x] GDPR/CCPA delete endpoint
+### Embeddings & caching
+- [x] Embedders: OpenAI (with Redis embedding cache), local BAAI/bge, Voyage, Cohere
+- [x] Semantic query cache (embedding similarity, Redis or in-memory), used by the pipeline
+- [ ] Structured table output in the pipeline. *`components/table_extractor.py` converts tables
+      to JSON / CSV / DataFrames, but nothing in the pipeline calls it.*
 
 ### Observability
-- [x] Full OpenTelemetry tracing: ingest span, retrieval span, generation span
-- [x] Prometheus custom metrics: latency histograms, cost counters, hallucination score, citation coverage, cache hit rate, token usage
-- [x] structlog structured JSON logging with OTel trace/span injection, memory metrics, service context
-- [x] Grafana dashboard JSON provisioning
-- [x] Cost tracker: per-tenant, per-model USD cost with quota enforcement
+- [x] OpenTelemetry spans for ingest, retrieval and generation
+- [x] 17 Prometheus metrics (latency histograms, cost, tokens, citation coverage, hallucination
+      score, cache hits, tenant quota gauges)
+- [x] structlog JSON logging with trace/span ids; 2 Grafana dashboards
+- [x] Per-tenant, per-model cost tracking with quota enforcement
+- [x] Multi-window, multi-burn-rate SLO alert rules; corpus and query-pattern drift detector
 
-### Security & Compliance
-- [x] API key authentication middleware (constant-time comparison)
-- [x] Immutable JSONL audit log with SHA-256 tamper detection
-- [x] GDPR/CCPA deletion audit events
+### Security & compliance
+- [x] API-key authentication. Keys are compared as SHA-256 digests with `hmac.compare_digest`;
+      the previous `!=` comparison was not constant-time and has been fixed
+- [x] Append-only JSONL audit log with SHA-256 tamper detection
+- [x] GDPR/CCPA soft delete with audit events
 
-### API & SDK
-- [x] FastAPI app with lifespan, CORS, request timing, global exception handler
-- [x] Ingest, Query, Health, Tenant routers with Pydantic request/response models
-- [x] Thin Python SDK (async + sync wrappers, YAML config loader)
-- [x] Typer CLI: ingest, query, evaluate, serve, health commands with Rich progress/tables
-
-### Infrastructure
-- [x] Multi-stage Dockerfile (builder + non-root runtime)
-- [x] docker-compose with Redis, OTel collector, Prometheus, Grafana, Jaeger
-- [x] Kubernetes base manifests: Deployment, Service, HPA, ConfigMap, PVC, ServiceMonitor
-- [x] Kustomize overlays (dev/prod)
-- [x] Helm chart with HPA, PDB, ServiceMonitor, PVC, secret management
-
-### Testing & Evaluation
-- [x] 40+ unit tests: config, cost tracker, PII redactor, guardrails, BM25, RRF fusion, audit logger, in-memory vector store, data models
-- [x] Integration tests: ingest→index→query pipeline with mock components
-- [x] RAGAS evaluator integration (faithfulness, answer_relevancy, context_precision)
-- [x] LLM-as-judge numeric accuracy scorer
-- [x] Golden dataset (8 samples across Tesla, Apple, Microsoft 10-Ks)
-- [x] CI regression gate: fails PR if avg faithfulness drops >5%
-- [x] Locust load test with SLO summary (p99 < 8s, < 1% errors)
-- [x] GitHub Actions CI: lint (ruff/black/isort), mypy, unit tests, integration tests, security scan (Trivy + pip-audit), eval gate, Docker build, Helm lint
-
----
-
-## 🔄 v2.1 — In Progress / Near-term
-
-### Retrieval Improvements
-- [ ] **pgvector adapter** — PostgreSQL-native vector store for teams already running Postgres
-- [ ] **Qdrant adapter** — for dedicated vector DB deployments
-- [ ] **Sparse-dense fusion** — integrate SPLADE or BM25S for better out-of-vocabulary handling
-- [ ] **Contextual compression** — LLM-based chunk compression before reranking
-
-### Generation
-- [ ] **Anthropic Claude generator** — Claude 3.5 Sonnet as drop-in alternative
-- [ ] **Streaming responses** — SSE/WebSocket endpoint for real-time answer streaming
-- [ ] **Multi-turn conversation** — stateful session management with conversation history
-- [ ] **Self-RAG** — model decides when to retrieve vs answer from parametric knowledge
-
-### Evaluation
-- [ ] **Expand golden dataset** to 50+ samples across diverse document types
-- [ ] **Human-in-the-loop annotation** tool for golden dataset curation
-- [ ] **Per-tenant eval dashboards** — Grafana panels showing per-tenant quality trends
-- [ ] **A/B testing harness** — compare two pipeline configs on same golden set
+### API, SDK & CLI
+- [x] FastAPI app: ingest, query, query/stream (#17), documents, tenants, feedback, health
+- [x] Python SDK (async + sync, YAML config); `query_stream()` (#17)
+- [x] Typer CLI: ingest, query, evaluate, serve, health
+- [x] Demo apps: `demo/app.py` and the Hugging Face Space in `spaces/rag-financial/` (Gradio)
 
 ### Infrastructure
-- [ ] **Async Redis semantic cache** — cache full query→answer pairs by embedding similarity
-- [ ] **Background ingest worker** — Celery/ARQ worker for large document batches
-- [ ] **Presigned URL ingest** — accept S3/GCS URLs instead of file uploads
-- [ ] **Webhook callbacks** — notify caller on async ingest completion
+- [x] Multi-stage Dockerfile; docker-compose with Redis, OTel collector, Prometheus,
+      Alertmanager, Grafana and Jaeger
+- [x] Kubernetes base manifests (incl. ServiceMonitor, NetworkPolicy, HPA) and Kustomize dev/prod
+      overlays
+- [x] Helm chart with HPA, PDB, PVC, ConfigMap and Secret
+- [ ] Helm ServiceMonitor. *`values.yaml` has a `serviceMonitor` key, but no template uses it.*
+- [x] Terraform: EKS, RDS, ElastiCache, S3, KMS
+
+### Testing & evaluation
+- [x] 868 tests (unit, integration, Hypothesis property tests). Unit + integration coverage
+      was 73% when measured before #15–#17. Locust and k6 load-test scripts
+- [x] Golden dataset: 119 QA pairs over 16 public filings. Every figure is traced to a quoted
+      source passage (`provenance.json`, verified 209/209) and each derived number has an
+      arithmetic check
+- [x] Deterministic eval metrics (expected-value recall, source hit rate, number grounding)
+- [x] Offline retrieval benchmark and answer-quality eval on the real filings
+- [x] RAGAS and LLM-as-judge scorers. *They call OpenAI only, and no RAGAS run has been
+      published.*
+- [x] CI jobs: lint (ruff/black/isort), mypy, tests, Trivy + pip-audit + Semgrep, eval, Docker
+      build, Helm lint
+- [ ] **CI actually gating merges.** *The test, lint, mypy, Semgrep and eval steps are all
+      `continue-on-error: true`, so a green check does not mean tests passed. The eval job also
+      has no LLM key in CI.*
 
 ---
 
-## 🗓 v3.0 — Future
+## Next (v2.1)
 
-### Vision & Multimodal
-- [ ] **ColPali/ColQwen late-interaction** — embed page images directly, no OCR step
-- [ ] **Table-to-structured-data** — extract tables as JSON/CSV for direct computation
-- [ ] **Financial chart time-series extraction** — structured {date, value} pairs from line charts
-- [ ] **Multi-page layout understanding** — cross-page figure references
+Highest impact first:
 
-### Agentic
-- [ ] **LangGraph agentic flow** — multi-step agent: search → compute → verify → answer
-- [ ] **Tool use** — agent can invoke PoT calculator, web search, screener APIs
-- [ ] **Reflection loop** — agent checks its own answer for numeric accuracy before returning
+- [ ] **Make CI blocking.** Tests first (they pass today), then lint once the existing debt is
+      fixed, then the eval gate once it has a key and a budget
+- [ ] **Persistence for in-memory indexes.** BM25 and the knowledge graph are lost on restart.
+      CLI `ingest` and `query` run as separate processes, so the CLI never benefits from the
+      graph
+- [ ] **Calculation questions** are the weakest category (the model abstained on 15 of 24).
+      Measure the effect of the #16 Program-of-Thought path, and revisit the "never estimate"
+      system prompt
+- [ ] **Provider-pluggable eval judge** (Gemini), so RAGAS and numeric-accuracy scores can be
+      measured without OpenAI
+- [ ] **Retired model names.** `gemini-2.5-*` defaults in the code and the HF Space return 404
+      for new Google API keys
+- [ ] **Load and cost measurement.** Run the Locust suite and publish latency and cost per query
+- [ ] Wire ColPali, the LangGraph agentic flow and the table extractor into the pipeline behind
+      flags, or remove them
+- [ ] Helm ServiceMonitor template
+- [ ] Golden set: a second annotator, more sectors and years, and paraphrased questions (the
+      current wording favors BM25)
+- [ ] Knowledge graph: query-time entity aliases ("Alphabet" vs "Google") and a persistent store
+- [ ] Sparse-dense fusion (SPLADE / BM25S)
+- [ ] Contextual compression before reranking
+- [ ] Multi-turn conversation with session history
+- [ ] Self-RAG (decide when to retrieve)
+- [ ] Human-in-the-loop annotation tool for the golden set
+- [ ] Per-tenant eval dashboards
+- [ ] A/B harness comparing two pipeline configs on the golden set
+- [ ] Background ingest worker (Celery / ARQ), presigned-URL ingest, webhook callbacks
 
-### Knowledge Graph
-- [ ] **Entity extraction** — extract company/metric/date triples from filings
-- [ ] **Graph-augmented retrieval** — traverse entity relationships during retrieval
-- [ ] **Cross-document reasoning** — compare metrics across multiple companies/periods
+## Later (v3.0)
 
-### Platform
-- [ ] **Web UI** — React-based analyst interface with source highlighting
-- [ ] **Slack/Teams bot** — analyst queries via chat
-- [ ] **Batch export** — scheduled runs that generate structured JSON reports
-- [ ] **SOC 2 Type II controls** — formal compliance documentation
+- [ ] Structured chart time-series extraction (`{date, value}` pairs from line charts)
+- [ ] Cross-page figure and reference resolution
+- [ ] Agent tool use (calculator, screener APIs, web search) and a reflection loop in production
+- [ ] Cross-document reasoning (compare metrics across companies and periods via the graph)
+- [ ] Analyst web UI with source highlighting (beyond the Gradio / demo apps)
+- [ ] Slack / Teams bot
+- [ ] Scheduled batch export of structured reports
+- [ ] SOC 2 Type II controls
 
 ---
 
-## SLO Targets
+## SLO targets
 
-| Metric | Current | v2.1 Target | v3.0 Target |
-|---|---|---|---|
-| P99 query latency | < 8s | < 5s | < 3s |
-| Faithfulness score | ≥ 0.70 | ≥ 0.85 | ≥ 0.92 |
-| Numeric accuracy | ≥ 0.70 | ≥ 0.85 | ≥ 0.92 |
-| Error rate | < 1% | < 0.5% | < 0.1% |
-| Test coverage | ≥ 70% | ≥ 80% | ≥ 90% |
+These are targets, not measurements. Measured values are in BENCHMARK_RESULTS.md.
+
+| Metric | Target (v2.x) | Measured |
+|---|---|---|
+| P99 query latency | < 8 s | Not measured under load (generation alone: p50 3.0 s, p95 5.0 s) |
+| Faithfulness (RAGAS) | ≥ 0.70 | Not measured |
+| Numeric accuracy (LLM judge) | ≥ 0.70 | Not measured. No fabricated numbers in 119 answers (grounding check) |
+| Error rate | < 1% | Not measured |
+| Test coverage (unit + integration) | ≥ 70% | 73% |

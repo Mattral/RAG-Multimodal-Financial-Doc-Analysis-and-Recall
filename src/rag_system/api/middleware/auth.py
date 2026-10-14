@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import os
 
 import structlog
@@ -32,10 +33,10 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         if not api_key:
             return JSONResponse(status_code=401, content={"error": "Missing X-API-Key header"})
 
-        # Constant-time comparison via hashing
-        provided_hash = hashlib.sha256(api_key.encode()).hexdigest()
-        expected_hash = hashlib.sha256(master_key.encode()).hexdigest()
-        if provided_hash != expected_hash:
+        # Hash both (equal-length inputs), then compare in constant time.
+        provided_hash = hashlib.sha256(api_key.encode()).digest()
+        expected_hash = hashlib.sha256(master_key.encode()).digest()
+        if not hmac.compare_digest(provided_hash, expected_hash):
             logger.warning(
                 "invalid_api_key",
                 path=path,
