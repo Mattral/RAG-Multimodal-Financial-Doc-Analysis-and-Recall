@@ -3,9 +3,13 @@
 ## Single-service (minimal)
 ```bash
 docker run -e OPENAI_API_KEY=sk-... \
+  -e RAG_API_MASTER_KEY="$(openssl rand -hex 32)" \
   -p 8000:8000 -p 8001:8001 \
   ghcr.io/mattral/filing-qa:latest
 ```
+
+The image runs with `ENVIRONMENT=production`, so without `RAG_API_MASTER_KEY` every API
+request returns `401`. Send the key in the `X-API-Key` header.
 
 ## Full stack with docker compose
 ```bash
@@ -19,7 +23,8 @@ docker compose --profile observability up -d
 ## Build locally
 ```bash
 docker build -t rag-financial-multimodal:local .
-docker run -e OPENAI_API_KEY=sk-... -p 8000:8000 rag-financial-multimodal:local
+docker run -e OPENAI_API_KEY=sk-... -e RAG_API_MASTER_KEY=change-me \
+  -p 8000:8000 rag-financial-multimodal:local
 ```
 
 ## Health check
