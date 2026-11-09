@@ -1,9 +1,9 @@
 site_name: RAG Financial Multimodal
 site_description: Enterprise-grade multimodal RAG for financial document analysis
 site_author: RAG Financial Team
-site_url: https://your-org.github.io/rag-financial-multimodal
-repo_url: https://github.com/your-org/rag-financial-multimodal
-repo_name: your-org/rag-financial-multimodal
+site_url: https://mattral.github.io/filing-qa/
+repo_url: https://github.com/Mattral/filing-qa
+repo_name: Mattral/filing-qa
 edit_uri: edit/main/docs/
 
 theme:
@@ -102,6 +102,6 @@ nav:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/your-org/rag-financial-multimodal
+      link: https://github.com/Mattral/filing-qa
   version:
     provider: mike

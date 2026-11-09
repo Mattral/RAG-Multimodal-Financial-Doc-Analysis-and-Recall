@@ -1,8 +1,8 @@
 # Docker Quickstart
 
 ```bash
-git clone https://github.com/your-org/rag-financial-multimodal
-cd rag-financial-multimodal
+git clone https://github.com/Mattral/filing-qa
+cd filing-qa
 cp .env.example .env   # set OPENAI_API_KEY
 docker compose up -d
 curl -X POST http://localhost:8000/api/v1/ingest -F "file=@your_10k.pdf" -F "tenant_id=demo"

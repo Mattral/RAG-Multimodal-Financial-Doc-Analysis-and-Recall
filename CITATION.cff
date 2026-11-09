@@ -9,8 +9,8 @@ abstract: >
   multi-tenancy, and full OpenTelemetry observability.
 version: 2.0.0
 date-released: "2024-07-01"
-url: "https://github.com/your-org/rag-financial-multimodal"
-repository-code: "https://github.com/your-org/rag-financial-multimodal"
+url: "https://github.com/Mattral/filing-qa"
+repository-code: "https://github.com/Mattral/filing-qa"
 license: MIT
 keywords:
   - rag
@@ -31,6 +31,6 @@ preferred-citation:
   type: software
   title: "RAG Financial Multimodal: Enterprise Multimodal RAG for Financial Documents"
   version: 2.0.0
-  url: "https://github.com/your-org/rag-financial-multimodal"
+  url: "https://github.com/Mattral/filing-qa"
   year: 2024
   license: MIT

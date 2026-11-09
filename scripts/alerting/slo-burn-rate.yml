@@ -98,7 +98,7 @@ groups:
             At this burn rate the 30-day error budget will be exhausted in
             ~2 days. 5-minute error ratio: {{ $value | humanizePercentage }}.
             Check rag_queries_total{status="error"} by tenant_id and model.
-          runbook_url: "https://your-org.github.io/rag-financial-multimodal/troubleshooting/#high-error-rate"
+          runbook_url: "https://github.com/Mattral/filing-qa/blob/main/docs/troubleshooting.md#high-error-rate"
 
       # Medium burn — page, but with a slightly longer confirmation window.
       - alert: RAGAvailabilitySLOMediumBurn

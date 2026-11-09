@@ -3,7 +3,7 @@
 > **Production-grade multimodal RAG for financial document intelligence.**
 > Chart understanding · hybrid retrieval · numeric guardrails · multi-tenancy · full observability.
 
-[![CI/CD](https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/actions/workflows/ci.yml/badge.svg)](https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/actions)
+[![CI/CD](https://github.com/Mattral/filing-qa/actions/workflows/ci.yml/badge.svg)](https://github.com/Mattral/filing-qa/actions)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![HF Space](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Space-blue)](https://huggingface.co/spaces/Mattral/RAG-Financial-Multimodal)
@@ -65,8 +65,8 @@ kept, with a provenance note, in [BENCHMARK_RESULTS.md section 4](BENCHMARK_RESU
 ## Quickstart
 
 ```bash
-git clone https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall
-cd RAG-Multimodal-Financial-Doc-Analysis-and-Recall
+git clone https://github.com/Mattral/filing-qa
+cd filing-qa
 cp .env.example .env          # set OPENAI_API_KEY or GOOGLE_API_KEY
 docker compose up -d
 

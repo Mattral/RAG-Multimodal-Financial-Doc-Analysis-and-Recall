@@ -25,7 +25,7 @@ tags:
 **Production-grade document intelligence** — chart understanding · hybrid RRF retrieval · numeric guardrails · source citations
 
 This Space is a faithful demo of the enterprise system at
-[github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall](https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall).
+[github.com/Mattral/filing-qa](https://github.com/Mattral/filing-qa).
 
 ## Features
 
@@ -64,7 +64,7 @@ PDF → pdfplumber (text + tables) + Vision LLM (charts)
 ```
 
 Mirrors the production pipeline in
-[`src/filing_qa/`](https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/tree/main/src/filing_qa).
+[`src/filing_qa/`](https://github.com/Mattral/filing-qa/tree/main/src/filing_qa).
 
 ## Privacy
 

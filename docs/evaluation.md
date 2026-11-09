@@ -5,7 +5,7 @@
 `evals/golden_datasets/financial_qa.jsonl` contains 119 QA pairs over 16 public filings
 (factual, calculation, comparative, table and chart questions). Every figure is traced to a
 quoted passage in `provenance.json`. Format, sources and limitations are described in
-[`evals/golden_datasets/README.md`](https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/blob/main/evals/golden_datasets/README.md).
+[`evals/golden_datasets/README.md`](https://github.com/Mattral/filing-qa/blob/main/evals/golden_datasets/README.md).
 
 ```bash
 pytest tests/unit/test_golden_dataset.py                 # schema, consistency, calculations
@@ -45,4 +45,4 @@ python -m evals.retrieval_benchmark --chunk-size 4000    # BM25 / dense / hybrid
 python -m evals.answer_eval --rpm 5                       # + the configured generator; resumable
 ```
 
-Results and caveats are in [BENCHMARK_RESULTS.md](https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/blob/main/BENCHMARK_RESULTS.md).
+Results and caveats are in [BENCHMARK_RESULTS.md](https://github.com/Mattral/filing-qa/blob/main/BENCHMARK_RESULTS.md).
