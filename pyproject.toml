@@ -59,7 +59,7 @@ python-multipart = "^0.0.9"
 # CLI
 typer         = { extras = ["all"], version = "^0.12.0" }
 # typer 0.12 breaks on click>=8.2 (`make_metavar() missing ctx` on --help). Cap until
-# P1-1 moves to current typer.
+# the dependency pins move to a current typer release.
 click         = ">=8.1.7,<8.2"
 rich          = "^13.7.0"
 
