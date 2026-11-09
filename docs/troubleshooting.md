@@ -26,7 +26,12 @@ pip install "unstructured[all-docs]"
 ## API / Auth Issues
 
 ### `403 Forbidden` on all endpoints
-Ensure `X-API-Key` header matches `RAG_API_MASTER_KEY` in your `.env`. In dev mode with no key set, all requests pass through.
+Ensure `X-API-Key` header matches `RAG_API_MASTER_KEY` in your `.env`.
+
+### `401` with `API authentication is not configured`
+`RAG_API_MASTER_KEY` is not set, so the API rejects requests. Set the key, or for local
+use only set `ENVIRONMENT=development` (explicitly, not by default) or `AUTH_DISABLED=true`.
+Startup logs `api_auth_unconfigured` (error) or `api_auth_disabled` (warning) in these cases.
 
 ### `503 Service Unavailable` on `/readyz`
 Pipeline failed to initialise. Check logs:

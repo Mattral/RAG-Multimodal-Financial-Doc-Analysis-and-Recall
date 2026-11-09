@@ -23,6 +23,9 @@ os.environ.setdefault("CACHE_CONFIG__BACKEND", "memory")
 os.environ.setdefault("LOGGING_CONFIG__LEVEL", "WARNING")
 os.environ.setdefault("SECURITY_CONFIG__ENABLE_PII_REDACTION", "false")
 os.environ.setdefault("SECURITY_CONFIG__ENABLE_GUARDRAILS", "false")
+# The API fails closed without RAG_API_MASTER_KEY; tests that exercise auth set
+# the key (or clear this) themselves.
+os.environ.setdefault("AUTH_DISABLED", "true")
 
 # Tests must not pick up a developer's local .env (real API keys, provider choices).
 from filing_qa.config import Config  # noqa: E402
