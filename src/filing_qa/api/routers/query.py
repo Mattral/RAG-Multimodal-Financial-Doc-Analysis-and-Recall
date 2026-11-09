@@ -10,6 +10,8 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from filing_qa.api.errors import error_body, error_response
+
 router = APIRouter()
 logger = structlog.get_logger(__name__)
 
@@ -49,8 +51,7 @@ async def query_documents(request: Request, body: QueryRequest):
         )
         return result
     except Exception as exc:
-        logger.error("query_endpoint_failed", error=str(exc))
-        return JSONResponse(status_code=500, content={"error": str(exc)})
+        return error_response(request, "query_failed", "query_endpoint_failed", exc)
 
 
 def _sse(event: str, data: Any) -> str:
@@ -95,8 +96,7 @@ async def query_documents_stream(request: Request, body: QueryRequest):
                 else:
                     yield _sse(name, {k: v for k, v in event.items() if k != "event"})
         except Exception as exc:
-            logger.error("query_stream_failed", error=str(exc))
-            yield _sse("error", {"error": str(exc)})
+            yield _sse("error", error_body(request, "query_failed", "query_stream_failed", exc))
 
     return StreamingResponse(
         events(),
