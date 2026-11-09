@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional
 import structlog
 
 from filing_qa.components.base import BaseVectorStore, DocumentElement, RetrievedChunk
+from filing_qa.components.vector_store._deps import require_package
 from filing_qa.config import get_config
 
 logger = structlog.get_logger(__name__)
@@ -48,6 +49,7 @@ class PGVectorAdapter(BaseVectorStore):
     """pgvector-backed vector store with per-tenant row-level isolation."""
 
     def __init__(self) -> None:
+        require_package("asyncpg", "pgvector", "pip install asyncpg pgvector")
         self._cfg = get_config().vector_store_config
         self._pool = None
         self._table = self._cfg.collection_name.replace("-", "_")

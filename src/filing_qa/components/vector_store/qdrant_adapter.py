@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional
 import structlog
 
 from filing_qa.components.base import BaseVectorStore, DocumentElement, RetrievedChunk
+from filing_qa.components.vector_store._deps import require_package
 from filing_qa.config import get_config
 
 logger = structlog.get_logger(__name__)
@@ -27,6 +28,7 @@ class QdrantAdapter(BaseVectorStore):
     """Qdrant vector store with per-tenant collection isolation and HNSW indexing."""
 
     def __init__(self) -> None:
+        require_package("qdrant_client", "qdrant", "pip install 'qdrant-client>=1.9.0'")
         self._cfg = get_config().vector_store_config
         self._client = None
         self._async_client = None
