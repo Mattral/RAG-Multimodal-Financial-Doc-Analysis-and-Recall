@@ -9,6 +9,8 @@ import structlog
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse
 
+from filing_qa.api.errors import error_response
+
 router = APIRouter()
 logger = structlog.get_logger(__name__)
 
@@ -41,5 +43,4 @@ async def ingest_document(
         result["original_filename"] = file.filename
         return result
     except Exception as exc:
-        logger.error("ingest_endpoint_failed", error=str(exc))
-        return JSONResponse(status_code=500, content={"error": str(exc)})
+        return error_response(request, "ingest_failed", "ingest_endpoint_failed", exc)

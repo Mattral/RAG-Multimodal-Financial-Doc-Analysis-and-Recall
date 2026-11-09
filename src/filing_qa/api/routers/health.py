@@ -3,6 +3,8 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from filing_qa.api.errors import error_body
+
 router = APIRouter()
 
 
@@ -41,4 +43,5 @@ async def k8s_readiness(request: Request):
         status_code = 200 if health["status"] == "healthy" else 503
         return JSONResponse(status_code=status_code, content=health)
     except Exception as exc:
-        return JSONResponse(status_code=503, content={"status": "error", "detail": str(exc)})
+        body = error_body(request, "health_check_failed", "readiness_check_failed", exc)
+        return JSONResponse(status_code=503, content={"status": "error", **body})
