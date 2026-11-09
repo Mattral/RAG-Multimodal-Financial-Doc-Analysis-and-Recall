@@ -28,7 +28,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from filing_qa.api.middleware.auth import APIKeyMiddleware
+from filing_qa.api.middleware.auth import APIKeyMiddleware, log_auth_startup_status
 from filing_qa.api.routers import (
     documents,
     feedback,
@@ -163,6 +163,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(APIKeyMiddleware)
+    log_auth_startup_status()
 
     @app.middleware("http")
     async def add_timing_header(request: Request, call_next) -> Response:

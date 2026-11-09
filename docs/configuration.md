@@ -19,7 +19,8 @@
 | `LLM_CONFIG__THINKING_BUDGET_TOKENS` | `1024` | Reasoning-token budget for Gemini thinking models, added on top of `max_tokens` |
 | `RERANKER_CONFIG__PROVIDER` | `cross_encoder` | `cross_encoder\|cohere\|none` |
 | `CACHE_CONFIG__BACKEND` | `redis` | `redis\|memory` |
-| `RAG_API_MASTER_KEY` | — | API authentication key |
+| `RAG_API_MASTER_KEY` | — | API authentication key. If unset, API requests get `401` unless `ENVIRONMENT=development` is set explicitly or `AUTH_DISABLED=true` |
+| `AUTH_DISABLED` | `false` | Accept requests without a key when `RAG_API_MASTER_KEY` is unset (local use only; logs a warning at startup). Ignored when a key is set |
 | `SECURITY_CONFIG__ENABLE_PII_REDACTION` | `true` | Presidio PII redaction |
 | `OBSERVABILITY_CONFIG__OTLP_ENDPOINT` | — | OTel gRPC endpoint |
 | `MULTI_TENANCY_CONFIG__ENABLED` | `true` | Multi-tenant isolation |
