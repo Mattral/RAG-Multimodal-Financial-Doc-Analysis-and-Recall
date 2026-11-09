@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from src.rag_system.components.evaluator import EvalSample, numeric_recall
+from filing_qa.components.evaluator import EvalSample, numeric_recall
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "evals" / "golden_datasets"
 DATASET = DATA_DIR / "financial_qa.jsonl"

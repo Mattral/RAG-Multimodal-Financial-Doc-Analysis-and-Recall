@@ -1,6 +1,6 @@
 """utils/guardrails.py — Numeric grounding, PII detection, and injection protection.
 
-Mirrors src/rag_system/components/guardrails/ logic in standalone form.
+Mirrors src/filing_qa/components/guardrails/ logic in standalone form.
 """
 from __future__ import annotations
 

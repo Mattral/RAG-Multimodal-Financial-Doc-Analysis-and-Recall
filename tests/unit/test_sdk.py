@@ -1,4 +1,4 @@
-"""Tests for src/rag_system/sdk/__init__.py — previously 0% covered.
+"""Tests for src/filing_qa/sdk/__init__.py — previously 0% covered.
 
 Covers the RAGPipeline SDK wrapper via mocking the internal pipeline.
 """
@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.rag_system.sdk import RAGPipeline, get_config
+from filing_qa.sdk import RAGPipeline, get_config
 
 
 def _inner():
@@ -35,7 +35,7 @@ class TestRAGPipelineCreate:
     @pytest.mark.asyncio
     async def test_create_returns_rag_pipeline(self):
         inner = _inner()
-        with patch("src.rag_system.pipeline.RAGPipeline.create", AsyncMock(return_value=inner)):
+        with patch("filing_qa.pipeline.RAGPipeline.create", AsyncMock(return_value=inner)):
             sdk = await RAGPipeline.create(tenant_id="acme")
         assert isinstance(sdk, RAGPipeline)
         assert sdk._default_tenant == "acme"
@@ -43,7 +43,7 @@ class TestRAGPipelineCreate:
     @pytest.mark.asyncio
     async def test_create_default_tenant(self):
         inner = _inner()
-        with patch("src.rag_system.pipeline.RAGPipeline.create", AsyncMock(return_value=inner)):
+        with patch("filing_qa.pipeline.RAGPipeline.create", AsyncMock(return_value=inner)):
             sdk = await RAGPipeline.create()
         assert sdk._default_tenant == "default"
 
@@ -150,6 +150,6 @@ class TestSDKExports:
         assert callable(get_config)
 
     def test_all_contains_rag_pipeline(self):
-        from src.rag_system.sdk import __all__
+        from filing_qa.sdk import __all__
 
         assert "RAGPipeline" in __all__

@@ -9,7 +9,7 @@ Extract insights from quarterly earnings transcripts and investor Q&A sessions.
 
 ## Ingest earnings transcripts
 ```bash
-rag-financial ingest \
+filing-qa ingest \
   earnings_q1_2024.pdf \
   earnings_q2_2024.pdf \
   earnings_q3_2024.pdf \
@@ -19,22 +19,22 @@ rag-financial ingest \
 ## Query examples
 ```bash
 # Management guidance
-rag-financial query "What revenue guidance did management provide for next quarter?" \
+filing-qa query "What revenue guidance did management provide for next quarter?" \
   --tenant earnings_analysis --show-sources
 
 # Analyst questions
-rag-financial query "What questions did analysts ask about margin pressure?" \
+filing-qa query "What questions did analysts ask about margin pressure?" \
   --tenant earnings_analysis --top-k 10
 
 # Multi-quarter comparison (triggers comparative routing → gpt-4o)
-rag-financial query "How has management's tone on supply chain changed across Q1, Q2, Q3?" \
+filing-qa query "How has management's tone on supply chain changed across Q1, Q2, Q3?" \
   --tenant earnings_analysis --top-k 15
 ```
 
 ## Python SDK
 ```python
 import asyncio
-from src.rag_system.sdk import RAGPipeline
+from filing_qa.sdk import RAGPipeline
 
 async def main():
     pipeline = await RAGPipeline.create(tenant_id="earnings")

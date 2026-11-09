@@ -7,7 +7,7 @@
 PYTHON        := python3.11
 VENV          := .venv
 BIN           := $(VENV)/bin
-SRC           := src/rag_system
+SRC           := src/filing_qa
 TESTS         := tests
 
 .PHONY: help setup dev install test test-unit test-integration test-load \
@@ -131,7 +131,7 @@ seed-eval:
 
 # ── API Server ────────────────────────────────────────────────────────────────
 serve:
-	$(BIN)/uvicorn src.rag_system.api.app:create_app \
+	$(BIN)/uvicorn filing_qa.api.app:create_app \
 		--factory --host 0.0.0.0 --port 8000 --reload
 	
 # ── Pipeline ──────────────────────────────────────────────────────────────────
@@ -139,12 +139,12 @@ ingest-sample:
 	@echo "▸ Downloading Tesla Q3 2023 investor update..."
 	curl -sL "https://digitalassets.tesla.com/tesla-contents/image/upload/IR/TSLA-Q3-2023-Update-3.pdf" \
 		-o /tmp/tesla_q3_2023.pdf || echo "⚠ Download failed — place a PDF at /tmp/tesla_q3_2023.pdf"
-	$(BIN)/rag-financial ingest /tmp/tesla_q3_2023.pdf --tenant demo
+	$(BIN)/filing-qa ingest /tmp/tesla_q3_2023.pdf --tenant demo
 	@echo "✅ Sample document ingested"
 
 query:
 	@[ "$(Q)" ] || ( echo "Usage: make query Q='Your question here'"; exit 1 )
-	$(BIN)/rag-financial query "$(Q)" --tenant demo --show-sources
+	$(BIN)/filing-qa query "$(Q)" --tenant demo --show-sources
 
 # ── Documentation ─────────────────────────────────────────────────────────────
 docs:

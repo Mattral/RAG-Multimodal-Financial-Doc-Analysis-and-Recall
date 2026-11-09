@@ -1,6 +1,6 @@
 """utils/pdf_processor.py — PDF ingestion pipeline for the HF Space.
 
-Standalone module mirroring src/rag_system/components/layout_parser.py logic:
+Standalone module mirroring src/filing_qa/components/layout_parser.py logic:
 PDF -> page images + raw text -> semantic chunk -> ready for embedding.
 """
 from __future__ import annotations

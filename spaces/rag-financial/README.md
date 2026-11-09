@@ -64,7 +64,7 @@ PDF → pdfplumber (text + tables) + Vision LLM (charts)
 ```
 
 Mirrors the production pipeline in
-[`src/rag_system/`](https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/tree/main/src/rag_system).
+[`src/filing_qa/`](https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/tree/main/src/filing_qa).
 
 ## Privacy
 

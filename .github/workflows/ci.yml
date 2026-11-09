@@ -46,7 +46,7 @@ jobs:
         run: isort --check-only src/ tests/ evals/
 
       - name: mypy type check
-        run: mypy src/rag_system/config.py src/rag_system/components/base.py
+        run: mypy src/filing_qa/config.py src/filing_qa/components/base.py
 
   # ─────────────────────────────────────────────────────────────────────────
   test:
@@ -71,7 +71,7 @@ jobs:
       - name: Run unit + integration tests (combined coverage)
         run: |
           pytest tests/unit/ tests/integration/ -v --timeout=30 \
-            --cov=src/rag_system \
+            --cov=src/filing_qa \
             --cov-report=xml \
             --cov-report=term-missing \
             --cov-fail-under=70
@@ -86,10 +86,39 @@ jobs:
         continue-on-error: true
 
   # ─────────────────────────────────────────────────────────────────────────
+  # Installs the built wheel (not the source tree) into a clean venv and runs it
+  # from outside the checkout, so a broken import path or entry point fails here.
+  package:
+    name: Wheel Install Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Build wheel
+        run: |
+          pip install build
+          python -m build --wheel --outdir dist/
+
+      - name: Install wheel into a clean venv
+        run: |
+          python -m venv /tmp/wheel-venv
+          /tmp/wheel-venv/bin/pip install dist/*.whl
+
+      - name: Import and run the CLI from outside the checkout
+        working-directory: /tmp
+        run: |
+          /tmp/wheel-venv/bin/python -c "import filing_qa.cli"
+          /tmp/wheel-venv/bin/filing-qa --help
+
+  # ─────────────────────────────────────────────────────────────────────────
   docker:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
-    needs: [test, helm-lint]
+    needs: [test, helm-lint, package]
     if: github.event_name == 'push' || github.event_name == 'release'
     permissions:
       contents: read

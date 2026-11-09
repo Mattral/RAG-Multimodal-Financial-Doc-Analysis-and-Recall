@@ -1,7 +1,7 @@
 # Python SDK
 
 ```python
-from src.rag_system.sdk import RAGPipeline
+from filing_qa.sdk import RAGPipeline
 
 # Async
 pipeline = await RAGPipeline.create(tenant_id="acme")

@@ -306,5 +306,5 @@ groups:
           summary: "Hallucination proxy score elevated (p95 > 0.3)"
           description: >
             Numeric grounding guardrail is flagging more answers than usual.
-            Consider running `rag-financial evaluate --fail-on-regression`
+            Consider running `filing-qa evaluate --fail-on-regression`
             to confirm whether this is a real quality regression.

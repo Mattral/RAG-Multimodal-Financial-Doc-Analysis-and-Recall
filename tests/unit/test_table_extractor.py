@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from src.rag_system.components.base import DocumentElement
-from src.rag_system.components.table_extractor import (
+from filing_qa.components.base import DocumentElement
+from filing_qa.components.table_extractor import (
     ExtractedTable,
     TableExtractor,
     _parse_html_table,

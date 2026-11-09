@@ -1,6 +1,6 @@
 """Unit tests for drift detection utilities."""
 
-from src.rag_system.utils.drift_detector import (
+from filing_qa.utils.drift_detector import (
     EmbeddingDriftDetector,
     QueryPatternDriftDetector,
 )

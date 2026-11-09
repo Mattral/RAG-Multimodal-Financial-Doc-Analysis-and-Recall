@@ -4,52 +4,52 @@
 ```bash
 pip install -e ".[all]"
 # or via Docker:
-docker run rag-financial-multimodal:latest rag-financial --help
+docker run rag-financial-multimodal:latest filing-qa --help
 ```
 
 ## Commands
 
-### `rag-financial ingest`
+### `filing-qa ingest`
 Parse, embed, and index financial PDFs.
 ```bash
-rag-financial ingest reports/*.pdf --tenant acme
-rag-financial ingest tesla.pdf --no-vision          # skip chart extraction
-rag-financial ingest s3://bucket/10k.pdf --tenant acme
+filing-qa ingest reports/*.pdf --tenant acme
+filing-qa ingest tesla.pdf --no-vision          # skip chart extraction
+filing-qa ingest s3://bucket/10k.pdf --tenant acme
 ```
 
-### `rag-financial query`
+### `filing-qa query`
 Retrieve and answer questions from indexed documents.
 ```bash
-rag-financial query "What was Q3 revenue?" --tenant acme --show-sources
-rag-financial query "Calculate CAGR" --top-k 10 --json
-rag-financial query "Compare margins" --tenant acme --verbose
+filing-qa query "What was Q3 revenue?" --tenant acme --show-sources
+filing-qa query "Calculate CAGR" --top-k 10 --json
+filing-qa query "Compare margins" --tenant acme --verbose
 ```
 
-### `rag-financial evaluate`
+### `filing-qa evaluate`
 Run quality evaluation against the golden dataset.
 ```bash
-rag-financial evaluate
-rag-financial evaluate --dataset evals/golden_datasets/financial_qa.jsonl
-rag-financial evaluate --fail-on-regression --output report.json
+filing-qa evaluate
+filing-qa evaluate --dataset evals/golden_datasets/financial_qa.jsonl
+filing-qa evaluate --fail-on-regression --output report.json
 ```
 
-### `rag-financial serve`
+### `filing-qa serve`
 Start the FastAPI REST server.
 ```bash
-rag-financial serve
-rag-financial serve --host 0.0.0.0 --port 8000 --workers 4
-rag-financial serve --reload    # dev mode
+filing-qa serve
+filing-qa serve --host 0.0.0.0 --port 8000 --workers 4
+filing-qa serve --reload    # dev mode
 ```
 
-### `rag-financial health`
+### `filing-qa health`
 Check all component health status.
 ```bash
-rag-financial health
+filing-qa health
 ```
 
-### `rag-financial --version`
+### `filing-qa --version`
 Show current version.
 ```bash
-rag-financial --version
+filing-qa --version
 # RAG Financial Multimodal v2.0.0
 ```

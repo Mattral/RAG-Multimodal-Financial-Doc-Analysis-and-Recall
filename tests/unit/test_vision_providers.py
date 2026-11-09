@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.rag_system.components.base import DocumentElement
-from src.rag_system.components.vision.fallback_chain import (
+from filing_qa.components.base import DocumentElement
+from filing_qa.components.vision.fallback_chain import (
     FallbackVisionDescriber,
 )
 
@@ -106,14 +106,14 @@ class TestLocalVLLMDescriber:
     async def test_returns_none_on_connection_error(self, tmp_path):
         img = tmp_path / "chart.png"
         img.write_bytes(b"PNG")
-        from src.rag_system.components.vision.local_vllm_adapter import LocalVLLMDescriber
+        from filing_qa.components.vision.local_vllm_adapter import LocalVLLMDescriber
 
         describer = LocalVLLMDescriber(base_url="http://localhost:9999/v1")
         result = await describer.describe(str(img), "tesla.pdf")
         assert result is None
 
     def test_name_property(self):
-        from src.rag_system.components.vision.local_vllm_adapter import LocalVLLMDescriber
+        from filing_qa.components.vision.local_vllm_adapter import LocalVLLMDescriber
 
         d = LocalVLLMDescriber(model="Qwen/Qwen2-VL-7B-Instruct")
         assert "local_vllm" in d.name
@@ -126,14 +126,14 @@ class TestGeminiVisionDescriber:
         monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
         img = tmp_path / "chart.png"
         img.write_bytes(b"PNG")
-        from src.rag_system.components.vision.gemini_adapter import GeminiVisionDescriber
+        from filing_qa.components.vision.gemini_adapter import GeminiVisionDescriber
 
         describer = GeminiVisionDescriber()
         result = await describer.describe(str(img), "tesla.pdf")
         assert result is None
 
     def test_name_property(self):
-        from src.rag_system.components.vision.gemini_adapter import GeminiVisionDescriber
+        from filing_qa.components.vision.gemini_adapter import GeminiVisionDescriber
 
         d = GeminiVisionDescriber(model="gemini-2.5-flash")
         assert "gemini" in d.name
@@ -150,7 +150,7 @@ class TestLocalVLLMDescriberSuccessPath:
     async def test_describe_success_returns_document_element(self, tmp_path):
         from unittest.mock import AsyncMock, MagicMock, patch
 
-        from src.rag_system.components.vision.local_vllm_adapter import LocalVLLMDescriber
+        from filing_qa.components.vision.local_vllm_adapter import LocalVLLMDescriber
 
         img = tmp_path / "chart.png"
         img.write_bytes(b"PNG")
@@ -184,7 +184,7 @@ class TestLocalVLLMDescriberSuccessPath:
 
         import httpx
 
-        from src.rag_system.components.vision.local_vllm_adapter import LocalVLLMDescriber
+        from filing_qa.components.vision.local_vllm_adapter import LocalVLLMDescriber
 
         img = tmp_path / "chart.png"
         img.write_bytes(b"PNG")
@@ -206,8 +206,8 @@ class TestLocalVLLMDescriberSuccessPath:
         from datetime import UTC, datetime
         from unittest.mock import AsyncMock, patch
 
-        from src.rag_system.components.base import DocumentElement
-        from src.rag_system.components.vision.local_vllm_adapter import LocalVLLMDescriber
+        from filing_qa.components.base import DocumentElement
+        from filing_qa.components.vision.local_vllm_adapter import LocalVLLMDescriber
 
         imgs = [str(tmp_path / f"img{i}.png") for i in range(3)]
         for img in imgs:
@@ -232,7 +232,7 @@ class TestLocalVLLMDescriberSuccessPath:
 
     @pytest.mark.asyncio
     async def test_describe_batch_empty_input_returns_empty(self, tmp_path):
-        from src.rag_system.components.vision.local_vllm_adapter import LocalVLLMDescriber
+        from filing_qa.components.vision.local_vllm_adapter import LocalVLLMDescriber
 
         d = LocalVLLMDescriber()
         result = await d.describe_batch([], "tesla.pdf")

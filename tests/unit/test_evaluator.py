@@ -1,4 +1,4 @@
-"""Unit tests for src/rag_system/components/evaluator/__init__.py.
+"""Unit tests for src/filing_qa/components/evaluator/__init__.py.
 
 Primary focus: _llm_numeric_judge(), which had a real bug fixed in this
 session — it called float() directly on raw LLM output with no
@@ -16,8 +16,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from src.rag_system.components.base import GeneratedAnswer, RetrievedChunk
-from src.rag_system.components.evaluator import (
+from filing_qa.components.base import GeneratedAnswer, RetrievedChunk
+from filing_qa.components.evaluator import (
     EvalReport,
     EvalResult,
     EvalSample,
@@ -146,7 +146,7 @@ class TestLLMNumericJudgeHappyPath:
     @pytest.mark.asyncio
     async def test_clean_numeric_response(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
@@ -164,7 +164,7 @@ class TestLLMNumericJudgeHappyPath:
     @pytest.mark.asyncio
     async def test_response_with_trailing_punctuation(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
@@ -182,7 +182,7 @@ class TestLLMNumericJudgeHappyPath:
     @pytest.mark.asyncio
     async def test_response_wrapped_in_prose(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
@@ -200,7 +200,7 @@ class TestLLMNumericJudgeHappyPath:
     @pytest.mark.asyncio
     async def test_score_clamped_to_one(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
@@ -218,7 +218,7 @@ class TestLLMNumericJudgeHappyPath:
     @pytest.mark.asyncio
     async def test_score_clamped_to_zero(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
@@ -245,7 +245,7 @@ class TestLLMNumericJudgeFailureModes:
     @pytest.mark.asyncio
     async def test_api_4xx_returns_neutral_score_not_exception(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
@@ -263,7 +263,7 @@ class TestLLMNumericJudgeFailureModes:
     @pytest.mark.asyncio
     async def test_api_5xx_returns_neutral_score(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
@@ -281,7 +281,7 @@ class TestLLMNumericJudgeFailureModes:
     @pytest.mark.asyncio
     async def test_connection_timeout_returns_neutral_score(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
@@ -298,7 +298,7 @@ class TestLLMNumericJudgeFailureModes:
     @pytest.mark.asyncio
     async def test_unparseable_response_returns_neutral_score(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
@@ -317,7 +317,7 @@ class TestLLMNumericJudgeFailureModes:
     async def test_malformed_json_shape_returns_neutral_score(self, monkeypatch):
         """choices[0] missing entirely -> IndexError, must be caught explicitly."""
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         ev = RagasEvaluator(openai_api_key="sk-test")
@@ -337,7 +337,7 @@ class TestLLMNumericJudgeFailureModes:
     @pytest.mark.asyncio
     async def test_missing_api_key_returns_neutral_score(self, monkeypatch):
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         ev = RagasEvaluator(openai_api_key=None)

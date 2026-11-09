@@ -18,7 +18,7 @@ import time
 
 import pytest
 
-from src.rag_system.api.app import ShutdownState
+from filing_qa.api.app import ShutdownState
 
 # ── ShutdownState core behavior ───────────────────────────────────────────────
 
@@ -150,7 +150,7 @@ class TestReadinessProbeDuringShutdown:
 
         from fastapi.testclient import TestClient
 
-        from src.rag_system.api.app import create_app
+        from filing_qa.api.app import create_app
 
         app = create_app()
         app.state.shutdown = ShutdownState(drain_timeout_seconds=5.0)
@@ -179,7 +179,7 @@ class TestReadinessProbeDuringShutdown:
 
         from fastapi.testclient import TestClient
 
-        from src.rag_system.api.app import create_app
+        from filing_qa.api.app import create_app
 
         app = create_app()
         state = ShutdownState(drain_timeout_seconds=5.0)
@@ -207,7 +207,7 @@ class TestReadinessProbeDuringShutdown:
 
         from fastapi.testclient import TestClient
 
-        from src.rag_system.api.app import create_app
+        from filing_qa.api.app import create_app
 
         app = create_app()
         state = ShutdownState()

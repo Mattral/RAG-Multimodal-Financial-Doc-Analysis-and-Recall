@@ -45,15 +45,15 @@ from evals.sources import (
     normalize,
     source_urls,
 )
-from src.rag_system.components.base import RetrievedChunk
-from src.rag_system.components.embedder import LocalEmbedder
-from src.rag_system.components.knowledge_graph import (
+from filing_qa.components.base import RetrievedChunk
+from filing_qa.components.embedder import LocalEmbedder
+from filing_qa.components.knowledge_graph import (
     EntityExtractor,
     GraphAugmentedRetriever,
     InMemoryGraphStore,
 )
-from src.rag_system.components.retriever import BM25Index, _reciprocal_rank_fusion
-from src.rag_system.config import RetrieverConfig
+from filing_qa.components.retriever import BM25Index, _reciprocal_rank_fusion
+from filing_qa.config import RetrieverConfig
 
 DATASET = Path(__file__).parent / "golden_datasets" / "financial_qa.jsonl"
 

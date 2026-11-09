@@ -15,13 +15,13 @@ import string
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from src.rag_system.components.base import DocumentElement, RetrievedChunk
-from src.rag_system.components.guardrails import FinancialGuardrails
-from src.rag_system.components.layout_parser import LayoutAwareParser
-from src.rag_system.components.pot_executor import ASTSandboxValidator
-from src.rag_system.components.query_analyzer import QueryAnalyzer
-from src.rag_system.components.retriever import BM25Index
-from src.rag_system.utils.cost_tracker import CostRecord, CostTracker
+from filing_qa.components.base import DocumentElement, RetrievedChunk
+from filing_qa.components.guardrails import FinancialGuardrails
+from filing_qa.components.layout_parser import LayoutAwareParser
+from filing_qa.components.pot_executor import ASTSandboxValidator
+from filing_qa.components.query_analyzer import QueryAnalyzer
+from filing_qa.components.retriever import BM25Index
+from filing_qa.utils.cost_tracker import CostRecord, CostTracker
 
 # ── Strategies ────────────────────────────────────────────────────────────────
 

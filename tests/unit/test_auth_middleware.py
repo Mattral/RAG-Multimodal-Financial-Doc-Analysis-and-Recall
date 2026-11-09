@@ -8,7 +8,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from src.rag_system.api.middleware.auth import APIKeyMiddleware
+from filing_qa.api.middleware.auth import APIKeyMiddleware
 
 
 @pytest.fixture

@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.rag_system.components.base import DocumentElement, GeneratedAnswer
-from src.rag_system.components.vector_store import InMemoryVectorStore
-from src.rag_system.pipeline import RAGPipeline
+from filing_qa.components.base import DocumentElement, GeneratedAnswer
+from filing_qa.components.vector_store import InMemoryVectorStore
+from filing_qa.pipeline import RAGPipeline
 
 
 @pytest.fixture
@@ -102,7 +102,7 @@ async def test_query_returns_answer(mock_embedder, mock_generator):
     )
     await vector_store.upsert([elem], [[0.1, 0.9, 0.2]], tenant_id="test")
 
-    from src.rag_system.components.retriever import BM25Index, HybridRetriever
+    from filing_qa.components.retriever import BM25Index, HybridRetriever
 
     retriever = HybridRetriever(
         vector_store=vector_store, embedder=mock_embedder, bm25_index=BM25Index()

@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.rag_system.components.query_analyzer import (
+from filing_qa.components.query_analyzer import (
     QueryAnalysis,
     QueryAnalyzer,
     QueryComplexity,

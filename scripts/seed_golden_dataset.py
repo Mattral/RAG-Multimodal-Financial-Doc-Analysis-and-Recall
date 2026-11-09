@@ -68,7 +68,7 @@ def main():
 
     action = "appended" if args.append else "written"
     print(f"✅ {len(SAMPLES)} samples {action} to {output_path}")
-    print(f"   Run: rag-financial evaluate --dataset {output_path}")
+    print(f"   Run: filing-qa evaluate --dataset {output_path}")
 
 if __name__ == "__main__":
     main()

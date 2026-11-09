@@ -17,7 +17,7 @@ number (growth rate, ratio, sum) has an arithmetic check.
 
 ## Format
 
-One JSON object per line, loaded into `EvalSample` (`src/rag_system/components/evaluator`):
+One JSON object per line, loaded into `EvalSample` (`src/filing_qa/components/evaluator`):
 
 ```json
 {

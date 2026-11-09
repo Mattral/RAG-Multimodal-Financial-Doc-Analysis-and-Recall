@@ -4,12 +4,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from src.rag_system.api.routers.feedback import router
+from filing_qa.api.routers.feedback import router
 
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    import src.rag_system.api.routers.feedback as fb_module
+    import filing_qa.api.routers.feedback as fb_module
 
     monkeypatch.setattr(fb_module, "_FEEDBACK_PATH", tmp_path / "feedback.jsonl")
     app = FastAPI()

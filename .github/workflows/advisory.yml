@@ -85,6 +85,7 @@ jobs:
         env:
           ENVIRONMENT: testing
           VECTOR_STORE_CONFIG__PROVIDER: memory
+          PYTHONPATH: src
         continue-on-error: true   # no LLM key in CI; see the header comment
 
       - name: Upload eval report

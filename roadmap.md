@@ -53,7 +53,7 @@
 - [x] Streaming answers: `POST /api/v1/query/stream` (SSE) and `query_stream()`, with native
       token streaming for OpenAI and Gemini (#17). Guardrails run after the last token
 - [ ] LangGraph agentic flow (analyze → retrieve → verify → calculate → synthesize → guard).
-      *Implemented in `src/rag_system/agentic/`, but not reachable from the API, CLI or
+      *Implemented in `src/filing_qa/agentic/`, but not reachable from the API, CLI or
       pipeline, and `ENABLE_LANGGRAPH_AGENTIC` is defined but never read.*
 
 ### Embeddings & caching

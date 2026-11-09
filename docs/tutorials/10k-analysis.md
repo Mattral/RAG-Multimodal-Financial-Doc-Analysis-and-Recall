@@ -2,7 +2,7 @@
 
 ```python
 import asyncio
-from src.rag_system.sdk import RAGPipeline
+from filing_qa.sdk import RAGPipeline
 
 async def main():
     pipeline = await RAGPipeline.create(tenant_id="analysis")
@@ -17,7 +17,7 @@ asyncio.run(main())
 
 ## PoT Calculator
 ```python
-from src.rag_system.components.pot_executor import PoTExecutor
+from filing_qa.components.pot_executor import PoTExecutor
 executor = PoTExecutor()
 result = await executor.execute_template("cagr", v_initial=8.77, v_final=23.35, n_years=3)
 print(f"Revenue CAGR: {result.formatted(1)}%")  # 38.7%

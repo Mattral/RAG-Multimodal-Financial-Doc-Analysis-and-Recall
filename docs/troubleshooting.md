@@ -59,7 +59,7 @@ docker compose logs rag-api
 ## Query Issues
 
 ### Answers are empty / `No context found`
-1. Check documents were ingested: `rag-financial health`
+1. Check documents were ingested: `filing-qa health`
 2. Verify `VECTOR_STORE_CONFIG__DATASET_PATH` points to same location used during ingest
 3. Try `RETRIEVER_CONFIG__STRATEGY=dense` to bypass BM25 for debugging
 
@@ -114,7 +114,7 @@ redis-cli -u $CACHE_CONFIG__REDIS_URL ping
 
 **5. Check vector store connectivity.**
 ```bash
-rag-financial health
+filing-qa health
 # Look for "vector_store: error: ..." in the output
 ```
 

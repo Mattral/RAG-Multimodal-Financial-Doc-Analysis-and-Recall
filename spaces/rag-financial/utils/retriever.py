@@ -1,6 +1,6 @@
 """utils/retriever.py — Embedding, FAISS indexing, and hybrid BM25+dense retrieval.
 
-Mirrors src/rag_system/components/retriever/__init__.py's HybridRetriever:
+Mirrors src/filing_qa/components/retriever/__init__.py's HybridRetriever:
 RRF fusion (k=60, dense x 0.7 + BM25 x 0.3).
 """
 from __future__ import annotations

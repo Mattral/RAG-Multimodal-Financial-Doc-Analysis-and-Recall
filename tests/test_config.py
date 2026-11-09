@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from src.rag_system.config import (
+from filing_qa.config import (
     CacheConfig,
     Config,
     LLMConfig,
@@ -192,7 +192,7 @@ class TestMainConfig:
         assert c.is_debug is True
 
     def test_missing_api_key_raises(self, monkeypatch):
-        from src.rag_system.utils.exceptions import ConfigurationError
+        from filing_qa.utils.exceptions import ConfigurationError
 
         # conftest.py sets OPENAI_API_KEY session-wide for the rest of the
         # suite; clear it here to verify the genuinely-missing-key path.

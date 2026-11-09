@@ -2,7 +2,7 @@
 
 from typer.testing import CliRunner
 
-from src.rag_system.cli import app
+from filing_qa.cli import app
 
 runner = CliRunner()
 

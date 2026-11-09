@@ -1,7 +1,7 @@
 """Unit tests for the layout-aware semantic chunker."""
 
-from src.rag_system.components.base import DocumentElement
-from src.rag_system.components.layout_parser import (
+from filing_qa.components.base import DocumentElement
+from filing_qa.components.layout_parser import (
     LayoutAwareParser,
     LayoutChunk,
     _wrap_figure,
