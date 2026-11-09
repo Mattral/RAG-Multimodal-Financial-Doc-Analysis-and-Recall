@@ -28,6 +28,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from filing_qa.api.errors import error_response
 from filing_qa.api.middleware.auth import APIKeyMiddleware, log_auth_startup_status
 from filing_qa.api.routers import (
     documents,
@@ -193,17 +194,7 @@ def create_app() -> FastAPI:
     # ── Global exception handler ───────────────────────────────────────────────
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-        logger.error(
-            "unhandled_exception",
-            path=request.url.path,
-            method=request.method,
-            error_type=type(exc).__name__,
-            error=str(exc)[:300],
-        )
-        return JSONResponse(
-            status_code=500,
-            content={"error": "internal_server_error", "detail": str(exc)[:200]},
-        )
+        return error_response(request, "internal_error", "unhandled_exception", exc)
 
     # ── Routers ───────────────────────────────────────────────────────────────
     app.include_router(health.router, tags=["Health"])

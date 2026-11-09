@@ -281,7 +281,11 @@ def test_stream_endpoint_reports_errors_as_an_event():
     with _client(pipeline) as client:
         response = client.post("/api/v1/query/stream", json={"query": "q"})
     events = _parse_sse(response.text)
-    assert events[-1] == {"event": "error", "data": {"error": "generator exploded"}}
+    assert events[-1]["event"] == "error"
+    data = events[-1]["data"]
+    assert data["code"] == "query_failed"
+    assert data["request_id"]
+    assert "generator exploded" not in response.text
 
 
 def test_stream_endpoint_without_pipeline_returns_503():

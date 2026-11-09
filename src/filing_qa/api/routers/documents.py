@@ -12,6 +12,8 @@ import structlog
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from filing_qa.api.errors import error_response
+
 router = APIRouter()
 logger = structlog.get_logger(__name__)
 
@@ -27,8 +29,7 @@ async def list_documents(request: Request, tenant_id: Optional[str] = None):
         docs = await pipeline.list_documents(tenant_id=effective_tenant)
         return {"tenant_id": effective_tenant, "total": len(docs), "documents": docs}
     except Exception as exc:
-        logger.error("list_documents_failed", error=str(exc))
-        return JSONResponse(status_code=500, content={"error": str(exc)})
+        return error_response(request, "document_list_failed", "list_documents_failed", exc)
 
 
 @router.delete("/documents/{doc_id:path}", summary="GDPR/CCPA soft-delete a document")
@@ -42,5 +43,4 @@ async def delete_document(request: Request, doc_id: str, tenant_id: Optional[str
         result = await pipeline.delete_document(doc_id, tenant_id=effective_tenant)
         return result
     except Exception as exc:
-        logger.error("delete_document_failed", doc_id=doc_id, error=str(exc))
-        return JSONResponse(status_code=500, content={"error": str(exc)})
+        return error_response(request, "document_delete_failed", "delete_document_failed", exc)

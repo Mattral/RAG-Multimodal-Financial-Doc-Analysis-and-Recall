@@ -326,3 +326,83 @@ async def test_pow_rejections(code, fragment):
     assert not result.success
     assert fragment in result.error
     assert time.perf_counter() - start < 1.0
+
+
+# ── Builtin argument bounds ───────────────────────────────────────────────────
+# round() with a huge negative ndigits computes 10**abs(ndigits) inside CPython while
+# holding the GIL: round(5, -10**7) stalled the event loop for seconds and was then
+# reported as a timeout; -10**8 ran for minutes. Each probe must be rejected before
+# any builtin runs.
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "code, fragment",
+    [
+        ("result = round(5, -10**8)", "ndigits"),
+        ("result = round(10**999, -10**9)", "ndigits"),
+        ("result = round(5, ndigits=-10**8)", "ndigits"),
+        ("result = round(1.5, 10**9)", "ndigits"),
+        ("result = pow(2, 10**6)", "Exponent too large"),
+        ("result = pow(base=3, exp=10**7)", "Exponent too large"),
+    ],
+)
+async def test_builtin_argument_probes_fail_fast(code, fragment):
+    import time
+
+    start = time.perf_counter()
+    result = await PoTExecutor(timeout_seconds=5).execute_code(code)
+    elapsed = time.perf_counter() - start
+    assert not result.success
+    assert fragment in result.error
+    assert elapsed < 0.010, f"took {elapsed * 1000:.1f} ms"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "code, expected",
+    [
+        ("result = round(1234.5678, -2)", 1200.0),
+        ("result = round(2.675, 20)", 2.675),
+        ("result = round(10 / 3, -20)", 0.0),
+        ("result = round(7.6)", 8.0),
+        ("result = sum([1, 2], 10)", 13.0),
+        ("result = sum([1, 2], start=10)", 13.0),
+        ("result = int(7.9) + float(2)", 9.0),
+        ("result = min(3, 1, 2) + max([4, 9])", 10.0),
+    ],
+)
+async def test_builtin_bounded_call_forms(code, expected):
+    result = await PoTExecutor().execute_code(code)
+    assert result.success, result.error
+    assert result.result == pytest.approx(expected)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "code, fragment",
+    [
+        ("result = round(5, 21)", "ndigits"),
+        ("result = round(5, -21)", "ndigits"),
+        ("result = round(5, 2.0)", "ndigits"),
+        ("result = round(5, 1, 2)", "round()"),
+        ("result = round(5, digits=2)", "round()"),
+        ("result = int(7.9, 2)", "int()"),
+        ("result = int([1])", "int()"),
+        ("result = float([1.0])", "float()"),
+        ("result = abs([1])", "abs()"),
+        ("result = len(5)", "len()"),
+        ("result = sum(5)", "sum()"),
+        ("result = sum([1], [2])", "sum()"),
+        ("result = min()", "min()"),
+        ("result = min([])", "min()"),
+        ("result = max([1], [2])", "max()"),
+        ("result = max(1, 2, key=3)", "max()"),
+        ("x = 2\nresult = abs(**x)", "**"),
+        ("result = len([" + ", ".join(["1"] * 1001) + "])", "too long"),
+    ],
+)
+async def test_builtin_argument_rejections(code, fragment):
+    result = await PoTExecutor().execute_code(code)
+    assert not result.success
+    assert fragment in result.error, result.error
