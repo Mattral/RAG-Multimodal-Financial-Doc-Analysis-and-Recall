@@ -5,7 +5,7 @@ agentic RAG pipeline with comparative retrieval and PoT calculations.
 
 ## Setup
 ```bash
-rag-financial ingest earnings_q1_2022.pdf earnings_q2_2022.pdf \
+filing-qa ingest earnings_q1_2022.pdf earnings_q2_2022.pdf \
   earnings_q3_2022.pdf earnings_q4_2022.pdf \
   earnings_q1_2023.pdf earnings_q2_2023.pdf \
   earnings_q3_2023.pdf earnings_q4_2023.pdf \
@@ -16,7 +16,7 @@ rag-financial ingest earnings_q1_2022.pdf earnings_q2_2022.pdf \
 
 ### Margin anomaly
 ```bash
-rag-financial query \
+filing-qa query \
   "Identify any quarters where gross margin deviated more than 3 percentage \
    points from the 8-quarter average. Cite exact page and table." \
   --tenant anomaly_detection --top-k 16
@@ -25,8 +25,8 @@ rag-financial query \
 ## Python SDK with PoT
 ```python
 import asyncio
-from src.rag_system.sdk import RAGPipeline
-from src.rag_system.components.pot_executor import PoTExecutor
+from filing_qa.sdk import RAGPipeline
+from filing_qa.components.pot_executor import PoTExecutor
 
 async def detect_margin_anomaly():
     pipeline = await RAGPipeline.create(tenant_id="anomaly_detection")
@@ -53,7 +53,7 @@ asyncio.run(detect_margin_anomaly())
 ## Agentic mode
 ```bash
 ENABLE_LANGGRAPH_AGENTIC=true \
-rag-financial query \
+filing-qa query \
   "Identify and flag all numeric anomalies in revenue and margin data across all ingested quarters." \
   --tenant anomaly_detection --top-k 20
 ```

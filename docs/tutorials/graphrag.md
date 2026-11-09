@@ -45,7 +45,7 @@ unchanged.
 import os
 os.environ["ENABLE_KNOWLEDGE_GRAPH"] = "true"
 
-from src.rag_system.pipeline import RAGPipeline
+from filing_qa.pipeline import RAGPipeline
 
 pipeline = await RAGPipeline.create()            # retriever is wrapped automatically
 result = await pipeline.ingest(["tesla_10k.pdf"], tenant_id="acme")
@@ -58,7 +58,7 @@ answer = await pipeline.query("What was Tesla's gross margin in Q3 2023?", tenan
 The pieces can also be used directly:
 
 ```python
-from src.rag_system.components.knowledge_graph import (
+from filing_qa.components.knowledge_graph import (
     EntityExtractor, GraphAugmentedRetriever, InMemoryGraphStore,
 )
 
@@ -103,7 +103,7 @@ python -m evals.retrieval_benchmark --chunk-size 4000 \
 ## Limitations
 
 * **In memory only.** The graph is rebuilt by ingest and lost on restart. With the CLI,
-  `rag-financial ingest` and `rag-financial query` are separate processes, so the query sees an
+  `filing-qa ingest` and `filing-qa query` are separate processes, so the query sees an
   empty graph and silently falls back to hybrid retrieval. Use it from a long-running process
   (the API server or the SDK) until a persistent store (Neo4j, Kuzu, or a saved graph) is added.
 * **Ingest cost.** One LLM call per element. On the benchmark filings that came to roughly

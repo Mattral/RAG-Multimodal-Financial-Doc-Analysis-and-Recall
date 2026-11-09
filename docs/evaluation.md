@@ -15,7 +15,7 @@ python scripts/verify_golden_dataset.py                  # evidence vs. primary 
 ## Full pipeline eval (RAGAS + LLM judge)
 
 ```bash
-rag-financial evaluate --dataset evals/golden_datasets/financial_qa.jsonl --fail-on-regression
+filing-qa evaluate --dataset evals/golden_datasets/financial_qa.jsonl --fail-on-regression
 ```
 
 | Metric | Threshold |

@@ -33,7 +33,7 @@ from rich.table import Table
 from filing_qa.utils.logger import setup_logging
 
 app = typer.Typer(
-    name="rag-financial",
+    name="filing-qa",
     help="🏦 Enterprise Multimodal RAG for Financial Documents",
     pretty_exceptions_show_locals=False,
     rich_markup_mode="rich",

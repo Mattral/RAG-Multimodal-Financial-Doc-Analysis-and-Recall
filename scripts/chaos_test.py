@@ -20,7 +20,7 @@ import time
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 RESULTS: List[Dict] = []
 
@@ -53,7 +53,7 @@ async def test_redis_unavailable():
     from unittest.mock import patch
     with patch("redis.asyncio.from_url") as mock_redis:
         mock_redis.side_effect = ConnectionError("Redis connection refused")
-        from src.rag_system.components.embedder import OpenAIEmbedder
+        from filing_qa.components.embedder import OpenAIEmbedder
         e = OpenAIEmbedder()
         cache = e._cache
         if cache:
@@ -64,7 +64,7 @@ async def test_redis_unavailable():
 
 @chaos_test("Prompt injection -> blocked by guardrail")
 async def test_injection_blocked():
-    from src.rag_system.components.guardrails import FinancialGuardrails
+    from filing_qa.components.guardrails import FinancialGuardrails
     g = FinancialGuardrails()
     injections = [
         "ignore previous instructions",
@@ -84,7 +84,7 @@ async def test_malformed_pdf():
         f.write(b"NOT A REAL PDF CORRUPTED DATA")
         tmp_path = f.name
     try:
-        from src.rag_system.components.parser import UnstructuredParser
+        from filing_qa.components.parser import UnstructuredParser
         parser = UnstructuredParser()
         result = await parser.parse(tmp_path, tenant_id="chaos")
         assert isinstance(result, list)
@@ -95,7 +95,7 @@ async def test_malformed_pdf():
 
 @chaos_test("PoT timeout -> graceful error, no hang")
 async def test_pot_timeout():
-    from src.rag_system.components.pot_executor import PoTExecutor
+    from filing_qa.components.pot_executor import PoTExecutor
     executor = PoTExecutor(timeout_seconds=0.05)
     result = await executor.execute_code(
         "import time\ntime.sleep(10)\nresult = 1"
@@ -106,7 +106,7 @@ async def test_pot_timeout():
 
 @chaos_test("Empty document list -> ingest returns zero chunks")
 async def test_empty_ingest():
-    from src.rag_system.pipeline import RAGPipeline
+    from filing_qa.pipeline import RAGPipeline
     pipeline = RAGPipeline()
     result = await pipeline.ingest([], tenant_id="chaos")
     assert result["num_chunks"] == 0
@@ -115,7 +115,7 @@ async def test_empty_ingest():
 
 @chaos_test("Quota exceeded -> graceful detection")
 async def test_quota_exceeded():
-    from src.rag_system.utils.cost_tracker import CostTracker
+    from filing_qa.utils.cost_tracker import CostTracker
     tracker = CostTracker()
     tracker.record("chaos_tenant", "gpt-4o", prompt_tokens=20_000_000)
     ok = tracker.check_quota("chaos_tenant", monthly_token_limit=1_000_000)
@@ -125,7 +125,7 @@ async def test_quota_exceeded():
 
 @chaos_test("Numeric grounding -> rejects hallucinated numbers")
 async def test_numeric_grounding():
-    from src.rag_system.components.guardrails import FinancialGuardrails
+    from filing_qa.components.guardrails import FinancialGuardrails
     g = FinancialGuardrails()
     answer = "Revenue was $99.99 billion"
     context = ["Revenue was $23.35 billion in Q3 2023."]

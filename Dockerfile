@@ -70,10 +70,10 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 
 EXPOSE 8000 8001
 
-ENV PYTHONPATH=/app \
+ENV PYTHONPATH=/app/src \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     ENVIRONMENT=production
 
-CMD ["uvicorn", "src.rag_system.api.app:create_app", \
+CMD ["uvicorn", "filing_qa.api.app:create_app", \
      "--factory", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

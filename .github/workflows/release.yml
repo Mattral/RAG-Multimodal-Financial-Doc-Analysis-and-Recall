@@ -114,7 +114,7 @@ jobs:
     needs: github-release
     environment:
       name: pypi
-      url: https://pypi.org/project/rag-financial-multimodal/
+      url: https://pypi.org/project/filing-qa/
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

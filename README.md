@@ -89,8 +89,8 @@ final `done` event ([REST API docs](docs/api/rest.md#streaming-answers-post-apiv
 Or use the CLI:
 ```bash
 pip install -e ".[all]"
-rag-financial ingest tesla_10k.pdf --tenant demo
-rag-financial query "What was Q3 revenue?" --tenant demo --show-sources
+filing-qa ingest tesla_10k.pdf --tenant demo
+filing-qa query "What was Q3 revenue?" --tenant demo --show-sources
 ```
 
 ---
@@ -165,7 +165,7 @@ note, in [BENCHMARK_RESULTS.md section 4](BENCHMARK_RESULTS.md#4-previously-publ
 The only measured latency so far is generation alone, from the answer eval: p50 3.0 s,
 p95 5.0 s with `gemini-3.8-flash`. `tests/load/locustfile.py`
 and `scripts/benchmark.py` can measure them against a running deployment. The SLO targets
-(p99 < 8 s, < 1% errors) are configured in `src/rag_system/config.py` and the alerting rules.
+(p99 < 8 s, < 1% errors) are configured in `src/filing_qa/config.py` and the alerting rules.
 
 ---
 
@@ -261,7 +261,7 @@ python app.py
 ```
 
 Bring your own OpenAI or Google Gemini API key (Gemini has a free tier). The Space mirrors
-`src/rag_system/`'s hybrid retrieval + guardrail logic in a self-contained form with full
+`src/filing_qa/`'s hybrid retrieval + guardrail logic in a self-contained form with full
 pipeline transparency — see exactly how each answer was retrieved and generated.
 
 ---
@@ -269,7 +269,7 @@ pipeline transparency — see exactly how each answer was retrieved and generate
 ## Repository Structure
 
 ```
-src/rag_system/
+src/filing_qa/
 ├── api/          FastAPI app, routers (ingest/query/documents/tenants/feedback)
 ├── agentic/      LangGraph multi-step reasoning with self-correction loop
 ├── cli.py        Typer CLI (ingest, query, evaluate, serve, health)

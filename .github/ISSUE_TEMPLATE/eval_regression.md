@@ -24,7 +24,7 @@ assignees: ''
 
 ## Reproduction
 ```bash
-rag-financial evaluate --dataset evals/golden_datasets/financial_qa.jsonl --output report.json
+filing-qa evaluate --dataset evals/golden_datasets/financial_qa.jsonl --output report.json
 ```
 
 ## Proposed Fix

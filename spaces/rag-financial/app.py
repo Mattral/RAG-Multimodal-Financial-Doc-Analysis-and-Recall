@@ -8,7 +8,7 @@ gemini-2.0-flash and the gemini-1.5-* family in favor of the 2.5/3.x
 generations. See utils/generator.py for the full pricing/model table.
 
 GitHub: https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall
-Full source of truth: src/rag_system/ in the same repository.
+Full source of truth: src/filing_qa/ in the same repository.
 """
 from __future__ import annotations
 
@@ -247,7 +247,7 @@ def _fmt_pipeline(retrieval_steps, gen: GenerationResult) -> str:
         "```\nscore(d) = 0.7 / (60 + dense_rank(d) + 1)\n"
         "         + 0.3 / (60 + bm25_rank(d)  + 1)\n```\n\n"
         "k=60 per Cormack et al. (2009). "
-        f"[See production implementation →]({GITHUB_URL}/blob/main/src/rag_system/components/retriever/__init__.py)"
+        f"[See production implementation →]({GITHUB_URL}/blob/main/src/filing_qa/components/retriever/__init__.py)"
     )
     return md
 
@@ -265,7 +265,7 @@ def _fmt_guardrails(g: GuardrailResult) -> str:
         "| Injection detection | Regex pattern matching | Jailbreak attempts |\n"
         "| PII redaction | Regex (SSN, IBAN, CUSIP, ISIN, card, email, phone) | Accidental PII |\n"
         "| Numeric grounding | Extract all numbers → verify each appears in context | Hallucinated figures |\n\n"
-        f"[Production implementation →]({GITHUB_URL}/blob/main/src/rag_system/components/guardrails/__init__.py)"
+        f"[Production implementation →]({GITHUB_URL}/blob/main/src/filing_qa/components/guardrails/__init__.py)"
     )
     return md
 
@@ -326,7 +326,7 @@ def create_demo() -> gr.Blocks:
 | **Numeric grounding guardrail** | Every number verified against source text — hallucinations flagged |
 | **PII + injection protection** | SSNs, IBANs, CUSIPs redacted; prompt injection blocked |
 | **Page-level citations** | Every claim maps to a specific document and page number |
-| **Enterprise codebase** | This demo mirrors [`src/rag_system/`]({GITHUB_URL}/tree/main/src/rag_system) |
+| **Enterprise codebase** | This demo mirrors [`src/filing_qa/`]({GITHUB_URL}/tree/main/src/filing_qa) |
 """)
 
         gr.Markdown("---")
@@ -449,7 +449,7 @@ PDF
 whichever Gemini generation is currently GA. See `utils/generator.py`
 for the full model/pricing table.
 
-**This demo mirrors [`src/rag_system/`]({GITHUB_URL}/tree/main/src/rag_system).**
+**This demo mirrors [`src/filing_qa/`]({GITHUB_URL}/tree/main/src/filing_qa).**
 The full enterprise system additionally includes: multi-tenancy · pgvector/Qdrant ·
 Redis semantic cache · LangGraph agentic flow · Program-of-Thought calculator ·
 OpenTelemetry · Prometheus/Grafana · Kubernetes · Terraform · RAGAS evaluation · 520+ tests.

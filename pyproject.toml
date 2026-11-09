@@ -3,7 +3,7 @@ requires = ["poetry-core>=1.8.0"]
 build-backend = "poetry.core.masonry.api"
 
 [project]
-name = "rag-financial-multimodal"
+name = "filing-qa"
 version = "2.0.0"
 description = "Enterprise-grade multimodal RAG system for financial document analysis"
 readme = "README.md"
@@ -21,11 +21,11 @@ classifiers = [
 ]
 
 [tool.poetry]
-name = "rag-financial-multimodal"
+name = "filing-qa"
 version = "2.0.0"
 description = "Enterprise-grade multimodal RAG system for financial document analysis"
 authors = ["RAG Financial Team <team@example.com>"]
-packages = [{ include = "rag_system", from = "src" }]
+packages = [{ include = "filing_qa", from = "src" }]
 
 # ── Core runtime ────────────────────────────────────────────────────────────
 [tool.poetry.dependencies]
@@ -58,6 +58,9 @@ python-multipart = "^0.0.9"
 
 # CLI
 typer         = { extras = ["all"], version = "^0.12.0" }
+# typer 0.12 breaks on click>=8.2 (`make_metavar() missing ctx` on --help). Cap until
+# P1-1 moves to current typer.
+click         = ">=8.1.7,<8.2"
 rich          = "^13.7.0"
 
 # Observability
@@ -86,12 +89,12 @@ ragas         = { version = "^0.1.9", optional = true }
 datasets      = { version = "^2.19.0", optional = true }
 
 [tool.poetry.extras]
-# pip install "rag-financial-multimodal[api]"
-# pip install "rag-financial-multimodal[enterprise]"
-# pip install "rag-financial-multimodal[eval]"
-# pip install "rag-financial-multimodal[graph]"
-# pip install "rag-financial-multimodal[agentic]"
-# pip install "rag-financial-multimodal[all]"
+# pip install "filing-qa[api]"
+# pip install "filing-qa[enterprise]"
+# pip install "filing-qa[eval]"
+# pip install "filing-qa[graph]"
+# pip install "filing-qa[agentic]"
+# pip install "filing-qa[all]"
 api        = []
 enterprise = ["presidio-analyzer", "presidio-anonymizer", "sentence-transformers", "cohere"]
 pii        = ["presidio-analyzer", "presidio-anonymizer"]
@@ -120,7 +123,7 @@ types-redis       = "^4.6.0"
 locust = "^2.28.0"
 
 [tool.poetry.scripts]
-rag-financial = "src.rag_system.cli:main_cli"
+filing-qa = "filing_qa.cli:main_cli"
 
 # ── Tool configs ─────────────────────────────────────────────────────────────
 [tool.black]
@@ -129,9 +132,11 @@ target-version = ["py311"]
 
 [tool.isort]
 profile = "black"
+known_first_party = ["filing_qa"]
 line_length = 100
 
 [tool.ruff]
+src = ["src", "."]
 line-length = 100
 target-version = "py311"
 
@@ -154,7 +159,7 @@ ignore = ["E501", "B008", "UP006", "UP007", "UP035", "UP045", "UP042"]
 [tool.mypy]
 python_version = "3.11"
 plugins = ["pydantic.mypy"]
-mypy_path = "."
+mypy_path = "src"
 explicit_package_bases = true
 strict = true
 warn_return_any = true
@@ -174,12 +179,13 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths       = ["tests"]
+pythonpath      = ["src"]
 asyncio_mode    = "auto"
 addopts         = """
   --strict-markers
   --tb=short
   -v
-  --cov=src/rag_system
+  --cov=src/filing_qa
   --cov-report=term-missing
   --cov-report=html:htmlcov
   --cov-report=xml:coverage.xml
@@ -197,7 +203,7 @@ filterwarnings = [
 ]
 
 [tool.coverage.run]
-source    = ["src/rag_system"]
+source    = ["src/filing_qa"]
 omit      = ["*/tests/*", "*/__pycache__/*", "*/migrations/*"]
 branch    = true
 

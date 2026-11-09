@@ -27,7 +27,7 @@ cp .env.example .env   # set OPENAI_API_KEY
    ```bash
    ruff check src/ tests/          # lint
    black --check src/ tests/       # formatting
-   mypy src/rag_system/config.py   # types
+   mypy src/filing_qa/config.py   # types
    pytest tests/unit/ -v           # unit tests
    pytest tests/integration/ -v    # integration tests
    ```
@@ -49,7 +49,7 @@ cp .env.example .env   # set OPENAI_API_KEY
 
 ### Example: Adding a new vector store backend
 
-1. **Implement the ABC** in `src/rag_system/components/vector_store/__init__.py`:
+1. **Implement the ABC** in `src/filing_qa/components/vector_store/__init__.py`:
    ```python
    class MyVectorStore(BaseVectorStore):
        @property
@@ -110,7 +110,7 @@ High-quality eval samples are critical. To add new ones:
      "tags": ["revenue", "yoy", "quarterly"]
    }
    ```
-4. Run `rag-financial evaluate` to confirm the new sample doesn't regress metrics.
+4. Run `filing-qa evaluate` to confirm the new sample doesn't regress metrics.
 
 ## Reporting Issues
 

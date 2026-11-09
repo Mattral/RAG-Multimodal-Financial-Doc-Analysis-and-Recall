@@ -44,11 +44,11 @@ from evals.sources import (
     normalize,
     source_urls,
 )
-from src.rag_system.components.embedder import LocalEmbedder
-from src.rag_system.components.evaluator import _parse_numbers, numeric_recall
-from src.rag_system.components.generator import build_generator
-from src.rag_system.components.retriever import BM25Index, _reciprocal_rank_fusion
-from src.rag_system.config import RetrieverConfig, get_config
+from filing_qa.components.embedder import LocalEmbedder
+from filing_qa.components.evaluator import _parse_numbers, numeric_recall
+from filing_qa.components.generator import build_generator
+from filing_qa.components.retriever import BM25Index, _reciprocal_rank_fusion
+from filing_qa.config import RetrieverConfig, get_config
 
 _CITED_DOC_RE = re.compile(r"Source(?: \d+)?:\s*([\w.\-]+\.pdf)", re.I)
 _ABSTAIN_RE = re.compile(r"not available in the provided documents", re.I)

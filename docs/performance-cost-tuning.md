@@ -73,7 +73,7 @@ VISION_CONFIG__PROVIDER=gemini
 
 ### 3. Skip vision for text-only documents
 ```bash
-rag-financial ingest report.pdf --no-vision
+filing-qa ingest report.pdf --no-vision
 ```
 
 ### 4. Semantic cache

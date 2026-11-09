@@ -5,6 +5,15 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Renamed
+- Package renamed and import path fixed. Old names: import `src.rag_system`, PyPI
+  `rag-financial-multimodal`, CLI `rag-financial`. New: import `filing_qa`, PyPI `filing-qa`,
+  CLI `filing-qa`. The old `src.rag_system` imports only worked from a source checkout; any
+  wheel install failed with `No module named 'src'`
+- `click` capped below 8.2 so `filing-qa --help` works with the pinned typer 0.12
+- CI: new job installs the built wheel in a clean venv and runs `import filing_qa.cli` and
+  `filing-qa --help` from outside the checkout
+
 ### CI
 - Lint gates merges: ruff, black, isort and mypy no longer run with `continue-on-error`.
   Existing findings were fixed (formatting only) and tool versions are pinned in CI

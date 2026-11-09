@@ -33,7 +33,7 @@ services:
       - VECTOR_STORE_CONFIG__DATASET_PATH=/app/data/vectorstore/rag_financial
       - SECURITY_CONFIG__AUDIT_LOG_PATH=/app/audit_logs
       - LOGGING_CONFIG__LEVEL=INFO
-      - PYTHONPATH=/app
+      - PYTHONPATH=/app/src
     volumes:
       - rag_data:/app/data
       - audit_logs:/app/audit_logs

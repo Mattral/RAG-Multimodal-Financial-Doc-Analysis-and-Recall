@@ -32,11 +32,11 @@ async def _run(args: argparse.Namespace) -> dict:
     Returns:
         Evaluation report dictionary.
     """
-    from src.rag_system.components.evaluator import (
+    from filing_qa.components.evaluator import (
         GoldenDatasetRunner,
         RagasEvaluator,
     )
-    from src.rag_system.pipeline import create_pipeline
+    from filing_qa.pipeline import create_pipeline
 
     pipeline = await create_pipeline()
     evaluator = RagasEvaluator()

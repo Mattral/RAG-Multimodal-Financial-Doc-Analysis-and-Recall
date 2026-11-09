@@ -17,7 +17,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 
 async def run_benchmark(modes: List[str], sample_limit: int) -> List[Dict[str, Any]]:
@@ -48,8 +48,8 @@ async def run_benchmark(modes: List[str], sample_limit: int) -> List[Dict[str, A
                         "latencies_ms": [], "costs_usd": []}
 
         try:
-            from src.rag_system.config import reset_config
-            from src.rag_system.pipeline import create_pipeline
+            from filing_qa.config import reset_config
+            from filing_qa.pipeline import create_pipeline
             reset_config()
             pipeline = await create_pipeline()
 

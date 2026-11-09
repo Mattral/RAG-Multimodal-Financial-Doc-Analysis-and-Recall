@@ -27,7 +27,7 @@ import httpx
 
 from evals.retrieval_benchmark import chunk_text
 from evals.sources import DEFAULT_CACHE, extract_text, fetch, load_provenance, source_urls
-from src.rag_system.components.knowledge_graph import EntityExtractor
+from filing_qa.components.knowledge_graph import EntityExtractor
 
 
 def benchmark_chunks(chunk_size: int, overlap: int, cache_dir: Path):

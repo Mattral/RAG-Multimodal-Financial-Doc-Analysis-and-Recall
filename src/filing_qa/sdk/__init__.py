@@ -2,7 +2,7 @@
 
 Provides a clean, importable interface for programmatic use:
 
-    from rag_financial import RAGPipeline
+    from filing_qa.sdk import RAGPipeline
     pipeline = await RAGPipeline.from_config("config.yaml", tenant_id="acme")
     await pipeline.ingest(["report.pdf"])
     answer = await pipeline.query("What was Q3 revenue?")
