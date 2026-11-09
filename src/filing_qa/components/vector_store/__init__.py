@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 import structlog
 
 from filing_qa.components.base import BaseVectorStore, DocumentElement, RetrievedChunk
+from filing_qa.components.vector_store._deps import require_package
 from filing_qa.config import get_config
 
 logger = structlog.get_logger(__name__)
@@ -20,6 +21,7 @@ class DeepLakeVectorStoreAdapter(BaseVectorStore):
     """DeepLake vector store with tenant-namespaced datasets."""
 
     def __init__(self) -> None:
+        require_package("deeplake", "deeplake", "pip install 'deeplake>=3.9,<4'")
         self._cfg = get_config().vector_store_config
         self._stores: Dict[str, Any] = {}
 
@@ -75,8 +77,6 @@ class DeepLakeVectorStoreAdapter(BaseVectorStore):
                 ds.content_hash.extend([e.content_hash or "" for e in elements])
                 ds.tenant_id.extend([e.tenant_id or "" for e in elements])
             logger.info("deeplake_upsert_complete", path=path, num_elements=len(elements))
-        except ImportError:
-            logger.warning("deeplake_not_installed", detail="pip install deeplake")
         except Exception as exc:
             logger.error("deeplake_upsert_failed", error=str(exc))
             raise
