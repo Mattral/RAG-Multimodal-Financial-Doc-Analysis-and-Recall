@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from src.rag_system.components.connectors import (
+from filing_qa.components.connectors import (
     DiscoveredDocument,
     LocalFilesystemConnector,
 )

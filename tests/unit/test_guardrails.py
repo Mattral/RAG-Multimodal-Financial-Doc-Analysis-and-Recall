@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.rag_system.components.guardrails import FinancialGuardrails, PIIRedactor
+from filing_qa.components.guardrails import FinancialGuardrails, PIIRedactor
 
 
 @pytest.mark.parametrize(

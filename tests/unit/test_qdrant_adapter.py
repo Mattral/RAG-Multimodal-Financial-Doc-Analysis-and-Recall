@@ -6,14 +6,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.rag_system.components.base import DocumentElement
-from src.rag_system.components.vector_store.qdrant_adapter import QdrantAdapter
+from filing_qa.components.base import DocumentElement
+from filing_qa.components.vector_store.qdrant_adapter import QdrantAdapter
 
 
 @pytest.fixture
 def adapter(monkeypatch):
     monkeypatch.setenv("VECTOR_STORE_CONFIG__QDRANT_URL", "http://localhost:6333")
-    from src.rag_system.config import reset_config
+    from filing_qa.config import reset_config
 
     reset_config()
     a = QdrantAdapter()
@@ -40,7 +40,7 @@ class TestQdrantAdapterUnit:
 
     def test_get_url_from_env(self, monkeypatch):
         monkeypatch.setenv("VECTOR_STORE_CONFIG__QDRANT_URL", "http://custom:6333")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         a = QdrantAdapter()
@@ -153,10 +153,10 @@ class TestQdrantAdapterUnit:
     def test_factory_builds_qdrant(self, monkeypatch):
         monkeypatch.setenv("VECTOR_STORE_CONFIG__PROVIDER", "qdrant")
         monkeypatch.setenv("VECTOR_STORE_CONFIG__QDRANT_URL", "http://localhost:6333")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
-        from src.rag_system.components.vector_store import build_vector_store
+        from filing_qa.components.vector_store import build_vector_store
 
         store = build_vector_store("qdrant")
         assert isinstance(store, QdrantAdapter)

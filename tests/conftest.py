@@ -25,7 +25,7 @@ os.environ.setdefault("SECURITY_CONFIG__ENABLE_PII_REDACTION", "false")
 os.environ.setdefault("SECURITY_CONFIG__ENABLE_GUARDRAILS", "false")
 
 # Tests must not pick up a developer's local .env (real API keys, provider choices).
-from src.rag_system.config import Config  # noqa: E402
+from filing_qa.config import Config  # noqa: E402
 
 Config.model_config["env_file"] = None
 
@@ -39,7 +39,7 @@ def event_loop_policy():
 # ── Config reset between tests ─────────────────────────────────────────────────
 @pytest.fixture(autouse=True)
 def reset_config():
-    from src.rag_system.config import reset_config as _reset
+    from filing_qa.config import reset_config as _reset
 
     _reset()
     yield
@@ -49,7 +49,7 @@ def reset_config():
 # ── Shared data fixtures ──────────────────────────────────────────────────────
 @pytest.fixture
 def sample_document_element():
-    from src.rag_system.components.base import DocumentElement
+    from filing_qa.components.base import DocumentElement
 
     return DocumentElement(
         type="text",
@@ -64,7 +64,7 @@ def sample_document_element():
 
 @pytest.fixture
 def sample_table_element():
-    from src.rag_system.components.base import DocumentElement
+    from filing_qa.components.base import DocumentElement
 
     return DocumentElement(
         type="table",
@@ -78,7 +78,7 @@ def sample_table_element():
 
 @pytest.fixture
 def sample_graph_element():
-    from src.rag_system.components.base import DocumentElement
+    from filing_qa.components.base import DocumentElement
 
     return DocumentElement(
         type="graph",
@@ -93,7 +93,7 @@ def sample_graph_element():
 
 @pytest.fixture
 def sample_chunks():
-    from src.rag_system.components.base import RetrievedChunk
+    from filing_qa.components.base import RetrievedChunk
 
     return [
         RetrievedChunk(
@@ -122,7 +122,7 @@ def sample_chunks():
 
 @pytest.fixture
 def sample_generated_answer(sample_chunks):
-    from src.rag_system.components.base import GeneratedAnswer
+    from filing_qa.components.base import GeneratedAnswer
 
     return GeneratedAnswer(
         answer="Tesla's Q3 2023 revenue was $23.35 billion [Source: tesla_10q_q3_2023.pdf, Page 4], with a gross margin of 17.9% [Source: tesla_10q_q3_2023.pdf, Page 5].",
@@ -166,7 +166,7 @@ def mock_parser(sample_document_element, sample_table_element):
 
 @pytest.fixture
 async def in_memory_vector_store():
-    from src.rag_system.components.vector_store import InMemoryVectorStore
+    from filing_qa.components.vector_store import InMemoryVectorStore
 
     store = InMemoryVectorStore()
     await store.initialize(tenant_id="test_tenant")
@@ -175,7 +175,7 @@ async def in_memory_vector_store():
 
 @pytest.fixture
 def bm25_index(sample_chunks):
-    from src.rag_system.components.retriever import BM25Index
+    from filing_qa.components.retriever import BM25Index
 
     idx = BM25Index()
     idx.build(sample_chunks)
@@ -185,8 +185,8 @@ def bm25_index(sample_chunks):
 @pytest.fixture
 async def minimal_pipeline():
     """Minimal pipeline with in-memory components — no external deps."""
-    from src.rag_system.components.vector_store import InMemoryVectorStore
-    from src.rag_system.pipeline import RAGPipeline
+    from filing_qa.components.vector_store import InMemoryVectorStore
+    from filing_qa.pipeline import RAGPipeline
 
     store = InMemoryVectorStore()
     await store.initialize("test_tenant")

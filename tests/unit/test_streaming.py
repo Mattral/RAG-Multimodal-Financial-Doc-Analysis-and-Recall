@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from src.rag_system.components.base import BaseGenerator, GeneratedAnswer, RetrievedChunk
+from filing_qa.components.base import BaseGenerator, GeneratedAnswer, RetrievedChunk
 
 
 def _chunk(text: str = "Tesla Q3 2023 revenue was $23,350 million.") -> RetrievedChunk:
@@ -68,7 +68,7 @@ async def test_default_generate_stream_yields_text_then_answer():
 
 
 async def test_openai_generate_stream_parses_sse_and_usage(mock_http):
-    from src.rag_system.components.generator import OpenAIGenerator
+    from filing_qa.components.generator import OpenAIGenerator
 
     seen, handlers = mock_http
     body = _sse_body(
@@ -95,7 +95,7 @@ async def test_openai_generate_stream_parses_sse_and_usage(mock_http):
 
 
 async def test_openai_stream_falls_back_to_non_streaming_on_429(mock_http):
-    from src.rag_system.components.generator import OpenAIGenerator
+    from filing_qa.components.generator import OpenAIGenerator
 
     seen, handlers = mock_http
 
@@ -123,8 +123,8 @@ async def test_openai_stream_falls_back_to_non_streaming_on_429(mock_http):
 
 
 async def test_gemini_generate_stream_skips_thoughts_and_uses_header_key(mock_http, monkeypatch):
-    from src.rag_system.components.generator import GeminiGenerator
-    from src.rag_system.config import reset_config
+    from filing_qa.components.generator import GeminiGenerator
+    from filing_qa.config import reset_config
 
     monkeypatch.setenv("GOOGLE_API_KEY", "test-google-key")
     monkeypatch.setenv("LLM_CONFIG__MODEL", "gemini-3.8-flash")
@@ -180,7 +180,7 @@ class _StreamingGenerator(BaseGenerator):
 
 
 def _pipeline(generator=None, analyzer=None):
-    from src.rag_system.pipeline import RAGPipeline
+    from filing_qa.pipeline import RAGPipeline
 
     retriever = MagicMock()
     retriever.retrieve = AsyncMock(return_value=[_chunk()])
@@ -244,7 +244,7 @@ def _parse_sse(text: str) -> List[Dict[str, Any]]:
 def _client(pipeline):
     from fastapi.testclient import TestClient
 
-    from src.rag_system.api.app import create_app
+    from filing_qa.api.app import create_app
 
     app = create_app()
     app.state.pipeline = pipeline

@@ -9,7 +9,7 @@ import pytest
 
 class TestGCSConnectorInit:
     def test_defaults(self):
-        from src.rag_system.components.connectors.gcs_connector import GCSConnector
+        from filing_qa.components.connectors.gcs_connector import GCSConnector
 
         c = GCSConnector(bucket="my-bucket")
         assert c._bucket_name == "my-bucket"
@@ -17,13 +17,13 @@ class TestGCSConnectorInit:
         assert c._prefix == ""
 
     def test_custom_extensions(self):
-        from src.rag_system.components.connectors.gcs_connector import GCSConnector
+        from filing_qa.components.connectors.gcs_connector import GCSConnector
 
         c = GCSConnector(bucket="b", extensions=[".docx", ".txt"])
         assert c._extensions == [".docx", ".txt"]
 
     def test_check_deps_false_without_library(self):
-        from src.rag_system.components.connectors.gcs_connector import GCSConnector
+        from filing_qa.components.connectors.gcs_connector import GCSConnector
 
         c = GCSConnector(bucket="b")
         with patch.dict(
@@ -35,7 +35,7 @@ class TestGCSConnectorInit:
 class TestGCSConnectorListUris:
     @pytest.mark.asyncio
     async def test_returns_empty_without_deps(self):
-        from src.rag_system.components.connectors.gcs_connector import GCSConnector
+        from filing_qa.components.connectors.gcs_connector import GCSConnector
 
         c = GCSConnector(bucket="b")
         with patch.object(c, "_check_deps", return_value=False):
@@ -43,7 +43,7 @@ class TestGCSConnectorListUris:
 
     @pytest.mark.asyncio
     async def test_filters_by_extension_and_skips_directories(self):
-        from src.rag_system.components.connectors.gcs_connector import GCSConnector
+        from filing_qa.components.connectors.gcs_connector import GCSConnector
 
         c = GCSConnector(bucket="filings", extensions=[".pdf"])
 
@@ -74,7 +74,7 @@ class TestGCSConnectorListUris:
 class TestGCSConnectorStream:
     @pytest.mark.asyncio
     async def test_yields_nothing_without_deps(self):
-        from src.rag_system.components.connectors.gcs_connector import GCSConnector
+        from filing_qa.components.connectors.gcs_connector import GCSConnector
 
         c = GCSConnector(bucket="b")
         docs = []
@@ -84,7 +84,7 @@ class TestGCSConnectorStream:
         assert docs == []
 
     def test_discovered_doc_metadata_structure(self):
-        from src.rag_system.components.connectors import DiscoveredDocument
+        from filing_qa.components.connectors import DiscoveredDocument
 
         doc = DiscoveredDocument(
             source_uri="gs://bucket/tesla.pdf",
@@ -98,6 +98,6 @@ class TestGCSConnectorStream:
         assert doc.source_uri.startswith("gs://")
 
     def test_exported_from_package(self):
-        from src.rag_system.components.connectors import GCSConnector
+        from filing_qa.components.connectors import GCSConnector
 
         assert GCSConnector is not None

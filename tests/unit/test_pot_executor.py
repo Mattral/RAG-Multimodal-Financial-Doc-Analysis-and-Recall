@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.rag_system.components.pot_executor import (
+from filing_qa.components.pot_executor import (
     ASTSandboxValidator,
     PoTExecutor,
     PoTResult,

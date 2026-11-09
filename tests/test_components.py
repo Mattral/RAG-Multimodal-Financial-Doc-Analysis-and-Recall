@@ -10,7 +10,7 @@ import re
 import pytest
 from pydantic import ValidationError
 
-from src.rag_system.components.base import (
+from filing_qa.components.base import (
     BaseEmbedder,
     BaseGenerator,
     BaseParser,
@@ -21,12 +21,12 @@ from src.rag_system.components.base import (
     GeneratedAnswer,
     RetrievedChunk,
 )
-from src.rag_system.components.layout_parser import (
+from filing_qa.components.layout_parser import (
     LayoutAwareParser,
     _wrap_figure,
     _wrap_table,
 )
-from src.rag_system.components.pot_executor import (
+from filing_qa.components.pot_executor import (
     FINANCIAL_TEMPLATES,
     ASTSandboxValidator,
     PoTExecutor,
@@ -224,7 +224,7 @@ class TestLayoutParserComponents:
         assert parser.parse([]) == []
 
     def test_parser_handles_all_element_types(self):
-        from src.rag_system.components.base import DocumentElement
+        from filing_qa.components.base import DocumentElement
 
         elements = [
             DocumentElement(
@@ -255,7 +255,7 @@ class TestLayoutParserComponents:
         assert len(chunks) >= 3  # At minimum text, table, graph chunks
 
     def test_to_document_elements_has_html_in_text(self):
-        from src.rag_system.components.base import DocumentElement
+        from filing_qa.components.base import DocumentElement
 
         elements = [
             DocumentElement(

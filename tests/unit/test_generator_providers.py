@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.rag_system.components.base import RetrievedChunk
-from src.rag_system.components.generator import (
+from filing_qa.components.base import RetrievedChunk
+from filing_qa.components.generator import (
     AnthropicGenerator,
     GeminiGenerator,
     LocalVLLMGenerator,
@@ -21,7 +21,7 @@ from src.rag_system.components.generator import (
     _is_complex_query,
     build_generator,
 )
-from src.rag_system.utils.exceptions import ConfigurationError
+from filing_qa.utils.exceptions import ConfigurationError
 
 
 @pytest.fixture
@@ -142,7 +142,7 @@ class TestOpenAIGenerator:
     @pytest.mark.asyncio
     async def test_generate_success(self, sample_chunks, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
 
@@ -171,7 +171,7 @@ class TestOpenAIGenerator:
 
     def test_name_property(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         gen = OpenAIGenerator()
@@ -267,7 +267,7 @@ class TestGeminiGenerator:
 
 class TestAnthropicGenerator:
     def test_missing_api_key_raises(self):
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         gen = AnthropicGenerator()
@@ -278,7 +278,7 @@ class TestAnthropicGenerator:
     @pytest.mark.asyncio
     async def test_generate_success(self, sample_chunks, monkeypatch):
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
 

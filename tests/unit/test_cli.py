@@ -1,4 +1,4 @@
-"""Tests for src/rag_system/cli.py + compat shims — previously 0% covered."""
+"""Tests for src/filing_qa/cli.py + compat shims — previously 0% covered."""
 
 from __future__ import annotations
 
@@ -7,10 +7,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from src.rag_system.cli import app
+from filing_qa.cli import app
 
 runner = CliRunner()
-PATCH = "src.rag_system.pipeline.create_pipeline"
+PATCH = "filing_qa.pipeline.create_pipeline"
 
 
 def _pipeline():
@@ -155,7 +155,7 @@ class TestEvaluateCommand:
         mock_runner_cls.return_value.run = AsyncMock(side_effect=FileNotFoundError("not found"))
         with (
             patch(PATCH, AsyncMock(return_value=_pipeline())),
-            patch("src.rag_system.components.evaluator.GoldenDatasetRunner", mock_runner_cls),
+            patch("filing_qa.components.evaluator.GoldenDatasetRunner", mock_runner_cls),
         ):
             result = runner.invoke(app, ["evaluate", "--dataset", str(tmp_path / "nope.jsonl")])
         assert result.exit_code != 0
@@ -188,7 +188,7 @@ class TestEvaluateCommand:
         mock_runner_cls.return_value.run = AsyncMock(return_value=mock_report)
         with (
             patch(PATCH, AsyncMock(return_value=_pipeline())),
-            patch("src.rag_system.components.evaluator.GoldenDatasetRunner", mock_runner_cls),
+            patch("filing_qa.components.evaluator.GoldenDatasetRunner", mock_runner_cls),
         ):
             result = runner.invoke(app, ["evaluate", "--dataset", str(dataset)])
         assert result.exit_code in (0, 1)
@@ -196,17 +196,17 @@ class TestEvaluateCommand:
 
 class TestCompatibilityShims:
     def test_pdf_parser_shim(self):
-        from src.rag_system.components.pdf_parser import PDFParser, build_parser
+        from filing_qa.components.pdf_parser import PDFParser, build_parser
 
         assert PDFParser is not None and callable(build_parser)
 
     def test_vector_indexer_shim(self):
-        from src.rag_system.components.vector_indexer import VectorIndexer, build_vector_store
+        from filing_qa.components.vector_indexer import VectorIndexer, build_vector_store
 
         assert VectorIndexer is not None and callable(build_vector_store)
 
     def test_vision_processor_shim(self):
-        from src.rag_system.components.vision_processor import (
+        from filing_qa.components.vision_processor import (
             VisionProcessor,
             build_vision_describer,
         )

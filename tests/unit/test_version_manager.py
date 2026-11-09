@@ -4,7 +4,7 @@ from datetime import UTC
 
 import pytest
 
-from src.rag_system.components.version_manager import (
+from filing_qa.components.version_manager import (
     DocumentVersion,
     DocumentVersionManager,
     _content_hash,

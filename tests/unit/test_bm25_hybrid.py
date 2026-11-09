@@ -7,11 +7,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.rag_system.components.base import DocumentElement, RetrievedChunk
-from src.rag_system.components.retriever import BM25Index, HybridRetriever
-from src.rag_system.components.vector_store import InMemoryVectorStore
-from src.rag_system.components.version_manager import DocumentVersionManager
-from src.rag_system.pipeline import RAGPipeline
+from filing_qa.components.base import DocumentElement, RetrievedChunk
+from filing_qa.components.retriever import BM25Index, HybridRetriever
+from filing_qa.components.vector_store import InMemoryVectorStore
+from filing_qa.components.version_manager import DocumentVersionManager
+from filing_qa.pipeline import RAGPipeline
 
 # ── Fixtures ──────────────────────────────────────────────────────────────
 

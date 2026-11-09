@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.rag_system.utils.semantic_cache import (
+from filing_qa.utils.semantic_cache import (
     SemanticQueryCache,
     _cosine_similarity,
     build_semantic_cache,
@@ -259,7 +259,7 @@ class TestBuildSemanticCacheFactory:
     def test_reads_from_global_config_when_none_passed(self, monkeypatch):
         monkeypatch.setenv("CACHE_CONFIG__SEMANTIC_CACHE_ENABLED", "true")
         monkeypatch.setenv("CACHE_CONFIG__ENABLED", "true")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         result = build_semantic_cache()

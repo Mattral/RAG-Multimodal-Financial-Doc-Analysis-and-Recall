@@ -6,15 +6,15 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.rag_system.components.base import GeneratedAnswer, RetrievedChunk
-from src.rag_system.components.generator import FINANCIAL_RAG_SYSTEM_PROMPT
-from src.rag_system.components.pot_executor import (
+from filing_qa.components.base import GeneratedAnswer, RetrievedChunk
+from filing_qa.components.generator import FINANCIAL_RAG_SYSTEM_PROMPT
+from filing_qa.components.pot_executor import (
     POT_CODEGEN_SYSTEM_PROMPT,
     POT_NO_CALCULATION,
     PoTExecutor,
     PoTResult,
 )
-from src.rag_system.pipeline import RAGPipeline
+from filing_qa.pipeline import RAGPipeline
 
 NUMERIC_QUERY = "Calculate the 3-year revenue CAGR"
 

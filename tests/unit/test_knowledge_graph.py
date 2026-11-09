@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.rag_system.components.knowledge_graph import (
+from filing_qa.components.knowledge_graph import (
     Entity,
     EntityExtractor,
     GraphAugmentedRetriever,
@@ -113,7 +113,7 @@ class TestEntityExtractorReal:
     @pytest.mark.asyncio
     async def test_well_formed_response_parsed(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         body = json.dumps(
@@ -148,7 +148,7 @@ class TestEntityExtractorReal:
         import httpx
 
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         with patch("httpx.AsyncClient") as mock_cls:
@@ -162,7 +162,7 @@ class TestEntityExtractorReal:
     @pytest.mark.asyncio
     async def test_malformed_json_returns_empty(self, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         mock_resp = MagicMock()

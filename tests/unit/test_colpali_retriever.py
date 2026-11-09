@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.rag_system.components.colpali_retriever import (
+from filing_qa.components.colpali_retriever import (
     ColPaliRetriever,
     PageEmbedding,
     _maxsim,

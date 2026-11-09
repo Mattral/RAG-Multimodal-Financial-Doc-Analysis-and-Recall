@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.rag_system.components.base import RetrievedChunk
-from src.rag_system.components.knowledge_graph import (
+from filing_qa.components.base import RetrievedChunk
+from filing_qa.components.knowledge_graph import (
     Entity,
     EntityExtractor,
     GraphAugmentedRetriever,
@@ -199,7 +199,7 @@ class TestGraphAugmentedRetrieval:
 
 
 def test_weighted_rrf_defaults_to_equal_weights():
-    from src.rag_system.components.retriever import _reciprocal_rank_fusion
+    from filing_qa.components.retriever import _reciprocal_rank_fusion
 
     a, b = [_chunk("a", "A")], [_chunk("b", "B")]
     assert [c.chunk_id for c in _reciprocal_rank_fusion([a, b], k=60)][0] == "a"  # stable tie
@@ -231,7 +231,7 @@ class TestExtractorParsingAndProviders:
 
     @pytest.mark.asyncio
     async def test_uses_gemini_when_configured(self, monkeypatch):
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         monkeypatch.setenv("LLM_CONFIG__PROVIDER", "gemini")
         monkeypatch.setenv("LLM_CONFIG__MODEL", "gemini-3.8-flash")
@@ -271,9 +271,9 @@ def _mock_store():
 class TestPipelineWiring:
     @pytest.mark.asyncio
     async def test_ingest_builds_graph_and_retriever_is_wrapped(self, monkeypatch, tmp_path):
-        from src.rag_system.components.base import DocumentElement
-        from src.rag_system.config import reset_config
-        from src.rag_system.pipeline import RAGPipeline
+        from filing_qa.components.base import DocumentElement
+        from filing_qa.config import reset_config
+        from filing_qa.pipeline import RAGPipeline
 
         monkeypatch.setenv("ENABLE_KNOWLEDGE_GRAPH", "true")
         reset_config()
@@ -296,8 +296,8 @@ class TestPipelineWiring:
         base_retriever.name = "hybrid_rrf_retriever"
 
         with (
-            patch("src.rag_system.components.parser.build_parser", return_value=parser),
-            patch("src.rag_system.components.vision.build_vision_describer", return_value=None),
+            patch("filing_qa.components.parser.build_parser", return_value=parser),
+            patch("filing_qa.components.vision.build_vision_describer", return_value=None),
         ):
             pipeline = await RAGPipeline.create(
                 embedder=embedder,
@@ -318,15 +318,15 @@ class TestPipelineWiring:
 
     @pytest.mark.asyncio
     async def test_flag_off_leaves_retriever_unwrapped(self, monkeypatch):
-        from src.rag_system.config import reset_config
-        from src.rag_system.pipeline import RAGPipeline
+        from filing_qa.config import reset_config
+        from filing_qa.pipeline import RAGPipeline
 
         monkeypatch.delenv("ENABLE_KNOWLEDGE_GRAPH", raising=False)
         reset_config()
         base_retriever = MagicMock()
         with (
-            patch("src.rag_system.components.parser.build_parser", return_value=MagicMock()),
-            patch("src.rag_system.components.vision.build_vision_describer", return_value=None),
+            patch("filing_qa.components.parser.build_parser", return_value=MagicMock()),
+            patch("filing_qa.components.vision.build_vision_describer", return_value=None),
         ):
             pipeline = await RAGPipeline.create(
                 embedder=MagicMock(),

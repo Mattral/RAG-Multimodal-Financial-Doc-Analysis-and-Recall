@@ -83,7 +83,7 @@ def mock_pipeline():
 
 @pytest.fixture
 def client(mock_pipeline):
-    from src.rag_system.api.app import create_app
+    from filing_qa.api.app import create_app
 
     app = create_app()
     app.state.pipeline = mock_pipeline
@@ -111,7 +111,7 @@ class TestHealthEndpoints:
         assert data["status"] == "healthy"
 
     def test_readiness_without_pipeline(self):
-        from src.rag_system.api.app import create_app
+        from filing_qa.api.app import create_app
 
         app = create_app()
         app.state.pipeline = None
@@ -148,7 +148,7 @@ class TestQueryEndpoint:
         assert resp.status_code == 422
 
     def test_query_without_pipeline_returns_503(self):
-        from src.rag_system.api.app import create_app
+        from filing_qa.api.app import create_app
 
         app = create_app()
         app.state.pipeline = None
@@ -174,7 +174,7 @@ class TestDocumentsEndpoint:
 
 class TestFeedbackEndpoint:
     def test_submit_feedback(self, client, tmp_path, monkeypatch):
-        import src.rag_system.api.routers.feedback as fb
+        import filing_qa.api.routers.feedback as fb
 
         monkeypatch.setattr(fb, "_FEEDBACK_PATH", tmp_path / "fb.jsonl")
         resp = client.post(

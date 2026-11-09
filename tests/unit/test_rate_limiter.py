@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.rag_system.utils.exceptions import APIRateLimitError
-from src.rag_system.utils.rate_limiter import AsyncRateLimiter, RedisRateLimiter, TokenBucket
+from filing_qa.utils.exceptions import APIRateLimitError
+from filing_qa.utils.rate_limiter import AsyncRateLimiter, RedisRateLimiter, TokenBucket
 
 
 class TestTokenBucket:

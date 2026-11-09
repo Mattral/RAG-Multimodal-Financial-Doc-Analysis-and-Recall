@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from src.rag_system.config import Config, reset_config
+from filing_qa.config import Config, reset_config
 
 
 def test_env_override_llm_model(monkeypatch):

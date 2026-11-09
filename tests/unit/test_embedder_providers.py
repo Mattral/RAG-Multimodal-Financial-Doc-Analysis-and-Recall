@@ -11,14 +11,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.rag_system.components.embedder import (
+from filing_qa.components.embedder import (
     CohereEmbedder,
     LocalEmbedder,
     OpenAIEmbedder,
     VoyageEmbedder,
     build_embedder,
 )
-from src.rag_system.utils.exceptions import ConfigurationError
+from filing_qa.utils.exceptions import ConfigurationError
 
 # ── Factory: explicit provider argument ───────────────────────────────────────
 
@@ -55,7 +55,7 @@ class TestBuildEmbedderFactoryExplicit:
 class TestBuildEmbedderFactoryInference:
     def test_infers_voyage_from_model_name(self, monkeypatch):
         monkeypatch.setenv("VECTOR_STORE_CONFIG__EMBEDDING_MODEL", "voyage-finance-2")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         emb = build_embedder()  # no explicit provider -> infer from model name
@@ -64,7 +64,7 @@ class TestBuildEmbedderFactoryInference:
 
     def test_infers_cohere_from_model_name(self, monkeypatch):
         monkeypatch.setenv("VECTOR_STORE_CONFIG__EMBEDDING_MODEL", "embed-english-v3.0")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         emb = build_embedder()
@@ -73,7 +73,7 @@ class TestBuildEmbedderFactoryInference:
 
     def test_infers_local_from_bge_model_name(self, monkeypatch):
         monkeypatch.setenv("VECTOR_STORE_CONFIG__EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         emb = build_embedder()
@@ -82,7 +82,7 @@ class TestBuildEmbedderFactoryInference:
 
     def test_defaults_to_openai_for_openai_model_name(self, monkeypatch):
         monkeypatch.setenv("VECTOR_STORE_CONFIG__EMBEDDING_MODEL", "text-embedding-3-small")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         emb = build_embedder()
@@ -92,10 +92,10 @@ class TestBuildEmbedderFactoryInference:
     def test_explicit_embedding_provider_field_takes_precedence(self, monkeypatch):
         # Even if the model name looks OpenAI-ish, an explicit provider field wins
         monkeypatch.setenv("VECTOR_STORE_CONFIG__EMBEDDING_PROVIDER", "local")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
-        from src.rag_system.config import get_config
+        from filing_qa.config import get_config
 
         cfg = get_config()
         emb = build_embedder(cfg.vector_store_config.embedding_provider)
@@ -109,7 +109,7 @@ class TestBuildEmbedderFactoryInference:
 class TestVoyageEmbedder:
     def test_missing_api_key_raises(self, monkeypatch):
         monkeypatch.delenv("VOYAGE_API_KEY", raising=False)
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         emb = VoyageEmbedder()
@@ -130,7 +130,7 @@ class TestVoyageEmbedder:
     async def test_embed_success(self, monkeypatch):
         monkeypatch.setenv("VOYAGE_API_KEY", "test-voyage-key")
         monkeypatch.setenv("CACHE_CONFIG__BACKEND", "memory")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
 
@@ -157,7 +157,7 @@ class TestVoyageEmbedder:
     @pytest.mark.asyncio
     async def test_embed_query_returns_single_vector(self, monkeypatch):
         monkeypatch.setenv("VOYAGE_API_KEY", "test-voyage-key")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
 
@@ -185,7 +185,7 @@ class TestVoyageEmbedder:
 class TestCohereEmbedder:
     def test_missing_api_key_raises(self, monkeypatch):
         monkeypatch.delenv("COHERE_API_KEY", raising=False)
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         emb = CohereEmbedder()
@@ -204,7 +204,7 @@ class TestCohereEmbedder:
     @pytest.mark.asyncio
     async def test_embed_uses_search_document_input_type(self, monkeypatch):
         monkeypatch.setenv("COHERE_API_KEY", "test-cohere-key")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
 
@@ -235,7 +235,7 @@ class TestCohereEmbedder:
     @pytest.mark.asyncio
     async def test_embed_query_uses_search_query_input_type(self, monkeypatch):
         monkeypatch.setenv("COHERE_API_KEY", "test-cohere-key")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
 

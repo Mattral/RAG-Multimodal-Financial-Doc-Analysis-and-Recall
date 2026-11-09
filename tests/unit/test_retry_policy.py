@@ -4,12 +4,12 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from src.rag_system.utils.exceptions import (
+from filing_qa.utils.exceptions import (
     APIRateLimitError,
     MaxRetriesExceededError,
     RetryableError,
 )
-from src.rag_system.utils.retry_policy import RetryPolicy, with_retry
+from filing_qa.utils.retry_policy import RetryPolicy, with_retry
 
 
 @pytest.mark.asyncio
@@ -123,7 +123,7 @@ async def test_with_retry_decorator():
 
 @pytest.mark.asyncio
 async def test_strict_policy_no_retries():
-    from src.rag_system.utils.retry_policy import STRICT_POLICY
+    from filing_qa.utils.retry_policy import STRICT_POLICY
 
     func = AsyncMock(side_effect=RetryableError("fail"))
     with pytest.raises(MaxRetriesExceededError):

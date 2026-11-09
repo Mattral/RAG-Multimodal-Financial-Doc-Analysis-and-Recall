@@ -1,4 +1,4 @@
-"""Unit tests for src/rag_system/utils/cost_tracker.py.
+"""Unit tests for src/filing_qa/utils/cost_tracker.py.
 
 Property-based math correctness (monotonic cost, non-negative cost) is
 already covered in test_property_based.py. This file covers:
@@ -17,7 +17,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.rag_system.utils.cost_tracker import (
+from filing_qa.utils.cost_tracker import (
     _PRICING,
     CostRecord,
     CostTracker,
@@ -164,13 +164,13 @@ class TestCostTrackerTelemetryWiring:
         tracker = CostTracker()
         tracker.record("t1", "gpt-4o-mini", prompt_tokens=300)
 
-        with patch("src.rag_system.utils.telemetry.record_tenant_quota") as mock_record:
+        with patch("filing_qa.utils.telemetry.record_tenant_quota") as mock_record:
             tracker.check_quota("t1", monthly_token_limit=1000)
             mock_record.assert_called_once_with("t1", 300, 1000)
 
     def test_check_quota_publishes_zero_for_unknown_tenant(self):
         tracker = CostTracker()
-        with patch("src.rag_system.utils.telemetry.record_tenant_quota") as mock_record:
+        with patch("filing_qa.utils.telemetry.record_tenant_quota") as mock_record:
             tracker.check_quota("never_seen", monthly_token_limit=5000)
             mock_record.assert_called_once_with("never_seen", 0, 5000)
 
@@ -180,7 +180,7 @@ class TestCostTrackerTelemetryWiring:
         tracker = CostTracker()
         tracker.record("t1", "gpt-4o-mini", prompt_tokens=100)
 
-        with patch.dict("sys.modules", {"src.rag_system.utils.telemetry": None}):
+        with patch.dict("sys.modules", {"filing_qa.utils.telemetry": None}):
             # Forcing the module to None makes the lazy `from ... import`
             # inside check_quota() raise ImportError; the method must catch
             # it and still return the correct quota result.

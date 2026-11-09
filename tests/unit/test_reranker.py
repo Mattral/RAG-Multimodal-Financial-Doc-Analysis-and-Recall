@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.rag_system.components.base import RetrievedChunk
-from src.rag_system.components.reranker import (
+from filing_qa.components.base import RetrievedChunk
+from filing_qa.components.reranker import (
     CohereReranker,
     CrossEncoderReranker,
     NoOpReranker,
@@ -104,7 +104,7 @@ class TestCohereReranker:
     @pytest.mark.asyncio
     async def test_fallback_without_key(self, monkeypatch):
         monkeypatch.delenv("COHERE_API_KEY", raising=False)
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         cs = [_c("a"), _c("b"), _c("c")]
@@ -124,7 +124,7 @@ class TestCohereReranker:
     @pytest.mark.asyncio
     async def test_maps_response(self, monkeypatch):
         monkeypatch.setenv("COHERE_API_KEY", "test-key")
-        from src.rag_system.config import reset_config
+        from filing_qa.config import reset_config
 
         reset_config()
         r = CohereReranker()

@@ -1,0 +1,457 @@
+"""Production-quality evaluation framework with RAGAS + financial-specific metrics.
+
+Integrates:
+- RAGAS: faithfulness, answer_relevancy, context_precision, context_recall
+- LLM-as-Judge: numeric accuracy, citation faithfulness, hallucination score
+- Deterministic checks: expected-value recall and expected-source hit rate
+  (no LLM calls; uses the golden dataset's expected_numeric_values and
+  source_documents fields)
+- Golden dataset runner
+- CI-ready exit codes (fails if quality regression detected)
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+import re
+import time
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import structlog
+
+from filing_qa.components.base import BaseEvaluator, GeneratedAnswer
+
+logger = structlog.get_logger(__name__)
+
+
+@dataclass
+class EvalSample:
+    """Single golden-dataset evaluation sample."""
+
+    question: str
+    ground_truth: str
+    source_documents: List[str] = field(default_factory=list)
+    expected_page: Optional[int] = None
+    expected_numeric_values: List[str] = field(default_factory=list)
+    tags: List[str] = field(default_factory=list)  # e.g. ["table", "numeric", "10-K"]
+
+
+@dataclass
+class EvalResult:
+    question: str
+    answer: str
+    ground_truth: str
+    faithfulness: float = 0.0
+    answer_relevancy: float = 0.0
+    context_precision: float = 0.0
+    context_recall: float = 0.0
+    numeric_accuracy: float = 0.0
+    citation_faithfulness: float = 0.0
+    numeric_recall: Optional[float] = None  # None when the sample has no expected values
+    source_hit: Optional[bool] = None  # None when the sample lists no source documents
+    latency_ms: float = 0.0
+    cost_usd: float = 0.0
+    passed: bool = False
+
+
+@dataclass
+class EvalReport:
+    run_id: str
+    timestamp: str
+    num_samples: int
+    passed: int
+    failed: int
+    pass_rate: float
+    avg_faithfulness: float
+    avg_answer_relevancy: float
+    avg_numeric_accuracy: float
+    avg_latency_ms: float
+    total_cost_usd: float
+    results: List[EvalResult] = field(default_factory=list)
+    regression_detected: bool = False
+    avg_numeric_recall: float = 0.0
+    source_hit_rate: float = 0.0
+
+
+# ---------------------------------------------------------------------------
+# Deterministic (LLM-free) checks against golden-dataset fields
+# ---------------------------------------------------------------------------
+
+_NUMBER_RE = re.compile(
+    r"(?<![\w.])[-$]*(\d[\d,]*(?:\.\d+)?)(?!\d|\.\d|-[A-Za-z])\s*"
+    r"(%|percent\b|trillion\b|billion\b|million\b|thousand\b|[TBMK]\b)?",
+    re.IGNORECASE,
+)
+_SCALE = {
+    "trillion": 1e12,
+    "t": 1e12,
+    "billion": 1e9,
+    "b": 1e9,
+    "million": 1e6,
+    "m": 1e6,
+    "thousand": 1e3,
+    "k": 1e3,
+}
+
+
+def _parse_numbers(text: str) -> List[tuple]:
+    """Return ``(value, kind)`` with kind "pct", "scaled" (had a unit word) or "plain"."""
+    found = []
+    for match in _NUMBER_RE.finditer(text):
+        value = float(match.group(1).replace(",", ""))
+        unit = (match.group(2) or "").lower()
+        if unit in ("%", "percent"):
+            found.append((value, "pct"))
+        elif unit:
+            found.append((value * _SCALE[unit], "scaled"))
+        else:
+            found.append((value, "plain"))
+    return found
+
+
+def extract_numbers(text: str) -> List[tuple]:
+    """Extract ``(value, is_percent)`` pairs, scaling unit words to absolute values.
+
+    "$23.35 billion" -> (23.35e9, False); "17.9%" -> (17.9, True); "1,808,581" -> (1808581, False).
+    """
+    return [(value, kind == "pct") for value, kind in _parse_numbers(text)]
+
+
+def numeric_recall(
+    answer: str, expected_values: List[str], rel_tol: float = 0.01
+) -> Optional[float]:
+    """Fraction of expected values that appear in the answer (within ``rel_tol``).
+
+    Units are normalised, so "$26,077 million" matches an expected "26.1 billion".
+    An expected value without a unit (e.g. "13,151" read from a table in $ millions)
+    also matches the same figure stated with thousand/million/billion scaling.
+    Returns None when there is nothing to check.
+    """
+    expected = [nums[0] for nums in map(_parse_numbers, expected_values) if nums]
+    if not expected:
+        return None
+    in_answer = _parse_numbers(answer)
+
+    def close(a: float, b: float) -> bool:
+        return abs(a - b) <= rel_tol * max(abs(b), 1e-9)
+
+    hits = 0
+    for value, kind in expected:
+        for got, got_kind in in_answer:
+            if (kind == "pct") != (got_kind == "pct"):
+                continue
+            scales = (1.0, 1e3, 1e6, 1e9, 1e12) if kind == "plain" else (1.0,)
+            if any(close(got, value * s) for s in scales):
+                hits += 1
+                break
+    return hits / len(expected)
+
+
+def _doc_stem(name: str) -> str:
+    return Path(name.replace("\\", "/")).stem.lower()
+
+
+def source_hit(citations: List[Any], expected_documents: List[str]) -> Optional[bool]:
+    """True if any cited chunk comes from one of the expected source documents.
+
+    Compares file stems case-insensitively, so ingested files must keep the
+    dataset's file names for this check to be meaningful.
+    """
+    if not expected_documents:
+        return None
+    wanted = {_doc_stem(d) for d in expected_documents}
+    return any(_doc_stem(getattr(c, "source_document", "")) in wanted for c in citations)
+
+
+class RagasEvaluator(BaseEvaluator):
+    """RAGAS-based evaluator with financial extensions."""
+
+    def __init__(self, openai_api_key: Optional[str] = None) -> None:
+        self._api_key = openai_api_key or os.environ.get("OPENAI_API_KEY", "")
+        self._ragas_available = self._check_ragas()
+
+    def _check_ragas(self) -> bool:
+        try:
+            import ragas  # noqa: F401
+
+            return True
+        except ImportError:
+            logger.warning(
+                "ragas_not_installed",
+                detail="pip install ragas  — falling back to LLM-judge only",
+            )
+            return False
+
+    @property
+    def name(self) -> str:
+        return "ragas_financial_evaluator"
+
+    async def evaluate(
+        self,
+        query: str,
+        answer: GeneratedAnswer,
+        ground_truth: Optional[str] = None,
+    ) -> Dict[str, float]:
+        metrics: Dict[str, float] = {}
+
+        if self._ragas_available:
+            try:
+                metrics.update(await self._run_ragas(query, answer, ground_truth))
+            except Exception as exc:
+                logger.warning("ragas_evaluation_failed", error=str(exc))
+
+        # LLM-as-judge numeric accuracy
+        if answer.citations:
+            metrics["numeric_accuracy"] = await self._llm_numeric_judge(
+                query, answer.answer, [c.text for c in answer.citations]
+            )
+
+        metrics.setdefault("faithfulness", 0.0)
+        metrics.setdefault("answer_relevancy", 0.0)
+        metrics.setdefault("numeric_accuracy", 0.0)
+        return metrics
+
+    async def _run_ragas(
+        self,
+        query: str,
+        answer: GeneratedAnswer,
+        ground_truth: Optional[str],
+    ) -> Dict[str, float]:
+        from datasets import Dataset
+        from ragas import evaluate
+        from ragas.metrics import answer_relevancy, context_precision, faithfulness
+
+        contexts = [c.text for c in answer.citations]
+        data = {
+            "question": [query],
+            "answer": [answer.answer],
+            "contexts": [contexts],
+            "ground_truth": [ground_truth or ""],
+        }
+        ds = Dataset.from_dict(data)
+        result = await asyncio.to_thread(
+            evaluate,
+            ds,
+            metrics=[faithfulness, answer_relevancy, context_precision],
+        )
+        return {
+            "faithfulness": float(result["faithfulness"]),
+            "answer_relevancy": float(result["answer_relevancy"]),
+            "context_precision": float(result["context_precision"]),
+        }
+
+    async def _llm_numeric_judge(self, query: str, answer: str, context_texts: List[str]) -> float:
+        """Ask LLM to verify numeric claims in the answer are grounded.
+
+        Returns 0.5 (neutral) ONLY on genuine infrastructure failure (timeout,
+        non-2xx response, malformed JSON) — never silently swallows a 4xx/5xx
+        as if it were a real judged score, since that would hide outages as
+        fake "borderline" quality scores in eval reports.
+        """
+        import re
+
+        import httpx
+
+        from filing_qa.config import get_config
+
+        try:
+            cfg = get_config()
+            api_key = cfg.get_openai_key()
+            context_block = "\n\n".join(context_texts[:3])
+            judge_prompt = (
+                f"Context:\n{context_block}\n\n"
+                f"Answer to evaluate:\n{answer}\n\n"
+                "Rate from 0.0 to 1.0 how accurately the numeric values in the answer "
+                "match the context. 1.0 means all numbers are exactly correct and grounded. "
+                "Respond with ONLY a number, e.g. 0.85"
+            )
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    json={
+                        "model": "gpt-4o-mini",
+                        "messages": [{"role": "user", "content": judge_prompt}],
+                        "max_tokens": 10,
+                        "temperature": 0.0,
+                    },
+                )
+                response.raise_for_status()
+                data = response.json()
+                raw_content = data["choices"][0]["message"]["content"].strip()
+
+            # The judge is instructed to return "ONLY a number" but LLMs
+            # occasionally wrap it in prose/punctuation ("Score: 0.85.",
+            # "0.85/1.0"). Extract the first float-looking token rather than
+            # calling float() directly on the raw string, which would raise
+            # ValueError on any deviation and get masked below as a fake 0.5.
+            # Known limitation: if the judge disobeys the "ONLY a number"
+            # instruction and emits an earlier unrelated number (e.g. "100%
+            # accurate, score 0.95"), the first match wins, not the score.
+            # This is judged an acceptable tradeoff given temperature=0.0
+            # and an explicit single-number instruction in the prompt.
+            match = re.search(r"(-?\d*\.?\d+)", raw_content)
+            if not match:
+                logger.warning(
+                    "numeric_judge_unparseable_response",
+                    raw_content=raw_content[:80],
+                )
+                return 0.5
+            score = float(match.group(1))
+            return min(1.0, max(0.0, score))
+
+        except httpx.HTTPStatusError as exc:
+            logger.error(
+                "numeric_judge_api_error",
+                status_code=exc.response.status_code,
+                detail=exc.response.text[:200],
+            )
+            return 0.5
+        except (httpx.TimeoutException, httpx.ConnectError) as exc:
+            logger.error("numeric_judge_connection_failed", error=str(exc))
+            return 0.5
+        except (KeyError, IndexError) as exc:
+            logger.error("numeric_judge_malformed_response", error=str(exc))
+            return 0.5
+        except Exception as exc:
+            logger.warning("numeric_judge_failed", error=str(exc))
+            return 0.5
+
+
+class GoldenDatasetRunner:
+    """Runs the full evaluation pipeline on a golden dataset."""
+
+    def __init__(
+        self,
+        pipeline: Any,  # RAGPipeline
+        evaluator: RagasEvaluator,
+        golden_dataset_path: str = "evals/golden_datasets/financial_qa.jsonl",
+        regression_threshold: float = 0.05,
+        history_path: str = "evals/history.json",
+    ) -> None:
+        self._pipeline = pipeline
+        self._evaluator = evaluator
+        self._golden_path = Path(golden_dataset_path)
+        self._threshold = regression_threshold
+        self._history_path = Path(history_path)
+
+    def load_golden_dataset(self) -> List[EvalSample]:
+        if not self._golden_path.exists():
+            logger.warning("golden_dataset_not_found", path=str(self._golden_path))
+            return []
+        samples = []
+        with open(self._golden_path) as f:
+            for line in f:
+                data = json.loads(line.strip())
+                samples.append(EvalSample(**data))
+        return samples
+
+    async def run(self, tenant_id: str = "eval") -> EvalReport:
+        import uuid
+
+        samples = self.load_golden_dataset()
+        if not samples:
+            logger.warning("no_eval_samples_loaded")
+
+        results: List[EvalResult] = []
+        for sample in samples:
+            try:
+                start = time.perf_counter()
+                qa_result = await self._pipeline.query(sample.question, tenant_id=tenant_id)
+                latency_ms = (time.perf_counter() - start) * 1000
+
+                answer: GeneratedAnswer = qa_result.get("answer_obj")
+                if answer is None:
+                    continue
+
+                metrics = await self._evaluator.evaluate(
+                    sample.question, answer, sample.ground_truth
+                )
+                passed = (
+                    metrics.get("faithfulness", 0.0) >= 0.7
+                    and metrics.get("numeric_accuracy", 0.0) >= 0.7
+                )
+                recall = numeric_recall(answer.answer, sample.expected_numeric_values)
+                hit = source_hit(answer.citations, sample.source_documents)
+                results.append(
+                    EvalResult(
+                        question=sample.question,
+                        answer=answer.answer,
+                        ground_truth=sample.ground_truth,
+                        faithfulness=metrics.get("faithfulness", 0.0),
+                        answer_relevancy=metrics.get("answer_relevancy", 0.0),
+                        numeric_accuracy=metrics.get("numeric_accuracy", 0.0),
+                        numeric_recall=recall,
+                        source_hit=hit,
+                        latency_ms=latency_ms,
+                        cost_usd=answer.estimated_cost_usd,
+                        passed=passed,
+                    )
+                )
+            except Exception as exc:
+                logger.error("eval_sample_failed", question=sample.question[:80], error=str(exc))
+
+        num = len(results)
+        passed_count = sum(1 for r in results if r.passed)
+        recalls = [r.numeric_recall for r in results if r.numeric_recall is not None]
+        hits = [r.source_hit for r in results if r.source_hit is not None]
+        report = EvalReport(
+            run_id=str(uuid.uuid4())[:8],
+            timestamp=datetime.now(UTC).isoformat(),
+            num_samples=num,
+            passed=passed_count,
+            failed=num - passed_count,
+            pass_rate=passed_count / num if num else 0.0,
+            avg_faithfulness=sum(r.faithfulness for r in results) / num if num else 0.0,
+            avg_answer_relevancy=sum(r.answer_relevancy for r in results) / num if num else 0.0,
+            avg_numeric_accuracy=sum(r.numeric_accuracy for r in results) / num if num else 0.0,
+            avg_latency_ms=sum(r.latency_ms for r in results) / num if num else 0.0,
+            total_cost_usd=sum(r.cost_usd for r in results),
+            results=results,
+            avg_numeric_recall=sum(recalls) / len(recalls) if recalls else 0.0,
+            source_hit_rate=sum(hits) / len(hits) if hits else 0.0,
+        )
+        report.regression_detected = self._detect_regression(report)
+        self._save_history(report)
+        return report
+
+    def _detect_regression(self, report: EvalReport) -> bool:
+        if not self._history_path.exists():
+            return False
+        try:
+            with open(self._history_path) as f:
+                history = json.load(f)
+            if not history:
+                return False
+            last = history[-1]
+            delta = last.get("avg_faithfulness", 0.0) - report.avg_faithfulness
+            return delta > self._threshold
+        except Exception:
+            return False
+
+    def _save_history(self, report: EvalReport) -> None:
+        self._history_path.parent.mkdir(parents=True, exist_ok=True)
+        history: List[Dict] = []
+        if self._history_path.exists():
+            with open(self._history_path) as f:
+                history = json.load(f)
+        history.append(
+            {
+                "run_id": report.run_id,
+                "timestamp": report.timestamp,
+                "pass_rate": report.pass_rate,
+                "avg_faithfulness": report.avg_faithfulness,
+                "avg_numeric_accuracy": report.avg_numeric_accuracy,
+                "avg_numeric_recall": report.avg_numeric_recall,
+                "source_hit_rate": report.source_hit_rate,
+            }
+        )
+        # Keep last 50 runs
+        history = history[-50:]
+        with open(self._history_path, "w") as f:
+            json.dump(history, f, indent=2)

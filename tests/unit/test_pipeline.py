@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from src.rag_system.components.base import DocumentElement, GeneratedAnswer, RetrievedChunk
-from src.rag_system.components.guardrails import FinancialGuardrails, PIIRedactor
-from src.rag_system.utils.cost_tracker import CostRecord, CostTracker
+from filing_qa.components.base import DocumentElement, GeneratedAnswer, RetrievedChunk
+from filing_qa.components.guardrails import FinancialGuardrails, PIIRedactor
+from filing_qa.utils.cost_tracker import CostRecord, CostTracker
 
 # ── Fixtures ──────────────────────────────────────────────────────────────
 
@@ -53,7 +53,7 @@ def sample_answer(sample_chunk):
 
 
 def test_config_defaults(monkeypatch):
-    from src.rag_system.config import Config
+    from filing_qa.config import Config
 
     # conftest.py sets ENVIRONMENT=testing and disables PII redaction
     # session-wide for test speed; clear both here to verify the schema's
@@ -69,7 +69,7 @@ def test_config_defaults(monkeypatch):
 
 
 def test_config_vector_store_defaults(monkeypatch):
-    from src.rag_system.config import Config
+    from filing_qa.config import Config
 
     # conftest.py sets VECTOR_STORE_CONFIG__PROVIDER=memory session-wide;
     # clear it here to verify the schema's true default value in isolation.
@@ -80,15 +80,15 @@ def test_config_vector_store_defaults(monkeypatch):
 
 
 def test_config_is_production():
-    from src.rag_system.config import Config
+    from filing_qa.config import Config
 
     cfg = Config(environment="production")
     assert cfg.is_production is True
 
 
 def test_config_missing_api_key_raises(monkeypatch):
-    from src.rag_system.config import Config
-    from src.rag_system.utils.exceptions import ConfigurationError
+    from filing_qa.config import Config
+    from filing_qa.utils.exceptions import ConfigurationError
 
     # conftest.py sets OPENAI_API_KEY session-wide for the rest of the
     # suite; clear it here to verify the genuinely-missing-key path.
@@ -220,7 +220,7 @@ def test_guardrails_run_all_clean():
 
 @pytest.mark.asyncio
 async def test_in_memory_vector_store_upsert_search():
-    from src.rag_system.components.vector_store import InMemoryVectorStore
+    from filing_qa.components.vector_store import InMemoryVectorStore
 
     store = InMemoryVectorStore()
     await store.initialize(tenant_id="test")
@@ -241,7 +241,7 @@ async def test_in_memory_vector_store_upsert_search():
 
 @pytest.mark.asyncio
 async def test_in_memory_vector_store_tenant_isolation():
-    from src.rag_system.components.vector_store import InMemoryVectorStore
+    from filing_qa.components.vector_store import InMemoryVectorStore
 
     store = InMemoryVectorStore()
     await store.initialize("tenant_a")
@@ -274,7 +274,7 @@ async def test_in_memory_vector_store_tenant_isolation():
 
 
 def test_bm25_basic_search():
-    from src.rag_system.components.retriever import BM25Index
+    from filing_qa.components.retriever import BM25Index
 
     chunks = [
         RetrievedChunk(text="Tesla revenue Q3 earnings", score=0, source_document="a.pdf"),
@@ -289,7 +289,7 @@ def test_bm25_basic_search():
 
 
 def test_bm25_empty_index():
-    from src.rag_system.components.retriever import BM25Index
+    from filing_qa.components.retriever import BM25Index
 
     idx = BM25Index()
     idx.build([])
@@ -300,7 +300,7 @@ def test_bm25_empty_index():
 
 
 def test_audit_logger_writes_file(tmp_path):
-    from src.rag_system.utils.audit import AuditLogger
+    from filing_qa.utils.audit import AuditLogger
 
     audit = AuditLogger(backend="file", log_path=str(tmp_path))
     audit.log_ingest("acme", "tesla.pdf", num_chunks=42, parser="unstructured")
@@ -315,7 +315,7 @@ def test_audit_logger_writes_file(tmp_path):
 
 
 def test_audit_event_has_content_hash(tmp_path):
-    from src.rag_system.utils.audit import AuditLogger
+    from filing_qa.utils.audit import AuditLogger
 
     audit = AuditLogger(backend="file", log_path=str(tmp_path))
     audit.log_query("t1", "qhash", "ahash", ["doc.pdf"], "gpt-4o-mini", 1200.0, 0.001, True)
@@ -330,7 +330,7 @@ def test_audit_event_has_content_hash(tmp_path):
 
 
 def test_rrf_fusion_deduplicates():
-    from src.rag_system.components.retriever import _reciprocal_rank_fusion
+    from filing_qa.components.retriever import _reciprocal_rank_fusion
 
     chunk = RetrievedChunk(text="Shared chunk", score=0.9, source_document="doc.pdf", page_number=1)
     list1 = [chunk]
@@ -341,7 +341,7 @@ def test_rrf_fusion_deduplicates():
 
 
 def test_rrf_fusion_rank_ordering():
-    from src.rag_system.components.retriever import _reciprocal_rank_fusion
+    from filing_qa.components.retriever import _reciprocal_rank_fusion
 
     c1 = RetrievedChunk(text="Top result", score=0.95, source_document="a.pdf", page_number=1)
     c2 = RetrievedChunk(text="Lower result", score=0.5, source_document="b.pdf", page_number=2)
