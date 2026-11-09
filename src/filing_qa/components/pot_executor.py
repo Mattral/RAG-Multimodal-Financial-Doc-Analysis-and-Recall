@@ -14,8 +14,10 @@ Security model:
     subscripts, imports, function/class definitions, lambdas, loops,
     comprehensions, strings outside a leading docstring, and dunder names.
   - Resource limits: at most 2,000 AST nodes; exponents up to 1,000; integers up
-    to 4,096 bits; arithmetic only on numbers (no sequence repetition). Without
-    loops or function definitions every program finishes in bounded time.
+    to 4,096 bits; arithmetic only on numbers (no sequence repetition); lists up
+    to 1,000 items; ``round`` ndigits within +/-20. Every builtin's arguments are
+    checked before it runs. Without loops or function definitions every program
+    finishes in bounded time.
   - A timeout (``asyncio.wait_for``) remains as a backstop.
 """
 
@@ -133,6 +135,8 @@ _BLOCKED_NAMES = frozenset(
 MAX_NODES = 2000
 MAX_EXPONENT = 1000
 MAX_INT_BITS = 4096
+MAX_NDIGITS = 20
+MAX_SEQUENCE_LEN = 1000
 
 # ── Code-generation prompt ─────────────────────────────────────────────────────
 
@@ -343,11 +347,73 @@ class _Evaluator:
     def _call(self, node: ast.Call) -> Any:
         if not isinstance(node.func, ast.Name) or node.func.id not in _FUNCTIONS:
             raise ValueError("Unsupported function call")
+        if any(kw.arg is None for kw in node.keywords):
+            raise ValueError("** arguments are not supported")
+        name = node.func.id
         args = [self._argument(a) for a in node.args]
         kwargs = {kw.arg: self._number(self._expr(kw.value)) for kw in node.keywords if kw.arg}
-        if node.func.id == "pow":
+        for value in args:
+            if isinstance(value, list) and len(value) > MAX_SEQUENCE_LEN:
+                raise ValueError(f"Sequence too long (max {MAX_SEQUENCE_LEN} items)")
+        if name == "pow":
             return self._pow(args, kwargs)
-        return self._number(_FUNCTIONS[node.func.id](*args, **kwargs))
+        # Every builtin's arguments are checked here, before it runs: a builtin that
+        # loops inside C holds the GIL, so the asyncio timeout cannot interrupt it.
+        if name == "round":
+            args = self._round_args(args, kwargs)
+        elif name == "sum":
+            args = self._sum_args(args, kwargs)
+        elif name in ("min", "max"):
+            self._min_max_args(name, args, kwargs)
+        elif name == "len":
+            if kwargs or len(args) != 1 or not isinstance(args[0], list):
+                raise ValueError("len() takes one list")
+        else:  # abs, int, float
+            if kwargs or len(args) != 1 or isinstance(args[0], list):
+                raise ValueError(f"{name}() takes one number")
+        return self._number(_FUNCTIONS[name](*args))
+
+    @staticmethod
+    def _round_args(args: List[Any], kwargs: Dict[str, Any]) -> List[Any]:
+        """round(number[, ndigits]) with |ndigits| <= MAX_NDIGITS.
+
+        CPython's int round computes 10**abs(ndigits), so an unchecked negative
+        ndigits stalls the interpreter.
+        """
+        if len(args) > 2 or set(kwargs) - {"ndigits"} or (len(args) == 2 and kwargs):
+            raise ValueError("round() takes a number and an optional ndigits")
+        if not args or isinstance(args[0], list):
+            raise ValueError("round() takes a number and an optional ndigits")
+        if len(args) == 1 and "ndigits" not in kwargs:
+            return args
+        ndigits = args[1] if len(args) == 2 else kwargs["ndigits"]
+        if isinstance(ndigits, bool) or not isinstance(ndigits, int):
+            raise ValueError("round() ndigits must be an integer")
+        if abs(ndigits) > MAX_NDIGITS:
+            raise ValueError(f"round() ndigits out of range (max {MAX_NDIGITS})")
+        return [args[0], ndigits]
+
+    @staticmethod
+    def _sum_args(args: List[Any], kwargs: Dict[str, Any]) -> List[Any]:
+        """sum(list[, start]) with a numeric start."""
+        if set(kwargs) - {"start"} or len(args) + len(kwargs) not in (1, 2) or not args:
+            raise ValueError("sum() takes a list and an optional numeric start")
+        values = args[0]
+        start = args[1] if len(args) == 2 else kwargs.get("start", 0)
+        if not isinstance(values, list) or isinstance(start, list):
+            raise ValueError("sum() takes a list and an optional numeric start")
+        return [values, start]
+
+    @staticmethod
+    def _min_max_args(name: str, args: List[Any], kwargs: Dict[str, Any]) -> None:
+        """min/max over one non-empty list, or over two or more numbers."""
+        if kwargs:
+            raise ValueError(f"{name}() takes no keyword arguments")
+        if len(args) == 1 and isinstance(args[0], list) and args[0]:
+            return
+        if len(args) >= 2 and not any(isinstance(a, list) for a in args):
+            return
+        raise ValueError(f"{name}() takes one non-empty list or two or more numbers")
 
     def _pow(self, args: List[Any], kwargs: Dict[str, Any]) -> Any:
         """pow(base, exp[, mod]) with the same limits as ``**``, however it is called."""
