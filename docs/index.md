@@ -27,8 +27,8 @@
 ## Quickstart
 
 ```bash
-git clone https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall
-cd RAG-Multimodal-Financial-Doc-Analysis-and-Recall
+git clone https://github.com/Mattral/filing-qa
+cd filing-qa
 cp .env.example .env
 docker compose up -d
 curl -X POST http://localhost:8000/api/v1/ingest -F "file=@your_10k.pdf"
@@ -49,14 +49,14 @@ See [Quickstart → Docker](quickstart/docker.md) for the full walkthrough.
 
 * **Golden dataset:** 119 QA pairs over 16 public filings from 10 companies, every figure
   traced to its source passage. See the
-  [dataset README](https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/blob/main/evals/golden_datasets/README.md).
+  [dataset README](https://github.com/Mattral/filing-qa/blob/main/evals/golden_datasets/README.md).
 * **Retrieval, measured offline on the real filings:** hybrid RRF puts an answer-bearing chunk in
   the top 5 for 71% of questions at the default 4,000-character chunks, the same as BM25 alone.
   With 1,000-character chunks it reaches 53% versus 42% for BM25.
 * **Answer quality (all 119 questions, `gemini-3.8-flash`):** the asked-for figure was stated in
   68% of answers (84% when retrieval found the supporting text), and no fabricated numbers were
   found. Latency under load and cost are not yet measured, and earlier figures were withdrawn. See
-  [BENCHMARK_RESULTS.md](https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/blob/main/BENCHMARK_RESULTS.md).
+  [BENCHMARK_RESULTS.md](https://github.com/Mattral/filing-qa/blob/main/BENCHMARK_RESULTS.md).
 
 ---
 

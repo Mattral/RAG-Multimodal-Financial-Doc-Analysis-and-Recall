@@ -4,7 +4,7 @@
 ```bash
 docker run -e OPENAI_API_KEY=sk-... \
   -p 8000:8000 -p 8001:8001 \
-  ghcr.io/your-org/rag-financial-multimodal:2.0.0
+  ghcr.io/mattral/filing-qa:latest
 ```
 
 ## Full stack with docker compose

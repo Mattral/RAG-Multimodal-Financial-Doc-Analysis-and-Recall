@@ -20,6 +20,12 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
+[project.urls]
+Homepage = "https://github.com/Mattral/filing-qa"
+Repository = "https://github.com/Mattral/filing-qa"
+Issues = "https://github.com/Mattral/filing-qa/issues"
+Changelog = "https://github.com/Mattral/filing-qa/blob/main/CHANGELOG.md"
+
 [tool.poetry]
 name = "filing-qa"
 version = "2.0.0"

@@ -91,7 +91,7 @@ is 7 questions gained and 5 lost. Factual lookups improved (0.68 → 0.75) and t
 worse (0.85 → 0.77). The defaults were chosen on half of the questions and confirmed on the
 other half, where the gain was a single question. Treat it as optional, low-risk and unproven.
 Details are in the knowledge-graph section of
-[BENCHMARK_RESULTS.md](https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall/blob/main/BENCHMARK_RESULTS.md).
+[BENCHMARK_RESULTS.md](https://github.com/Mattral/filing-qa/blob/main/BENCHMARK_RESULTS.md).
 To reproduce (one LLM call per chunk, cached and resumable):
 
 ```bash

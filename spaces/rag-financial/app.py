@@ -7,7 +7,7 @@ Model currency (v2.0): defaults to gemini-2.5-flash — Google retired
 gemini-2.0-flash and the gemini-1.5-* family in favor of the 2.5/3.x
 generations. See utils/generator.py for the full pricing/model table.
 
-GitHub: https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall
+GitHub: https://github.com/Mattral/filing-qa
 Full source of truth: src/filing_qa/ in the same repository.
 """
 from __future__ import annotations
@@ -66,7 +66,7 @@ CUSTOM_CSS = """
 .tab-nav { font-weight: 600; }
 """
 
-GITHUB_URL = "https://github.com/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall"
+GITHUB_URL = "https://github.com/Mattral/filing-qa"
 
 
 # ── Vision helper ─────────────────────────────────────────────────────────────
@@ -311,7 +311,7 @@ def create_demo() -> gr.Blocks:
 **Production-grade document intelligence** — charts · tables · hybrid retrieval · numeric guardrails · source citations
 
 [![GitHub](https://img.shields.io/badge/GitHub-Codebase-181717?logo=github&style=flat-square)]({GITHUB_URL})
-[![Stars](https://img.shields.io/github/stars/Mattral/RAG-Multimodal-Financial-Doc-Analysis-and-Recall?style=social)]({GITHUB_URL})
+[![Stars](https://img.shields.io/github/stars/Mattral/filing-qa?style=social)]({GITHUB_URL})
 
 > Upload a 10-K, 10-Q, or earnings release PDF. Ask a question. Get a grounded, cited answer.
 > Every number in the answer is cross-checked against the source.

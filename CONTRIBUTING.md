@@ -5,8 +5,8 @@ Thank you for your interest in contributing to RAG Financial Multimodal!
 ## Quick Start for Contributors
 
 ```bash
-git clone https://github.com/your-org/rag-financial-multimodal
-cd rag-financial-multimodal
+git clone https://github.com/Mattral/filing-qa
+cd filing-qa
 python3.11 -m venv .venv && source .venv/bin/activate
 pip install -e ".[all]"
 pip install pytest pytest-asyncio pytest-cov pytest-mock black ruff mypy
