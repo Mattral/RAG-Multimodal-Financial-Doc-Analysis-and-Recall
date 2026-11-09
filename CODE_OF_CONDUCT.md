@@ -22,7 +22,7 @@ We as members, contributors, and leaders pledge to make participation in this pr
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behaviour may be reported to the project team at **conduct@your-org.com**. All complaints will be reviewed and investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behaviour may be reported to the maintainer, [Mattral](https://github.com/Mattral), or to GitHub using the **Report content** option on the comment, issue or pull request ([GitHub's reporting guide](https://docs.github.com/en/communities/maintaining-your-safety-on-github/reporting-abuse-or-spam)). All complaints will be reviewed and investigated promptly and fairly.
 
 Project maintainers have the right and responsibility to remove, edit, or reject comments, commits, code, issues, and other contributions that are not aligned with this Code of Conduct.
 
