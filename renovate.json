@@ -19,10 +19,10 @@
     }
   ],
   "ignorePaths": [".venv/**", "htmlcov/**"],
-  "pip_requirements": {
-    "fileMatch": ["requirements\\.txt$"]
+  "pep621": {
+    "enabled": true
   },
-  "poetry": {
+  "lockFileMaintenance": {
     "enabled": true
   }
 }

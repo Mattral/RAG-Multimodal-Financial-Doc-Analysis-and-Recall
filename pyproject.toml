@@ -1,6 +1,6 @@
 [build-system]
-requires = ["poetry-core>=1.8.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
 
 [project]
 name = "filing-qa"
@@ -19,6 +19,56 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
+# Core: what `import filing_qa` and the CLI need. Everything heavier is an extra.
+dependencies = [
+    "httpx>=0.27",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "structlog>=24.1",
+    "typer>=0.15",
+    "rich>=13.7",
+    "pyyaml>=6.0.1",
+    "pypdf>=4.0",
+    "prometheus-client>=0.20",
+    "psutil>=5.9",
+    "redis[hiredis]>=5.0",
+]
+
+[project.optional-dependencies]
+# Serving
+api = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "python-multipart>=0.0.9"]
+# Vector stores (VECTOR_STORE_CONFIG__PROVIDER)
+# deeplake 3.9.51+ declares pillow~=10.4.0, which holds pillow at 10.4.x for the whole lock.
+# 3.9.50 is no way out: it pins numpy==1.26.4, and its missing pillow requirement was a
+# packaging mistake fixed upstream in activeloopai/deeplake#3072. Revisit when DeepLake stops
+# being the default vector store (port to v4 or drop it).
+deeplake = ["deeplake>=3.9,<4", "numpy>=1.26"]
+qdrant = ["qdrant-client>=1.9"]
+pgvector = ["asyncpg>=0.29"]
+# Parsing (PDF_PARSING_CONFIG__PRIMARY_PARSER)
+parsing = ["unstructured[pdf]>=0.15", "pandas>=2.2"]
+docling = ["docling>=2.0"]
+# Local embedder and cross-encoder / BGE rerankers
+# torch listed directly so the CPU index below applies to it.
+local-models = ["sentence-transformers>=3.0", "torch>=2.2"]
+cohere = ["cohere>=5.5"]
+# PII redaction with Presidio
+pii = ["presidio-analyzer>=2.2.354", "presidio-anonymizer>=2.2.354"]
+# Cloud storage connectors
+connectors = ["boto3>=1.34", "azure-storage-blob>=12.19", "google-cloud-storage>=2.16"]
+agentic = ["langgraph>=0.2"]
+eval = ["ragas>=0.1.9,<0.2", "datasets>=2.19"]
+observability = [
+    "opentelemetry-api>=1.24",
+    "opentelemetry-sdk>=1.24",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.24",
+]
+all = [
+    "filing-qa[api,deeplake,qdrant,pgvector,parsing,docling,local-models,cohere,pii,connectors,agentic,eval,observability]",
+]
+
+[project.scripts]
+filing-qa = "filing_qa.cli:main_cli"
 
 [project.urls]
 Homepage = "https://github.com/Mattral/filing-qa"
@@ -26,110 +76,41 @@ Repository = "https://github.com/Mattral/filing-qa"
 Issues = "https://github.com/Mattral/filing-qa/issues"
 Changelog = "https://github.com/Mattral/filing-qa/blob/main/CHANGELOG.md"
 
-[tool.poetry]
-name = "filing-qa"
-version = "2.0.0"
-description = "Enterprise-grade multimodal RAG system for financial document analysis"
-authors = ["RAG Financial Team <team@example.com>"]
-packages = [{ include = "filing_qa", from = "src" }]
+[dependency-groups]
+test = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "pytest-mock>=3.14",
+    "pytest-timeout>=2.3",
+    "hypothesis>=6.100",
+]
+# Pinned so a new formatter or linter release cannot turn main red on its own.
+lint = [
+    "ruff==0.17.0",
+    "mypy==2.4.0",
+    "black==26.10.1",
+    "isort==9.0.2",
+    "types-pyyaml",
+    "types-redis",
+]
+load = ["locust>=2.28"]
+dev = [{ include-group = "test" }, { include-group = "lint" }]
 
-# ── Core runtime ────────────────────────────────────────────────────────────
-[tool.poetry.dependencies]
-python = "^3.11"
+[tool.hatch.build.targets.wheel]
+packages = ["src/filing_qa"]
 
-# LLM & APIs
-openai        = "^1.30.0"
-anthropic     = "^0.25.0"
-httpx         = "^0.27.0"
-tiktoken      = "^0.7.0"
+[tool.uv]
+default-groups = ["dev"]
 
-# Embeddings & Vector Store
-deeplake      = "^3.9.0"
-numpy         = "^1.26.0"
+# CPU-only torch on Linux keeps the image and CI downloads small.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
 
-# PDF & Vision Processing
-unstructured  = { extras = ["all-docs"], version = "^0.14.0" }
-pypdf         = "^4.0.0"
-pdf2image     = "^1.17.0"
-Pillow        = "^10.3.0"
-
-# Config & Validation
-pydantic         = "^2.7.0"
-pydantic-settings = "^2.3.0"
-
-# Web / API
-fastapi       = "^0.111.0"
-uvicorn       = { extras = ["standard"], version = "^0.30.0" }
-python-multipart = "^0.0.9"
-
-# CLI
-typer         = { extras = ["all"], version = "^0.12.0" }
-# typer 0.12 breaks on click>=8.2 (`make_metavar() missing ctx` on --help). Cap until
-# the dependency pins move to a current typer release.
-click         = ">=8.1.7,<8.2"
-rich          = "^13.7.0"
-
-# Observability
-structlog     = "^24.1.0"
-prometheus-client = "^0.20.0"
-
-# Security
-presidio-analyzer  = { version = "^2.2.354", optional = true }
-presidio-anonymizer = { version = "^2.2.354", optional = true }
-
-# Caching
-redis         = { extras = ["hiredis"], version = "^5.0.0" }
-
-# Utilities
-pyyaml        = "^6.0.1"
-psutil        = "^5.9.0"
-tqdm          = "^4.66.0"
-pandas        = "^2.2.0"
-
-# Reranking
-sentence-transformers = { version = "^3.0.0", optional = true }
-cohere        = { version = "^5.5.0", optional = true }
-
-# Evaluation
-ragas         = { version = "^0.1.9", optional = true }
-datasets      = { version = "^2.19.0", optional = true }
-
-[tool.poetry.extras]
-# pip install "filing-qa[api]"
-# pip install "filing-qa[enterprise]"
-# pip install "filing-qa[eval]"
-# pip install "filing-qa[graph]"
-# pip install "filing-qa[agentic]"
-# pip install "filing-qa[all]"
-api        = []
-enterprise = ["presidio-analyzer", "presidio-anonymizer", "sentence-transformers", "cohere"]
-pii        = ["presidio-analyzer", "presidio-anonymizer"]
-rerank     = ["sentence-transformers"]
-cohere     = ["cohere"]
-eval       = ["ragas", "datasets"]
-graph      = []
-agentic    = []
-all        = ["presidio-analyzer", "presidio-anonymizer", "sentence-transformers", "cohere", "ragas", "datasets"]
-
-[tool.poetry.group.dev.dependencies]
-pytest            = "^8.2.0"
-pytest-asyncio    = "^0.23.0"
-pytest-cov        = "^5.0.0"
-pytest-mock       = "^3.14.0"
-pytest-timeout    = "^2.3.0"
-hypothesis        = "^6.100.0"
-black             = "^24.4.0"
-isort             = "^5.13.0"
-ruff              = "^0.4.0"
-mypy              = "^1.10.0"
-types-pyyaml      = "^6.0.12"
-types-redis       = "^4.6.0"
-
-[tool.poetry.group.load.dependencies]
-locust = "^2.28.0"
-
-[tool.poetry.scripts]
-filing-qa = "filing_qa.cli:main_cli"
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 # ── Tool configs ─────────────────────────────────────────────────────────────
 [tool.black]

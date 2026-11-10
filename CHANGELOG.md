@@ -5,6 +5,22 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Dependencies
+- One dependency source: PEP 621 `[project]` in `pyproject.toml` (build backend hatchling) with
+  a committed `uv.lock`. `[tool.poetry]` and `requirements.txt` are gone; CI installs only via
+  `uv sync --frozen`.
+- Core install is small (httpx, pydantic, structlog, typer, rich, pyyaml, pypdf, redis,
+  prometheus-client, psutil). Everything else is an extra: `api`, `deeplake`, `qdrant`,
+  `pgvector`, `parsing`, `docling`, `local-models`, `cohere`, `pii`, `connectors`, `agentic`,
+  `eval`, `observability`, `all`.
+- Dropped unused dependencies: `openai`, `anthropic`, `tiktoken`, `pdf2image` (providers are
+  called over HTTP with httpx).
+- Locked to current releases, e.g. fastapi 0.162, httpx 0.28, typer 0.27, transformers 5.22,
+  numpy 2.x; the `click<8.2` cap is removed.
+- `deeplake` stays on 3.x as an extra; its `pillow~=10.4.0` requirement holds pillow at 10.4.x.
+- No `marker` or `colpali` extra: `marker-pdf` requires `pillow<11` and `colpali-engine` caps
+  `transformers` at 4.47, which would hold back every install.
+
 ### Renamed
 - Package renamed and import path fixed. Old names: import `src.rag_system`, PyPI
   `rag-financial-multimodal`, CLI `rag-financial`. New: import `filing_qa`, PyPI `filing-qa`,

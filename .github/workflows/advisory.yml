@@ -60,10 +60,19 @@ jobs:
             p/security-audit
             p/secrets
 
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          version: "0.13.6"
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+
+      # Audits exactly what uv.lock installs, every extra included.
       - name: pip-audit
         run: |
-          pip install pip-audit
-          pip-audit --requirement requirements.txt || true   # report only
+          uv export --frozen --all-extras --no-dev --no-emit-project --no-hashes \
+            -o "$RUNNER_TEMP/locked-requirements.txt"
+          uvx pip-audit --requirement "$RUNNER_TEMP/locked-requirements.txt" \
+            --no-deps --disable-pip || true   # report only
 
   # ─────────────────────────────────────────────────────────────────────────
   eval-regression:
@@ -72,20 +81,20 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
+          version: "0.13.6"
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
+          enable-cache: true
 
-      - name: Install deps
-        run: pip install pydantic pydantic-settings structlog httpx numpy
+      - name: Install deps from the lockfile
+        run: uv sync --frozen --no-default-groups
 
       - name: Run eval regression check
-        run: python -m evals.run_evals --fail-on-regression --output evals/ci_report.json
+        run: uv run --no-sync python -m evals.run_evals --fail-on-regression --output evals/ci_report.json
         env:
           ENVIRONMENT: testing
           VECTOR_STORE_CONFIG__PROVIDER: memory
-          PYTHONPATH: src
         continue-on-error: true   # no LLM key in CI; see the header comment
 
       - name: Upload eval report

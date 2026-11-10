@@ -25,28 +25,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
+          version: "0.13.6"
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
+          enable-cache: true
 
-      # Pinned so a new formatter or linter release cannot turn main red on its own.
-      - name: Install lint deps
-        run: |
-          pip install ruff==0.17.0 mypy==2.4.0 black==26.10.1 isort==9.0.2             pydantic pydantic-settings structlog
+      # Tool versions are pinned in the `lint` dependency group (pyproject.toml + uv.lock).
+      - name: Install lint deps from the lockfile
+        run: uv sync --frozen --no-default-groups --group lint
 
       # Every step below is blocking.
       - name: Ruff lint
-        run: ruff check src/ tests/ evals/
+        run: uv run --no-sync ruff check src/ tests/ evals/
 
       - name: Black format check
-        run: black --check src/ tests/ evals/
+        run: uv run --no-sync black --check src/ tests/ evals/
 
       - name: isort check
-        run: isort --check-only src/ tests/ evals/
+        run: uv run --no-sync isort --check-only src/ tests/ evals/
 
       - name: mypy type check
-        run: mypy src/filing_qa/config.py src/filing_qa/components/base.py
+        run: uv run --no-sync mypy src/filing_qa/config.py src/filing_qa/components/base.py
 
   # ─────────────────────────────────────────────────────────────────────────
   test:
@@ -55,22 +55,19 @@ jobs:
     needs: lint
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
+          version: "0.13.6"
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
+          enable-cache: true
 
-      - name: Install test deps
-        run: |
-          pip install pytest pytest-asyncio pytest-cov pytest-mock pytest-timeout \
-            pydantic pydantic-settings structlog httpx numpy \
-            hypothesis pypdf fastapi python-multipart qdrant-client \
-            typer rich pyyaml
+      - name: Install test deps from the lockfile
+        run: uv sync --frozen --no-default-groups --group test --extra api --extra qdrant
 
       # Blocking: a failing test or coverage below 70% fails the job.
       - name: Run unit + integration tests (combined coverage)
         run: |
-          pytest tests/unit/ tests/integration/ -v --timeout=30 \
+          uv run --no-sync pytest tests/unit/ tests/integration/ -v --timeout=30 \
             --cov=src/filing_qa \
             --cov-report=xml \
             --cov-report=term-missing \
@@ -112,16 +109,16 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
+          version: "0.13.6"
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
+          enable-cache: true
 
-      - name: Install test deps and vector store clients
+      - name: Install test deps and vector store clients from the lockfile
         run: |
-          pip install pytest pytest-asyncio pytest-cov pytest-timeout \
-            pydantic pydantic-settings structlog httpx numpy \
-            "deeplake>=3.9,<4" qdrant-client asyncpg
+          uv sync --frozen --no-default-groups --group test \
+            --extra deeplake --extra qdrant --extra pgvector
 
       - name: Wait for Qdrant
         run: |
@@ -135,7 +132,7 @@ jobs:
       - name: Run round-trip tests
         run: |
           set -o pipefail
-          pytest tests/integration/test_vector_store_roundtrip.py -v -rs --timeout=60 \
+          uv run --no-sync pytest tests/integration/test_vector_store_roundtrip.py -v -rs --timeout=60 \
             --no-cov | tee roundtrip.log
           if grep -q SKIPPED roundtrip.log; then
             echo "A vector store backend was skipped in CI" && exit 1
@@ -153,19 +150,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
+          version: "0.13.6"
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
+          enable-cache: true
 
       - name: Build wheel
-        run: |
-          pip install build
-          python -m build --wheel --outdir dist/
+        run: uv build --wheel --out-dir dist/
 
+      # Plain pip on purpose: this checks the wheel as a user installs it from PyPI.
       - name: Install wheel into a clean venv
         run: |
-          python -m venv /tmp/wheel-venv
+          uv venv --seed /tmp/wheel-venv
           /tmp/wheel-venv/bin/pip install dist/*.whl
 
       - name: Import and run the CLI from outside the checkout
