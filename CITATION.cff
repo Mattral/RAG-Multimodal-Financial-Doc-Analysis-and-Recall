@@ -24,9 +24,8 @@ keywords:
   - vector-search
   - opentelemetry
 authors:
-  - family-names: "RAG Financial Team"
-    given-names: ""
-    email: "team@your-org.com"
+  - alias: "Mattral"
+    website: "https://github.com/Mattral"
 preferred-citation:
   type: software
   title: "RAG Financial Multimodal: Enterprise Multimodal RAG for Financial Documents"

@@ -11,7 +11,9 @@
 
 **Please do not open a public GitHub issue for security vulnerabilities.**
 
-Report security issues by emailing: **security@your-org.com**
+Report security issues privately through GitHub:
+**[Report a vulnerability](https://github.com/Mattral/filing-qa/security/advisories/new)**
+(Security tab → Report a vulnerability).
 
 Include:
 - Description of the vulnerability
