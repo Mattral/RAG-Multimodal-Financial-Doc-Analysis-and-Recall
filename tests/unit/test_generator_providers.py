@@ -178,6 +178,42 @@ class TestOpenAIGenerator:
         assert "openai" in gen.name
         reset_config()
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "base_url, expected",
+        [
+            (None, "https://api.openai.com/v1/chat/completions"),
+            ("http://127.0.0.1:9000/v1", "http://127.0.0.1:9000/v1/chat/completions"),
+            ("http://127.0.0.1:9000/v1/", "http://127.0.0.1:9000/v1/chat/completions"),
+        ],
+    )
+    async def test_base_url_sets_chat_endpoint(
+        self, sample_chunks, monkeypatch, base_url, expected
+    ):
+        from filing_qa.config import reset_config
+
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+        if base_url:
+            monkeypatch.setenv("LLM_CONFIG__BASE_URL", base_url)
+        else:
+            monkeypatch.delenv("LLM_CONFIG__BASE_URL", raising=False)
+        reset_config()
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": "Stub answer [Source: tesla.pdf, Page 4]."}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+        }
+        mock_response.raise_for_status = MagicMock()
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client_cls.return_value.__aenter__.return_value = mock_client
+            await OpenAIGenerator().generate("What was revenue?", sample_chunks, tenant_id="t")
+
+        assert mock_client.post.await_args.args[0] == expected
+        reset_config()
+
 
 # ── GeminiGenerator tests ──────────────────────────────────────────────────────
 

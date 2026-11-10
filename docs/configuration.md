@@ -17,6 +17,7 @@
 | `RETRIEVER_CONFIG__GRAPH_MAX_CHUNKS` | `10` | Graph-found chunks fused with hybrid results |
 | `RETRIEVER_CONFIG__GRAPH_WEIGHT` | `0.5` | RRF weight of graph-found chunks relative to hybrid results |
 | `LLM_CONFIG__THINKING_BUDGET_TOKENS` | `1024` | Reasoning-token budget for Gemini thinking models, added on top of `max_tokens` |
+| `LLM_CONFIG__BASE_URL` | — | `openai` provider only: OpenAI-compatible API root (proxy, gateway or local stub). Default `https://api.openai.com/v1` |
 | `RERANKER_CONFIG__PROVIDER` | `cross_encoder` | `cross_encoder\|cohere\|none` |
 | `CACHE_CONFIG__BACKEND` | `redis` | `redis\|memory` |
 | `RAG_API_MASTER_KEY` | — | API authentication key. If unset, API requests get `401` unless `ENVIRONMENT=development` is set explicitly or `AUTH_DISABLED=true` |

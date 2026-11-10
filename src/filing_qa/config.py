@@ -163,6 +163,9 @@ class LLMConfig(BaseModel):
     ] = "openai"
     model: str = "gpt-4o-mini"
     fallback_model: Optional[str] = "gpt-3.5-turbo"
+    # OpenAI-compatible API root for the `openai` provider (e.g. a proxy or a local stub).
+    # None means https://api.openai.com/v1.
+    base_url: Optional[str] = None
     temperature: float = Field(0.1, ge=0.0, le=2.0)
     max_tokens: int = 2048
     # Reasoning budget for thinking models (Gemini), granted on top of max_tokens so
