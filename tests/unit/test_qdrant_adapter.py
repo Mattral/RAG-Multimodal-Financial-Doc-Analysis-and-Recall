@@ -104,7 +104,7 @@ class TestQdrantAdapterUnit:
             "metadata": {},
         }
         mock_client = AsyncMock()
-        mock_client.search = AsyncMock(return_value=[hit])
+        mock_client.query_points = AsyncMock(return_value=MagicMock(points=[hit]))
         with (
             patch.object(adapter, "_check_deps", return_value=True),
             patch.object(adapter, "_get_async_client", return_value=mock_client),
@@ -118,37 +118,38 @@ class TestQdrantAdapterUnit:
     @pytest.mark.asyncio
     async def test_search_passes_filter_to_qdrant(self, adapter):
         mock_client = AsyncMock()
-        mock_client.search = AsyncMock(return_value=[])
+        mock_client.query_points = AsyncMock(return_value=MagicMock(points=[]))
         with (
             patch.object(adapter, "_check_deps", return_value=True),
             patch.object(adapter, "_get_async_client", return_value=mock_client),
         ):
             await adapter.search([0.1] * 384, filters={"doc_type": "10-K"}, tenant_id="t1")
-        call_kwargs = mock_client.search.call_args[1]
+        call_kwargs = mock_client.query_points.call_args[1]
         assert call_kwargs["query_filter"] is not None
 
     @pytest.mark.asyncio
     async def test_search_no_filter_when_empty_dict(self, adapter):
         mock_client = AsyncMock()
-        mock_client.search = AsyncMock(return_value=[])
+        mock_client.query_points = AsyncMock(return_value=MagicMock(points=[]))
         with (
             patch.object(adapter, "_check_deps", return_value=True),
             patch.object(adapter, "_get_async_client", return_value=mock_client),
         ):
             await adapter.search([0.1] * 384, filters={}, tenant_id="t1")
-        call_kwargs = mock_client.search.call_args[1]
+        call_kwargs = mock_client.query_points.call_args[1]
         assert call_kwargs.get("query_filter") is None
 
     @pytest.mark.asyncio
-    async def test_search_handles_exception_gracefully(self, adapter):
+    async def test_search_error_is_raised_not_hidden(self, adapter):
+        # An empty list here would read as "no relevant documents" instead of an outage.
         mock_client = AsyncMock()
-        mock_client.search = AsyncMock(side_effect=Exception("connection refused"))
+        mock_client.query_points = AsyncMock(side_effect=Exception("connection refused"))
         with (
             patch.object(adapter, "_check_deps", return_value=True),
             patch.object(adapter, "_get_async_client", return_value=mock_client),
+            pytest.raises(Exception, match="connection refused"),
         ):
-            results = await adapter.search([0.1] * 384)
-        assert results == []
+            await adapter.search([0.1] * 384)
 
     def test_factory_builds_qdrant(self, monkeypatch):
         monkeypatch.setenv("VECTOR_STORE_CONFIG__PROVIDER", "qdrant")

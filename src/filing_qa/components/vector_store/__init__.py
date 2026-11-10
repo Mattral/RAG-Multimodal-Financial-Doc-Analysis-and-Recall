@@ -17,6 +17,22 @@ from filing_qa.config import get_config
 logger = structlog.get_logger(__name__)
 
 
+def _text_cell(sample: Any) -> str:
+    """One value of a DeepLake text tensor as a plain string.
+
+    ``ds.text[i].numpy()`` is a one-element array; ``str(...tolist())`` of it gives
+    "['...']" rather than the stored text.
+    """
+    value = sample.numpy()
+    if hasattr(value, "tolist"):
+        value = value.tolist()
+    while isinstance(value, list) and len(value) == 1:
+        value = value[0]
+    if isinstance(value, bytes):
+        value = value.decode("utf-8")
+    return "" if value is None else str(value)
+
+
 class DeepLakeVectorStoreAdapter(BaseVectorStore):
     """DeepLake vector store with tenant-namespaced datasets."""
 
@@ -112,22 +128,22 @@ class DeepLakeVectorStoreAdapter(BaseVectorStore):
             top_indices = np.argsort(similarities)[::-1][:top_k]
             results = []
             for idx in top_indices:
-                score = float(similarities[idx])
-                page = ds.page_number[int(idx)].numpy().tolist()
-                page_num = int(page) if str(page).isdigit() else None
+                i = int(idx)
+                page = _text_cell(ds.page_number[i])
                 results.append(
                     RetrievedChunk(
-                        text=str(ds.text[int(idx)].numpy().tolist()),
-                        score=score,
-                        source_document=str(ds.source_document[int(idx)].numpy().tolist()),
-                        page_number=page_num,
-                        chunk_id=str(ds.content_hash[int(idx)].numpy().tolist()),
+                        text=_text_cell(ds.text[i]),
+                        score=float(similarities[idx]),
+                        source_document=_text_cell(ds.source_document[i]),
+                        page_number=int(page) if page.isdigit() else None,
+                        chunk_id=_text_cell(ds.content_hash[i]) or None,
                     )
                 )
             return results
         except Exception as exc:
+            # Failing loudly: an empty result here would look like "no relevant documents".
             logger.error("deeplake_search_failed", error=str(exc))
-            return []
+            raise
 
     async def delete(self, doc_ids: List[str], tenant_id: Optional[str] = None) -> None:
         logger.info(

@@ -86,6 +86,66 @@ jobs:
         continue-on-error: true
 
   # ─────────────────────────────────────────────────────────────────────────
+  # Every vector store adapter against its real backend: upsert, query, reopen,
+  # query. The other test jobs only see these adapters through mocks.
+  vector-stores:
+    name: Vector Store Round-Trip
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      qdrant:
+        image: qdrant/qdrant:v1.20.0
+        ports:
+          - 6333:6333
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg17
+        env:
+          POSTGRES_USER: rag
+          POSTGRES_PASSWORD: rag
+          POSTGRES_DB: rag
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rag"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install test deps and vector store clients
+        run: |
+          pip install pytest pytest-asyncio pytest-cov pytest-timeout \
+            pydantic pydantic-settings structlog httpx numpy \
+            "deeplake>=3.9,<4" qdrant-client asyncpg
+
+      - name: Wait for Qdrant
+        run: |
+          for i in $(seq 30); do
+            curl -sf http://localhost:6333/readyz && exit 0
+            sleep 2
+          done
+          echo "Qdrant did not become ready" && exit 1
+
+      # -rs lists skipped cases; the step fails if any backend was skipped.
+      - name: Run round-trip tests
+        run: |
+          set -o pipefail
+          pytest tests/integration/test_vector_store_roundtrip.py -v -rs --timeout=60 \
+            --no-cov | tee roundtrip.log
+          if grep -q SKIPPED roundtrip.log; then
+            echo "A vector store backend was skipped in CI" && exit 1
+          fi
+        env:
+          ENVIRONMENT: testing
+          TEST_QDRANT_URL: http://localhost:6333
+          TEST_PGVECTOR_DSN: postgresql://rag:rag@localhost:5432/rag
+
+  # ─────────────────────────────────────────────────────────────────────────
   # Installs the built wheel (not the source tree) into a clean venv and runs it
   # from outside the checkout, so a broken import path or entry point fails here.
   package:
@@ -118,7 +178,7 @@ jobs:
   docker:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
-    needs: [test, helm-lint, package]
+    needs: [test, helm-lint, package, vector-stores]
     if: github.event_name == 'push' || github.event_name == 'release'
     permissions:
       contents: read

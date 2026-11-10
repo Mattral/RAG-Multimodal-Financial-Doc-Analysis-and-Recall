@@ -155,16 +155,18 @@ class QdrantAdapter(BaseVectorStore):
             if conditions:
                 qdrant_filter = Filter(must=conditions)
         try:
-            hits = await client.search(
+            # query_points replaces search(), which current qdrant-client no longer has.
+            response = await client.query_points(
                 collection_name=collection,
-                query_vector=query_vector,
+                query=query_vector,
                 limit=top_k,
                 query_filter=qdrant_filter,
                 with_payload=True,
             )
         except Exception as exc:
             logger.error("qdrant_search_failed", error=str(exc))
-            return []
+            raise
+        hits = response.points
         return [
             RetrievedChunk(
                 text=h.payload.get("text", ""),
