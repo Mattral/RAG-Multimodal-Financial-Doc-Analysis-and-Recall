@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, AsyncIterator, Dict, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 import structlog
 from fastapi import APIRouter, Request
@@ -52,6 +52,49 @@ async def query_documents(request: Request, body: QueryRequest):
         return result
     except Exception as exc:
         return error_response(request, "query_failed", "query_endpoint_failed", exc)
+
+
+class RetrievedChunkOut(BaseModel):
+    text: str
+    document: str
+    page: Optional[int]
+    chunk_id: Optional[str]
+    score: float
+
+
+class RetrieveResponse(BaseModel):
+    status: str
+    query: str
+    tenant_id: str
+    chunks: List[RetrievedChunkOut]
+    metrics: Dict[str, Any]
+
+
+@router.post(
+    "/retrieve",
+    response_model=RetrieveResponse,
+    summary="Retrieve ranked chunks with citations (no LLM call)",
+)
+async def retrieve_chunks(request: Request, body: QueryRequest):
+    """Hybrid retrieval only: the chunks /query would ground its answer on."""
+    pipeline = getattr(request.app.state, "pipeline", None)
+    if pipeline is None:
+        return JSONResponse(status_code=503, content={"error": "Pipeline not ready"})
+
+    effective_tenant = body.tenant_id or getattr(request.state, "tenant_id", "default")
+
+    try:
+        result = await pipeline.retrieve(
+            query_text=body.query,
+            tenant_id=effective_tenant,
+            top_k=body.top_k,
+            filters=body.filters,
+        )
+    except Exception as exc:
+        return error_response(request, "retrieve_failed", "retrieve_endpoint_failed", exc)
+    if result.get("status") != "success":
+        return JSONResponse(status_code=400, content=result)
+    return result
 
 
 def _sse(event: str, data: Any) -> str:

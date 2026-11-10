@@ -546,6 +546,53 @@ class RAGPipeline:
                 )
             return await self._finish_query(state, answer, time.perf_counter() - t1)
 
+    async def retrieve(
+        self,
+        query_text: str,
+        tenant_id: Optional[str] = None,
+        top_k: int = 5,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Retrieval only: ranked chunks with citations, no LLM call.
+
+        Uses the same query analysis (injection check, metadata filters, rewrite)
+        and retriever as :meth:`query`, but skips the semantic cache, quota,
+        Program-of-Thought and generation.
+        """
+        tenant_id = tenant_id or self._config.multi_tenancy_config.default_tenant
+        analysis = self._query_analyzer.analyze(query_text, tenant_id=tenant_id)
+        if analysis.is_injection:
+            return {
+                "status": "error",
+                "error": f"Query blocked: {analysis.injection_reason}",
+                "tenant_id": tenant_id,
+            }
+        t0 = time.perf_counter()
+        chunks: List[Any] = []
+        if self._retriever:
+            chunks = await self._retriever.retrieve(
+                query=analysis.rewritten_query,
+                top_k=top_k,
+                filters={**(filters or {}), **analysis.metadata_filters},
+                tenant_id=tenant_id,
+            )
+        return {
+            "status": "success",
+            "query": query_text,
+            "tenant_id": tenant_id,
+            "chunks": [
+                {
+                    "text": c.text,
+                    "document": c.source_document,
+                    "page": c.page_number,
+                    "chunk_id": c.chunk_id,
+                    "score": c.score,
+                }
+                for c in chunks
+            ],
+            "metrics": {"retrieval_latency_s": round(time.perf_counter() - t0, 4)},
+        }
+
     async def query_stream(
         self,
         query_text: str,
