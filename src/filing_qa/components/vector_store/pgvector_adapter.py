@@ -19,6 +19,7 @@ import structlog
 from filing_qa.components.base import BaseVectorStore, DocumentElement, RetrievedChunk
 from filing_qa.components.vector_store._deps import require_package
 from filing_qa.config import get_config
+from filing_qa.utils.exceptions import ConfigurationError
 
 logger = structlog.get_logger(__name__)
 
@@ -76,17 +77,20 @@ class PGVectorAdapter(BaseVectorStore):
 
             conn_str = self._cfg.connection_string
             if not conn_str:
-                logger.error(
-                    "pgvector_no_connection_string",
-                    detail="Set VECTOR_STORE_CONFIG__CONNECTION_STRING",
+                raise ConfigurationError(
+                    "Vector store provider 'pgvector' needs "
+                    "VECTOR_STORE_CONFIG__CONNECTION_STRING",
+                    config_key="VECTOR_STORE_CONFIG__CONNECTION_STRING",
                 )
-                return
             self._pool = await asyncpg.create_pool(conn_str, min_size=2, max_size=10)
             async with self._pool.acquire() as conn:
                 await conn.execute(_INIT_SQL.format(table_suffix=self._table, dim=self._dim))
             logger.info("pgvector_initialized", table=self._table, dim=self._dim)
+        except ConfigurationError:
+            raise
         except Exception as exc:
             logger.error("pgvector_init_failed", error=str(exc))
+            raise
 
     async def upsert(
         self,
@@ -95,7 +99,7 @@ class PGVectorAdapter(BaseVectorStore):
         tenant_id: Optional[str] = None,
     ) -> None:
         if not self._pool:
-            return
+            raise RuntimeError("pgvector store used before initialize()")
         tid = tenant_id or "default"
         try:
             async with self._pool.acquire() as conn:
@@ -131,7 +135,7 @@ class PGVectorAdapter(BaseVectorStore):
         tenant_id: Optional[str] = None,
     ) -> List[RetrievedChunk]:
         if not self._pool:
-            return []
+            raise RuntimeError("pgvector store used before initialize()")
         tid = tenant_id or "default"
         vec_str = "[" + ",".join(str(x) for x in query_vector) + "]"
         try:
@@ -159,7 +163,7 @@ class PGVectorAdapter(BaseVectorStore):
             ]
         except Exception as exc:
             logger.error("pgvector_search_failed", error=str(exc))
-            return []
+            raise
 
     async def delete(self, doc_ids: List[str], tenant_id: Optional[str] = None) -> None:
         if not self._pool:
