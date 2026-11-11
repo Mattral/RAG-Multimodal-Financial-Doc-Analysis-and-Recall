@@ -34,7 +34,6 @@ services:
       - VECTOR_STORE_CONFIG__QDRANT_URL=http://qdrant:6333
       - SECURITY_CONFIG__AUDIT_LOG_PATH=/app/audit_logs
       - LOGGING_CONFIG__LEVEL=INFO
-      - PYTHONPATH=/app/src
     volumes:
       - rag_data:/app/data
       - audit_logs:/app/audit_logs

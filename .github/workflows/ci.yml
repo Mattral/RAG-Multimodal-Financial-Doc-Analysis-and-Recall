@@ -172,10 +172,94 @@ jobs:
           /tmp/wheel-venv/bin/filing-qa --help
 
   # ─────────────────────────────────────────────────────────────────────────
+  # Builds the image and runs it with the default configuration against Redis and
+  # Qdrant service containers. Only two settings differ from the defaults, so no paid
+  # API is called: the local embedder, and an OpenAI-compatible stub for the LLM.
+  # Ingests a text-only fixture PDF and checks that the hi_res parser handled it,
+  # that /retrieve returns the right chunk with its source and page, and that /query
+  # answers with sources. The image push depends on this job.
+  image-smoke:
+    name: Image Smoke Test
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      redis:
+        image: redis:7.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      qdrant:
+        image: qdrant/qdrant:v1.20.0
+        ports:
+          - 6333:6333
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: runtime
+          load: true
+          tags: filing-qa:smoke
+          cache-from: type=gha,scope=image
+          cache-to: type=gha,scope=image,mode=max
+
+      # Embedding, reranker and layout models download on first use; keep them between runs.
+      - name: Cache model downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/hf-cache
+          key: hf-models-${{ hashFiles('uv.lock') }}
+          restore-keys: hf-models-
+
+      - name: Start the stub LLM
+        run: |
+          mkdir -p ~/hf-cache && chmod 777 ~/hf-cache
+          nohup python3 tests/smoke/stub_openai.py 9000 > stub.log 2>&1 &
+          for i in $(seq 20); do curl -sf http://127.0.0.1:9000/ && exit 0; sleep 1; done
+          echo "stub LLM did not start" && exit 1
+
+      - name: Wait for Qdrant
+        run: |
+          for i in $(seq 30); do curl -sf http://127.0.0.1:6333/readyz && exit 0; sleep 2; done
+          echo "Qdrant did not become ready" && exit 1
+
+      - name: Start the API container
+        run: |
+          docker run -d --name api --network host \
+            -v "$HOME/hf-cache:/app/.cache/huggingface" \
+            -e RAG_API_MASTER_KEY=smoke-key \
+            -e OPENAI_API_KEY=stub-not-a-real-key \
+            -e LLM_CONFIG__BASE_URL=http://127.0.0.1:9000/v1 \
+            -e VECTOR_STORE_CONFIG__QDRANT_URL=http://127.0.0.1:6333 \
+            -e CACHE_CONFIG__REDIS_URL=redis://127.0.0.1:6379/0 \
+            -e VECTOR_STORE_CONFIG__EMBEDDING_PROVIDER=local \
+            -e VECTOR_STORE_CONFIG__EMBEDDING_MODEL=BAAI/bge-small-en-v1.5 \
+            -e VECTOR_STORE_CONFIG__EMBEDDING_DIM=384 \
+            filing-qa:smoke
+
+      - name: Smoke test (ingest, retrieve, query)
+        run: python3 tests/smoke/run_smoke.py http://127.0.0.1:8000 smoke-key
+
+      - name: API and stub logs
+        if: always()
+        run: |
+          docker logs api 2>&1 | tail -200 || true
+          cat stub.log || true
+
+  # ─────────────────────────────────────────────────────────────────────────
   docker:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
-    needs: [test, helm-lint, package, vector-stores]
+    needs: [test, helm-lint, package, vector-stores, image-smoke]
     if: github.event_name == 'push' || github.event_name == 'release'
     permissions:
       contents: read
