@@ -450,11 +450,18 @@ class RAGPipeline:
         return result
 
     async def _collect_images(self, pdf_paths: List[str]) -> List[str]:
+        """Images the parser extracted from these PDFs (see parser.pdf_image_dir)."""
+        from filing_qa.components.parser import pdf_image_dir
+
         images: List[str] = []
         for pdf_path in pdf_paths:
-            img_dir = Path(pdf_path).parent / (Path(pdf_path).stem + "_images")
+            img_dir = pdf_image_dir(pdf_path)
             if img_dir.exists():
-                images.extend([str(p) for p in img_dir.glob("*.png")])
+                images.extend(
+                    str(p)
+                    for p in sorted(img_dir.iterdir())
+                    if p.suffix.lower() in (".png", ".jpg", ".jpeg")
+                )
         return images
 
     async def _process_vision_batched(

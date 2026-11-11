@@ -163,3 +163,27 @@ async def test_each_page_is_chunked_separately(fake_unstructured, parser_env):
     parser = parser_env()
     await parser.parse(FIXTURE, tenant_id="t")
     assert [c.args[0] for c in chunk_by_title.call_args_list] == [[page1], [page2]]
+
+
+@pytest.mark.asyncio
+async def test_images_are_extracted_next_to_the_pdf_where_vision_looks(
+    fake_unstructured, parser_env, tmp_path
+):
+    # unstructured's default is ./figures in the working directory, which is not
+    # writable in the image and is not where the pipeline collects images from.
+    from filing_qa.components.parser import pdf_image_dir
+    from filing_qa.pipeline import RAGPipeline
+
+    parser = parser_env()
+    await parser.parse(FIXTURE, tenant_id="t")
+    out_dir = fake_unstructured.call_args.kwargs["extract_image_block_output_dir"]
+    assert out_dir == str(pdf_image_dir(FIXTURE))
+    assert out_dir.endswith("fixtures/smoke_filing_images")
+
+    pdf = tmp_path / "report.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    pdf_image_dir(str(pdf)).mkdir()
+    for name in ("figure-1-1.jpg", "figure-2-1.png", "notes.txt"):
+        (pdf_image_dir(str(pdf)) / name).write_bytes(b"x")
+    found = await RAGPipeline()._collect_images([str(pdf)])
+    assert [Path(p).name for p in found] == ["figure-1-1.jpg", "figure-2-1.png"]

@@ -25,6 +25,12 @@ def _content_hash(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()[:12]
 
 
+def pdf_image_dir(pdf_path: str) -> Path:
+    """Where images extracted from a PDF are written: next to it, in "<stem>_images/"."""
+    path = Path(pdf_path)
+    return path.parent / f"{path.stem}_images"
+
+
 def _group_by_page(elements: List[Any]) -> List[List[Any]]:
     """Consecutive runs of partition elements on the same page; page breaks dropped."""
     groups: List[List[Any]] = []
@@ -74,6 +80,9 @@ class UnstructuredParser(BaseParser):
                 strategy=self._cfg.unstructured_strategy,
                 infer_table_structure=self._cfg.infer_table_structure,
                 extract_images_in_pdf=self._cfg.extract_images,
+                # Without this, unstructured writes figures to ./figures in the working
+                # directory (not writable in the image), and the vision step never finds them.
+                extract_image_block_output_dir=str(pdf_image_dir(file_path)),
                 include_page_breaks=True,
             )
             # A chunk carries one page number, so chunks must not span pages, or text
