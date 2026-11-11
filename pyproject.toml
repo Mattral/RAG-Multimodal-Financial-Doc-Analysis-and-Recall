@@ -38,16 +38,28 @@ dependencies = [
 # Serving
 api = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "python-multipart>=0.0.9"]
 # Vector stores (VECTOR_STORE_CONFIG__PROVIDER)
-# deeplake 3.9.51+ declares pillow~=10.4.0, which holds pillow at 10.4.x for the whole lock.
-# 3.9.50 is no way out: it pins numpy==1.26.4, and its missing pillow requirement was a
-# packaging mistake fixed upstream in activeloopai/deeplake#3072. Revisit when DeepLake stops
-# being the default vector store (port to v4 or drop it).
+# deeplake 3.9.51+ requires pillow~=10.4.0 (3.9.50 pins numpy==1.26.4 instead, and omitted
+# pillow only by a packaging mistake fixed in activeloopai/deeplake#3072). pillow 10.4 breaks
+# the `parsing` extra's hi_res PDF path, so deeplake cannot be installed with `parsing`: it is
+# resolved separately (see [tool.uv] conflicts) and is not part of `all`.
 deeplake = ["deeplake>=3.9,<4", "numpy>=1.26"]
 qdrant = ["qdrant-client>=1.9"]
 pgvector = ["asyncpg>=0.29"]
 # Parsing (PDF_PARSING_CONFIG__PRIMARY_PARSER)
-parsing = ["unstructured[pdf]>=0.15", "pandas>=2.2"]
-docling = ["docling>=2.0"]
+# torch/torchvision listed directly (via unstructured-inference) so the CPU index applies.
+# pillow>=11: with pillow 10.4, unstructured-inference 1.6 fails every hi_res parse with
+# "Operation on closed image".
+# unstructured 0.27+ supports Python <3.14 only; without the split, the lock would hold every
+# Python version back to the last release that allows 3.14.
+parsing = [
+    "unstructured[pdf]>=0.27; python_version < '3.14'",
+    "unstructured[pdf]>=0.15; python_version >= '3.14'",
+    "pandas>=2.2",
+    "pillow>=11",
+    "torch>=2.2",
+    "torchvision>=0.17",
+]
+docling = ["docling>=2.0", "torch>=2.2", "torchvision>=0.17"]
 # Local embedder and cross-encoder / BGE rerankers
 # torch listed directly so the CPU index below applies to it.
 local-models = ["sentence-transformers>=3.0", "torch>=2.2"]
@@ -64,7 +76,7 @@ observability = [
     "opentelemetry-exporter-otlp-proto-grpc>=1.24",
 ]
 all = [
-    "filing-qa[api,deeplake,qdrant,pgvector,parsing,docling,local-models,cohere,pii,connectors,agentic,eval,observability]",
+    "filing-qa[api,qdrant,pgvector,parsing,docling,local-models,cohere,pii,connectors,agentic,eval,observability]",
 ]
 
 [project.scripts]
@@ -102,10 +114,16 @@ packages = ["src/filing_qa"]
 
 [tool.uv]
 default-groups = ["dev"]
+# deeplake 3.x pins pillow 10.4, which the hi_res parser cannot use (see the extras above).
+conflicts = [
+    [{ extra = "deeplake" }, { extra = "parsing" }],
+    [{ extra = "deeplake" }, { extra = "all" }],
+]
 
 # CPU-only torch on Linux keeps the image and CI downloads small.
 [tool.uv.sources]
 torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
