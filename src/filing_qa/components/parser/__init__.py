@@ -9,7 +9,7 @@ import asyncio
 import hashlib
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import structlog
 
@@ -23,6 +23,21 @@ logger = structlog.get_logger(__name__)
 
 def _content_hash(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()[:12]
+
+
+def _group_by_page(elements: List[Any]) -> List[List[Any]]:
+    """Consecutive runs of partition elements on the same page; page breaks dropped."""
+    groups: List[List[Any]] = []
+    current_page: Any = object()
+    for element in elements:
+        if type(element).__name__ == "PageBreak":
+            continue
+        page = getattr(getattr(element, "metadata", None), "page_number", None)
+        if not groups or page != current_page:
+            groups.append([])
+            current_page = page
+        groups[-1].append(element)
+    return groups
 
 
 class UnstructuredParser(BaseParser):
@@ -61,12 +76,21 @@ class UnstructuredParser(BaseParser):
                 extract_images_in_pdf=self._cfg.extract_images,
                 include_page_breaks=True,
             )
-            chunks = chunk_by_title(
-                raw,
-                max_characters=self._cfg.max_characters,
-                new_after_n_chars=self._cfg.new_after_n_chars,
-                combine_text_under_n_chars=self._cfg.combine_text_under_n_chars,
-            )
+            # A chunk carries one page number, so chunks must not span pages, or text
+            # after a page break is cited to the chunk's first page. chunk_by_title's
+            # small-section combining merges across pages even with
+            # multipage_sections=False, so each page is chunked on its own.
+            chunks = []
+            for page_elements in _group_by_page(raw):
+                chunks.extend(
+                    chunk_by_title(
+                        page_elements,
+                        multipage_sections=False,
+                        max_characters=self._cfg.max_characters,
+                        new_after_n_chars=self._cfg.new_after_n_chars,
+                        combine_text_under_n_chars=self._cfg.combine_text_under_n_chars,
+                    )
+                )
             now = datetime.now(UTC).isoformat()
             source = Path(file_path).name
             elements = []

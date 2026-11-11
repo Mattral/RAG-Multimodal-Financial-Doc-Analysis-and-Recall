@@ -71,6 +71,8 @@ async def test_hi_res_success_is_recorded_per_element(fake_unstructured, parser_
         elements = await parser.parse(FIXTURE, tenant_id="t")
 
     assert fake_unstructured.call_args.kwargs["strategy"] == "hi_res"
+    chunk_by_title = sys.modules["unstructured.chunking.title"].chunk_by_title
+    assert chunk_by_title.call_args.kwargs["multipage_sections"] is False
     assert [e.metadata["parser"] for e in elements] == ["unstructured/hi_res"]
     assert elements[0].page_number == 2
     assert not [e for e in logs if e["event"] == "pdf_parser_fallback"]
@@ -137,3 +139,27 @@ async def test_ingest_result_names_the_parser_per_document(fake_unstructured, pa
     )
     result = await pipeline.ingest([FIXTURE], tenant_id="t", process_vision=False)
     assert result["parsers"] == {"smoke_filing.pdf": "pypdf"}
+
+
+def _el(kind: str, page):
+    return type(kind, (), {"metadata": types.SimpleNamespace(page_number=page)})()
+
+
+def test_group_by_page_splits_on_page_change_and_drops_page_breaks():
+    from filing_qa.components.parser import _group_by_page
+
+    a, b, brk, c = _el("Title", 1), _el("NarrativeText", 1), _el("PageBreak", None), _el("Title", 2)
+    groups = _group_by_page([a, b, brk, c, _el("PageBreak", None)])
+    assert groups == [[a, b], [c]]
+
+
+@pytest.mark.asyncio
+async def test_each_page_is_chunked_separately(fake_unstructured, parser_env):
+    # chunk_by_title merges small sections across pages even with
+    # multipage_sections=False, so a chunk could be cited to the wrong page.
+    page1, page2 = _el("NarrativeText", 1), _el("NarrativeText", 2)
+    fake_unstructured.return_value = [page1, _el("PageBreak", None), page2]
+    chunk_by_title = sys.modules["unstructured.chunking.title"].chunk_by_title
+    parser = parser_env()
+    await parser.parse(FIXTURE, tenant_id="t")
+    assert [c.args[0] for c in chunk_by_title.call_args_list] == [[page1], [page2]]
