@@ -39,9 +39,12 @@ class PDFParsingConfig(BaseModel):
 
 
 class VectorStoreConfig(BaseModel):
-    provider: Literal["deeplake", "pgvector", "qdrant", "milvus", "chroma", "memory"] = "deeplake"
+    provider: Literal["deeplake", "pgvector", "qdrant", "milvus", "chroma", "memory"] = "qdrant"
     dataset_path: Optional[str] = None
     connection_string: Optional[str] = None
+    # Qdrant (the default provider). Deployments must point this at their own Qdrant.
+    qdrant_url: str = "http://localhost:6333"
+    qdrant_api_key: Optional[SecretStr] = None
     collection_name: str = "rag_financial"
     embedding_model: str = "text-embedding-3-small"
     embedding_provider: Literal["openai", "local", "voyage", "cohere"] = "openai"
@@ -50,6 +53,16 @@ class VectorStoreConfig(BaseModel):
     enable_deep_memory: bool = False
     index_type: str = "hnsw"
     model_config = {"frozen": True}
+
+    @field_validator("qdrant_url")
+    @classmethod
+    def _qdrant_url_is_http(cls, value: str) -> str:
+        if not value.startswith(("http://", "https://")):
+            raise ValueError(
+                "VECTOR_STORE_CONFIG__QDRANT_URL must be an http(s) URL of a Qdrant server, "
+                f"got {value!r}"
+            )
+        return value
 
 
 class RetrieverConfig(BaseModel):

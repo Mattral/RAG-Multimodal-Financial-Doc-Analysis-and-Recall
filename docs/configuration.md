@@ -10,7 +10,9 @@
 | `VECTOR_STORE_CONFIG__EMBEDDING_PROVIDER` | `openai` | `openai`\|`local`\|`voyage`\|`cohere` — `local` requires no API key |
 | `LLM_CONFIG__COMPLEX_QUERY_MODEL` | `gpt-4o` | Numerical/complex queries |
 | `VISION_CONFIG__PROVIDER` | `openai` | `openai\|qwen2-vl\|pixtral` |
-| `VECTOR_STORE_CONFIG__PROVIDER` | `deeplake` | `deeplake\|pgvector\|qdrant` |
+| `VECTOR_STORE_CONFIG__PROVIDER` | `qdrant` | `qdrant\|pgvector\|deeplake\|memory` |
+| `VECTOR_STORE_CONFIG__QDRANT_URL` | `http://localhost:6333` | Qdrant server URL; must be http(s). Helm requires `config.qdrantUrl` (the chart does not deploy Qdrant) |
+| `VECTOR_STORE_CONFIG__QDRANT_API_KEY` | — | Qdrant API key, if the server requires one |
 | `RETRIEVER_CONFIG__STRATEGY` | `hybrid` | `dense\|hybrid\|graph_augmented` (`graph_augmented` needs `ENABLE_KNOWLEDGE_GRAPH=true`) |
 | `ENABLE_KNOWLEDGE_GRAPH` | `false` | LLM entity extraction at ingest + graph-augmented retrieval (in-memory graph) |
 | `RETRIEVER_CONFIG__GRAPH_MAX_HOPS` | `1` | Graph traversal depth from query entities (0–3) |

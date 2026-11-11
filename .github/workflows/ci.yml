@@ -230,12 +230,21 @@ jobs:
       - uses: azure/setup-kubectl@v4
 
       - name: Helm lint
-        run: helm lint helm/rag-financial/
+        run: helm lint helm/rag-financial/ --set config.qdrantUrl=http://qdrant:6333
 
       - name: Helm template + kubeconform validate
         run: |
-          helm template rag-financial helm/rag-financial/ --debug > /tmp/helm-rendered.yaml
+          helm template rag-financial helm/rag-financial/ --debug \
+            --set config.qdrantUrl=http://qdrant:6333 > /tmp/helm-rendered.yaml
           kubeconform -strict -summary -ignore-missing-schemas /tmp/helm-rendered.yaml
+
+      # The chart does not deploy Qdrant, so rendering without its URL must fail loudly.
+      - name: Helm template fails without a Qdrant URL
+        run: |
+          if helm template rag-financial helm/rag-financial/ > /tmp/no-url.yaml 2> /tmp/no-url.err; then
+            echo "helm template succeeded without config.qdrantUrl" && exit 1
+          fi
+          grep -q "config.qdrantUrl is required" /tmp/no-url.err
 
       - name: kubeconform validate k8s/base manifests
         run: |

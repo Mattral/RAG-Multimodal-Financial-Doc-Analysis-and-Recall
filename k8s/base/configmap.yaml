@@ -7,7 +7,10 @@ data:
   CACHE_CONFIG__BACKEND: "redis"
   LOGGING_CONFIG__LEVEL: "INFO"
   LOGGING_CONFIG__FORMAT: "json"
-  VECTOR_STORE_CONFIG__PROVIDER: "deeplake"
+  VECTOR_STORE_CONFIG__PROVIDER: "qdrant"
+  # Set to the URL of your Qdrant (not deployed by these manifests). The app refuses to
+  # start until this is an http(s) URL.
+  VECTOR_STORE_CONFIG__QDRANT_URL: "REPLACE_WITH_QDRANT_URL"
   VECTOR_STORE_CONFIG__DATASET_PATH: "/app/data/vectorstore/rag_financial"
   SECURITY_CONFIG__AUDIT_LOG_PATH: "/app/audit_logs"
   MULTI_TENANCY_CONFIG__ENABLED: "true"
