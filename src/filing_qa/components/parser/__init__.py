@@ -15,7 +15,8 @@ import structlog
 
 from filing_qa.components.base import BaseParser, DocumentElement
 from filing_qa.config import get_config
-from filing_qa.utils.telemetry import async_trace_span
+from filing_qa.utils.exceptions import PDFParsingError
+from filing_qa.utils.telemetry import async_trace_span, record_document_parsed
 
 logger = structlog.get_logger(__name__)
 
@@ -34,6 +35,11 @@ class UnstructuredParser(BaseParser):
     def name(self) -> str:
         return "unstructured"
 
+    @property
+    def variant(self) -> str:
+        """Parser and strategy as recorded per document, e.g. "unstructured/hi_res"."""
+        return f"unstructured/{self._cfg.unstructured_strategy}"
+
     async def parse(self, file_path: str, tenant_id: Optional[str] = None) -> List[DocumentElement]:
         async with async_trace_span(
             "parse_document", {"parser": self.name, "file": Path(file_path).name}
@@ -44,15 +50,13 @@ class UnstructuredParser(BaseParser):
         try:
             from unstructured.chunking.title import chunk_by_title
             from unstructured.partition.pdf import partition_pdf
-        except ImportError:
-            logger.warning(
-                "unstructured_not_installed", detail="pip install 'unstructured[all-docs]'"
-            )
-            return self._fallback_parse(file_path, tenant_id)
+        except ImportError as exc:
+            return self._fallback(file_path, tenant_id, exc)
 
         try:
             raw = partition_pdf(
                 filename=file_path,
+                strategy=self._cfg.unstructured_strategy,
                 infer_table_structure=self._cfg.infer_table_structure,
                 extract_images_in_pdf=self._cfg.extract_images,
                 include_page_breaks=True,
@@ -87,17 +91,44 @@ class UnstructuredParser(BaseParser):
                         ingest_timestamp=now,
                         content_hash=_content_hash(text),
                         tenant_id=tenant_id,
-                        metadata={"parser": self.name, "raw_type": element_type},
+                        metadata={"parser": self.variant, "raw_type": element_type},
                     )
                 )
-            logger.info("unstructured_parse_complete", file=source, num_chunks=len(elements))
+            logger.info(
+                "unstructured_parse_complete",
+                file=source,
+                parser=self.variant,
+                num_chunks=len(elements),
+            )
+            record_document_parsed(self.variant)
             return elements
         except Exception as exc:
-            logger.error("unstructured_parse_failed", file=file_path, error=str(exc))
-            return self._fallback_parse(file_path, tenant_id)
+            return self._fallback(file_path, tenant_id, exc)
+
+    def _fallback(
+        self, file_path: str, tenant_id: Optional[str], exc: BaseException
+    ) -> List[DocumentElement]:
+        """Use the configured fallback parser, or fail the document if none is configured."""
+        fallback = self._cfg.fallback_parser
+        if fallback == "none":
+            raise PDFParsingError(
+                f"{self.variant} failed on {Path(file_path).name}: {type(exc).__name__}",
+                file_path=file_path,
+            ) from exc
+        logger.warning(
+            "pdf_parser_fallback",
+            file=Path(file_path).name,
+            primary=self.variant,
+            fallback=fallback,
+            error_type=type(exc).__name__,
+            error=str(exc)[:300],
+        )
+        elements = self._fallback_parse(file_path, tenant_id)
+        record_document_parsed(fallback, fallback_from=self.variant)
+        return elements
 
     def _fallback_parse(self, file_path: str, tenant_id: Optional[str]) -> List[DocumentElement]:
-        """Minimal fallback: read raw text with PyPDF2."""
+        """Fallback: the PDF's text layer via pypdf, one element per page (no tables/OCR)."""
         try:
             import pypdf
 
@@ -118,13 +149,19 @@ class UnstructuredParser(BaseParser):
                                 ingest_timestamp=now,
                                 content_hash=_content_hash(text),
                                 tenant_id=tenant_id,
-                                metadata={"parser": "pypdf_fallback"},
+                                metadata={
+                                    "parser": "pypdf",
+                                    "parser_fallback_from": self.variant,
+                                },
                             )
                         )
             return elements
         except Exception as exc:
             logger.error("fallback_parse_failed", file=file_path, error=str(exc))
-            return []
+            raise PDFParsingError(
+                f"pypdf fallback failed on {Path(file_path).name}: {type(exc).__name__}",
+                file_path=file_path,
+            ) from exc
 
     async def parse_batch(
         self, file_paths: List[str], tenant_id: Optional[str] = None
@@ -132,11 +169,16 @@ class UnstructuredParser(BaseParser):
         tasks = [self.parse(fp, tenant_id=tenant_id) for fp in file_paths]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         elements: List[DocumentElement] = []
+        failed = []
         for fp, result in zip(file_paths, results, strict=True):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error("batch_parse_file_failed", file=fp, error=str(result))
+                failed.append(Path(fp).name)
             else:
                 elements.extend(result)
+        if failed:
+            # Dropping a document here would report a successful ingest with missing data.
+            raise PDFParsingError(f"Could not parse: {', '.join(failed)}")
         return elements
 
 

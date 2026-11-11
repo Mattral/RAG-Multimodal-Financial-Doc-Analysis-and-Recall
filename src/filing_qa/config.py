@@ -27,7 +27,12 @@ class VisionConfig(BaseModel):
 
 class PDFParsingConfig(BaseModel):
     primary_parser: Literal["unstructured", "docling", "marker"] = "unstructured"
-    fallback_parser: Optional[Literal["unstructured"]] = "unstructured"
+    # How the unstructured parser partitions PDFs. hi_res runs the layout model and OCR
+    # (needed for tables); fast reads the text layer only.
+    unstructured_strategy: Literal["hi_res", "fast", "auto"] = "hi_res"
+    # Parser used for a document when the primary parser fails on it. Each fallback logs a
+    # `pdf_parser_fallback` warning and is recorded per document. "none": the document fails.
+    fallback_parser: Literal["pypdf", "none"] = "pypdf"
     max_characters: int = 4000
     new_after_n_chars: int = 3800
     combine_text_under_n_chars: int = 2000

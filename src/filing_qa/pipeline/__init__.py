@@ -323,12 +323,19 @@ class RAGPipeline:
                 }
 
             all_elements: List[Any] = []
+            # Parser that actually produced each document's elements (fallbacks included).
+            parsers_used: Dict[str, str] = {}
 
             # Parse
             if self._parser:
                 elements = await self._parser.parse_batch(to_process, tenant_id=tenant_id)
                 all_elements.extend(elements)
-                logger.info("parsing_complete", num_elements=len(elements))
+                default_parser = getattr(self._parser, "name", "unknown")
+                for e in elements:
+                    parsers_used.setdefault(
+                        e.source_document, (e.metadata or {}).get("parser", default_parser)
+                    )
+                logger.info("parsing_complete", num_elements=len(elements), parsers=parsers_used)
 
             # PII redaction
             if self._config.security_config.enable_pii_redaction:
@@ -399,6 +406,7 @@ class RAGPipeline:
                 "num_chunks": len(all_elements),
                 "skipped": len(skipped),
                 "latency_s": round(latency_s, 2),
+                "parsers": parsers_used,
                 **({"knowledge_graph": graph_stats} if graph_stats else {}),
             }
 
