@@ -48,14 +48,38 @@ class TestQdrantAdapterUnit:
         reset_config()
 
     def test_get_api_key_from_env(self, monkeypatch):
+        from filing_qa.config import reset_config
+
         monkeypatch.setenv("VECTOR_STORE_CONFIG__QDRANT_API_KEY", "key-123")
+        reset_config()
         a = QdrantAdapter()
         assert a._get_api_key() == "key-123"
+        reset_config()
 
     def test_get_api_key_none_when_unset(self, monkeypatch):
+        from filing_qa.config import reset_config
+
         monkeypatch.delenv("VECTOR_STORE_CONFIG__QDRANT_API_KEY", raising=False)
+        reset_config()
         a = QdrantAdapter()
         assert a._get_api_key() is None
+        reset_config()
+
+    @pytest.mark.parametrize("bad", ["REPLACE_WITH_QDRANT_URL", "qdrant:6333", ""])
+    def test_non_http_url_is_rejected_at_startup(self, monkeypatch, bad):
+        from filing_qa.config import get_config, reset_config
+
+        monkeypatch.setenv("VECTOR_STORE_CONFIG__QDRANT_URL", bad)
+        reset_config()
+        with pytest.raises(Exception, match="must be an http"):
+            get_config()
+        reset_config()
+
+    def test_default_provider_is_qdrant(self, monkeypatch):
+        from filing_qa.config import Config
+
+        monkeypatch.delenv("VECTOR_STORE_CONFIG__PROVIDER", raising=False)
+        assert Config().vector_store_config.provider == "qdrant"
 
     @pytest.mark.asyncio
     async def test_upsert_empty_is_noop(self, adapter):

@@ -323,12 +323,19 @@ class RAGPipeline:
                 }
 
             all_elements: List[Any] = []
+            # Parser that actually produced each document's elements (fallbacks included).
+            parsers_used: Dict[str, str] = {}
 
             # Parse
             if self._parser:
                 elements = await self._parser.parse_batch(to_process, tenant_id=tenant_id)
                 all_elements.extend(elements)
-                logger.info("parsing_complete", num_elements=len(elements))
+                default_parser = getattr(self._parser, "name", "unknown")
+                for e in elements:
+                    parsers_used.setdefault(
+                        e.source_document, (e.metadata or {}).get("parser", default_parser)
+                    )
+                logger.info("parsing_complete", num_elements=len(elements), parsers=parsers_used)
 
             # PII redaction
             if self._config.security_config.enable_pii_redaction:
@@ -399,6 +406,7 @@ class RAGPipeline:
                 "num_chunks": len(all_elements),
                 "skipped": len(skipped),
                 "latency_s": round(latency_s, 2),
+                "parsers": parsers_used,
                 **({"knowledge_graph": graph_stats} if graph_stats else {}),
             }
 
@@ -442,11 +450,18 @@ class RAGPipeline:
         return result
 
     async def _collect_images(self, pdf_paths: List[str]) -> List[str]:
+        """Images the parser extracted from these PDFs (see parser.pdf_image_dir)."""
+        from filing_qa.components.parser import pdf_image_dir
+
         images: List[str] = []
         for pdf_path in pdf_paths:
-            img_dir = Path(pdf_path).parent / (Path(pdf_path).stem + "_images")
+            img_dir = pdf_image_dir(pdf_path)
             if img_dir.exists():
-                images.extend([str(p) for p in img_dir.glob("*.png")])
+                images.extend(
+                    str(p)
+                    for p in sorted(img_dir.iterdir())
+                    if p.suffix.lower() in (".png", ".jpg", ".jpeg")
+                )
         return images
 
     async def _process_vision_batched(
@@ -545,6 +560,53 @@ class RAGPipeline:
                     system_prompt=self._generation_prompt(state),
                 )
             return await self._finish_query(state, answer, time.perf_counter() - t1)
+
+    async def retrieve(
+        self,
+        query_text: str,
+        tenant_id: Optional[str] = None,
+        top_k: int = 5,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Retrieval only: ranked chunks with citations, no LLM call.
+
+        Uses the same query analysis (injection check, metadata filters, rewrite)
+        and retriever as :meth:`query`, but skips the semantic cache, quota,
+        Program-of-Thought and generation.
+        """
+        tenant_id = tenant_id or self._config.multi_tenancy_config.default_tenant
+        analysis = self._query_analyzer.analyze(query_text, tenant_id=tenant_id)
+        if analysis.is_injection:
+            return {
+                "status": "error",
+                "error": f"Query blocked: {analysis.injection_reason}",
+                "tenant_id": tenant_id,
+            }
+        t0 = time.perf_counter()
+        chunks: List[Any] = []
+        if self._retriever:
+            chunks = await self._retriever.retrieve(
+                query=analysis.rewritten_query,
+                top_k=top_k,
+                filters={**(filters or {}), **analysis.metadata_filters},
+                tenant_id=tenant_id,
+            )
+        return {
+            "status": "success",
+            "query": query_text,
+            "tenant_id": tenant_id,
+            "chunks": [
+                {
+                    "text": c.text,
+                    "document": c.source_document,
+                    "page": c.page_number,
+                    "chunk_id": c.chunk_id,
+                    "score": c.score,
+                }
+                for c in chunks
+            ],
+            "metrics": {"retrieval_latency_s": round(time.perf_counter() - t0, 4)},
+        }
 
     async def query_stream(
         self,

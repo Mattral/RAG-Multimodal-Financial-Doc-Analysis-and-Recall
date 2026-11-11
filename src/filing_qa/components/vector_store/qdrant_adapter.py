@@ -11,7 +11,6 @@ Requires: pip install qdrant-client>=1.9.0
 
 from __future__ import annotations
 
-import os
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -44,16 +43,11 @@ class QdrantAdapter(BaseVectorStore):
         return base
 
     def _get_url(self) -> str:
-        return (
-            os.environ.get("VECTOR_STORE_CONFIG__QDRANT_URL")
-            or getattr(self._cfg, "qdrant_url", None)
-            or "http://localhost:6333"
-        )
+        return self._cfg.qdrant_url
 
     def _get_api_key(self) -> Optional[str]:
-        return os.environ.get("VECTOR_STORE_CONFIG__QDRANT_API_KEY") or getattr(
-            self._cfg, "qdrant_api_key", None
-        )
+        key = self._cfg.qdrant_api_key
+        return key.get_secret_value() if key else None
 
     def _check_deps(self) -> bool:
         try:

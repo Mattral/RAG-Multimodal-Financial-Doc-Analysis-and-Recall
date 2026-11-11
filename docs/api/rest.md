@@ -7,6 +7,7 @@
 | `POST` | `/api/v1/ingest` | Ingest a PDF document |
 | `POST` | `/api/v1/query` | Query ingested documents (one JSON response) |
 | `POST` | `/api/v1/query/stream` | Query with the answer streamed as server-sent events |
+| `POST` | `/api/v1/retrieve` | Ranked chunks with citations for a query, no LLM call |
 | `POST` | `/api/v1/tenants` | Register a new tenant |
 | `GET` | `/api/v1/tenants/{id}/usage` | Get tenant usage stats |
 | `GET` | `/healthz` | K8s liveness probe |
@@ -15,6 +16,27 @@
 ## Authentication
 All endpoints (except health probes) require: `X-API-Key: your-key`
 Set tenant with: `X-Tenant-ID: your-tenant`
+
+## Retrieval only: `POST /api/v1/retrieve`
+
+Same request body and authentication as `/api/v1/query`. Runs query analysis and hybrid
+retrieval, then returns the chunks the answer would be grounded on, without calling an LLM:
+
+```json
+{
+  "status": "success",
+  "query": "What was operating cash flow?",
+  "tenant_id": "default",
+  "chunks": [
+    {"text": "Operating cash flow was $3,308 million.", "document": "tesla_10q_q3_2023.pdf",
+     "page": 7, "chunk_id": "…", "score": 0.91}
+  ],
+  "metrics": {"retrieval_latency_s": 0.012}
+}
+```
+
+A query blocked by the injection check returns `400` with `status: "error"`. Failures return
+`500` with `code: "retrieve_failed"`.
 
 ## Streaming answers: `POST /api/v1/query/stream`
 

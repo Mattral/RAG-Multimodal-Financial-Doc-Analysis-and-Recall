@@ -7,9 +7,8 @@ Thank you for your interest in contributing to RAG Financial Multimodal!
 ```bash
 git clone https://github.com/Mattral/filing-qa
 cd filing-qa
-python3.11 -m venv .venv && source .venv/bin/activate
-pip install -e ".[all]"
-pip install pytest pytest-asyncio pytest-cov pytest-mock black ruff mypy
+uv sync --all-extras          # .venv from uv.lock, incl. test + lint tools
+source .venv/bin/activate
 cp .env.example .env   # set OPENAI_API_KEY
 ```
 

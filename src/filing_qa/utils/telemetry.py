@@ -53,6 +53,11 @@ if PROMETHEUS_AVAILABLE:
         "Total documents ingested",
         ["tenant_id", "parser", "status"],
     )
+    DOCUMENTS_PARSED_TOTAL = Counter(
+        "rag_documents_parsed_total",
+        "Documents parsed, by the parser that actually produced the elements",
+        ["parser", "fallback_from"],
+    )
     INGEST_CHUNKS_TOTAL = Counter(
         "rag_ingest_chunks_total",
         "Total chunks created during ingestion",
@@ -301,6 +306,12 @@ def record_query(
         CITATION_COVERAGE.labels(tenant_id=tenant_id).observe(citation_coverage)
     if hallucination_score:
         HALLUCINATION_SCORE.labels(tenant_id=tenant_id).observe(hallucination_score)
+
+
+def record_document_parsed(parser: str, fallback_from: str = "") -> None:
+    """One document parsed; fallback_from names the parser that failed first, if any."""
+    if PROMETHEUS_AVAILABLE:
+        DOCUMENTS_PARSED_TOTAL.labels(parser=parser, fallback_from=fallback_from).inc()
 
 
 def record_cache_hit(cache_type: str, tenant_id: str) -> None:

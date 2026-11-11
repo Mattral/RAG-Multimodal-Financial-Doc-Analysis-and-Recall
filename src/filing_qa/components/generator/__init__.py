@@ -68,7 +68,7 @@ def _build_context_block(chunks: List[RetrievedChunk]) -> str:
     return "\n\n---\n\n".join(parts)
 
 
-_OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
+_OPENAI_API_BASE = "https://api.openai.com/v1"
 _GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 
@@ -88,6 +88,8 @@ class OpenAIGenerator(BaseGenerator):
     def __init__(self) -> None:
         self._cfg = get_config().llm_config
         self._cost_tracker = get_cost_tracker()
+        base = (self._cfg.base_url or _OPENAI_API_BASE).rstrip("/")
+        self._chat_url = f"{base}/chat/completions"
 
     @property
     def name(self) -> str:
@@ -160,7 +162,7 @@ class OpenAIGenerator(BaseGenerator):
         ):
             try:
                 async with httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client:
-                    response = await client.post(_OPENAI_CHAT_URL, headers=headers, json=payload)
+                    response = await client.post(self._chat_url, headers=headers, json=payload)
                     response.raise_for_status()
                     data = response.json()
             except httpx.HTTPStatusError as exc:
@@ -170,9 +172,7 @@ class OpenAIGenerator(BaseGenerator):
                     )
                     payload["model"] = self._cfg.fallback_model
                     async with httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client:
-                        response = await client.post(
-                            _OPENAI_CHAT_URL, headers=headers, json=payload
-                        )
+                        response = await client.post(self._chat_url, headers=headers, json=payload)
                         response.raise_for_status()
                         data = response.json()
                         model = self._cfg.fallback_model
@@ -211,7 +211,7 @@ class OpenAIGenerator(BaseGenerator):
         async with (
             async_trace_span("llm_generation", {"model": model, "tenant_id": tenant_id or ""}),
             httpx.AsyncClient(timeout=self._cfg.timeout_seconds) as client,
-            client.stream("POST", _OPENAI_CHAT_URL, headers=headers, json=payload) as response,
+            client.stream("POST", self._chat_url, headers=headers, json=payload) as response,
         ):
             if self._cfg.fallback_model and response.status_code in (429, 503):
                 use_fallback = True

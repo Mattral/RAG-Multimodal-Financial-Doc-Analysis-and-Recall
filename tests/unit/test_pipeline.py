@@ -75,7 +75,7 @@ def test_config_vector_store_defaults(monkeypatch):
     # clear it here to verify the schema's true default value in isolation.
     monkeypatch.delenv("VECTOR_STORE_CONFIG__PROVIDER", raising=False)
     cfg = Config()
-    assert cfg.vector_store_config.provider == "deeplake"
+    assert cfg.vector_store_config.provider == "qdrant"
     assert cfg.vector_store_config.enable_hybrid_search is True
 
 

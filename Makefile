@@ -45,9 +45,7 @@ setup:
 	bash scripts/setup.sh
 
 install:
-	$(PYTHON) -m venv $(VENV)
-	$(BIN)/pip install --upgrade pip
-	$(BIN)/pip install -e ".[all]"
+	uv sync --frozen --all-extras
 	@echo "✅ Installed. Activate: source $(VENV)/bin/activate"
 
 # ── Development ───────────────────────────────────────────────────────────────
@@ -108,7 +106,10 @@ typecheck:
 
 security:
 	@echo "▸ Running pip-audit..."
-	$(BIN)/pip-audit --requirement requirements.txt || true
+	uv export --frozen --all-extras --no-extra deeplake --no-dev --no-emit-project --no-hashes -o /tmp/filing-qa-main.txt
+	uv export --frozen --extra deeplake --no-dev --no-emit-project --no-hashes -o /tmp/filing-qa-deeplake.txt
+	uvx pip-audit --requirement /tmp/filing-qa-main.txt --no-deps --disable-pip || true
+	uvx pip-audit --requirement /tmp/filing-qa-deeplake.txt --no-deps --disable-pip || true
 	@echo "▸ Running Trivy filesystem scan..."
 	trivy fs . --exit-code 0 --severity HIGH,CRITICAL || true
 	@echo "✅ Security scan complete"

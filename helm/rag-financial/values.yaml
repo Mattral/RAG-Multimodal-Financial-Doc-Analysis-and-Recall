@@ -75,7 +75,10 @@ redis:
 config:
   environment: production
   logLevel: INFO
-  vectorStoreProvider: deeplake
+  vectorStoreProvider: qdrant
+  # Required when vectorStoreProvider is qdrant. This chart does not deploy Qdrant: set the
+  # URL of the one you run, e.g. http://qdrant.qdrant.svc:6333. Rendering fails while empty.
+  qdrantUrl: ""
   multiTenancyEnabled: "true"
 
 secrets:

@@ -22,6 +22,7 @@ _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 MESSAGES: Dict[str, str] = {
     "internal_error": "Internal server error.",
     "query_failed": "The query could not be completed.",
+    "retrieve_failed": "Retrieval could not be completed.",
     "ingest_failed": "The document could not be ingested.",
     "document_list_failed": "Documents could not be listed.",
     "document_delete_failed": "The document could not be deleted.",

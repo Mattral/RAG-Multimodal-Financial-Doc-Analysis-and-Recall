@@ -1,33 +1,33 @@
+# syntax=docker/dockerfile:1
 # ─────────────────────────────────────────────────────────────────────────────
-# Stage 1: Builder — install all dependencies
+# Stage 1: Builder — install the locked dependencies into /app/.venv
 # ─────────────────────────────────────────────────────────────────────────────
 FROM python:3.11-slim AS builder
 
-WORKDIR /build
+COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /uvx /bin/
 
-# System deps for PDF processing
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    poppler-utils \
-    tesseract-ocr \
-    tesseract-ocr-eng \
-    libmagic1 \
-    gcc \
-    g++ \
-    git \
-    curl \
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_PROJECT_ENVIRONMENT=/app/.venv
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
-RUN pip install --no-cache-dir poetry==1.8.3
-RUN poetry config virtualenvs.create false
+# Extras for the default configuration: API server, Qdrant vector store, unstructured
+# hi_res PDF parsing, and local models for the cross-encoder reranker / local embedder.
+# Installed strictly from uv.lock (--frozen); there is no fallback install path.
+ARG EXTRAS="--extra api --extra qdrant --extra parsing --extra local-models"
 
-COPY pyproject.toml poetry.lock* ./
-RUN poetry install --no-interaction --no-ansi --only main,api --no-root || \
-    pip install --no-cache-dir \
-        pydantic>=2.0 pydantic-settings>=2.0 \
-        structlog fastapi uvicorn httpx \
-        typer rich unstructured pypdf \
-        openai numpy pandas tqdm
+COPY pyproject.toml uv.lock README.md ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --no-install-project ${EXTRAS}
+
+COPY src/ ./src/
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --no-editable ${EXTRAS}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -41,39 +41,38 @@ RUN groupadd --gid 1001 raguser && \
 
 WORKDIR /app
 
-# Copy system libs for PDF processing
+# PDF processing: poppler (page images), tesseract (OCR for hi_res), libmagic (file
+# types), libgl/glib (OpenCV, used by the layout model).
 RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     tesseract-ocr \
+    tesseract-ocr-eng \
     libmagic1 \
+    libgl1 \
+    libglib2.0-0 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
-
-# Copy application source
-COPY --chown=raguser:raguser src/ ./src/
+COPY --from=builder /app/.venv /app/.venv
 COPY --chown=raguser:raguser evals/ ./evals/
-COPY --chown=raguser:raguser pyproject.toml ./
 
-# Create data directories
-RUN mkdir -p /app/data/vectorstore /app/audit_logs /app/logs && \
-    chown -R raguser:raguser /app/data /app/audit_logs /app/logs
+# Data directories and the model cache (Hugging Face downloads on first use).
+RUN mkdir -p /app/data /app/audit_logs /app/logs /app/.cache/huggingface && \
+    chown -R raguser:raguser /app/data /app/audit_logs /app/logs /app/.cache
 
 USER raguser
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/healthz || exit 1
 
 EXPOSE 8000 8001
 
-ENV PYTHONPATH=/app/src \
+ENV PATH="/app/.venv/bin:${PATH}" \
+    HF_HOME=/app/.cache/huggingface \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     ENVIRONMENT=production
 
+# One worker: BM25 index, semantic cache and metrics server are per process today.
 CMD ["uvicorn", "filing_qa.api.app:create_app", \
-     "--factory", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+     "--factory", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

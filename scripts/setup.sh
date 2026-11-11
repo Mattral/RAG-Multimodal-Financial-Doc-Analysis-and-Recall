@@ -24,26 +24,14 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
     brew install poppler tesseract || true
 fi
 
-# ── 2. Python virtual environment ────────────────────────────────────────────
-echo "▸ Creating Python virtual environment (.venv)..."
-$PYTHON -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip setuptools wheel --quiet
-
-# ── 3. Install Python dependencies ───────────────────────────────────────────
-echo "▸ Installing Python dependencies..."
-if [ -f pyproject.toml ] && which poetry >/dev/null 2>&1; then
-    poetry install --no-interaction --extras "all"
-else
-    pip install -e ".[all]" --quiet 2>/dev/null || \
-    pip install --quiet \
-        "pydantic>=2.7" "pydantic-settings>=2.3" structlog \
-        "fastapi>=0.111" "uvicorn[standard]" httpx \
-        "typer[all]" rich \
-        unstructured pypdf "openai>=1.30" numpy \
-        "prometheus-client>=0.20" pyyaml tqdm pandas psutil \
-        redis pytest pytest-asyncio pytest-cov
+# ── 2-3. Python environment and dependencies (from uv.lock) ──────────────────
+echo "▸ Installing Python dependencies from uv.lock..."
+if ! command -v uv >/dev/null 2>&1; then
+    echo "uv is required: https://docs.astral.sh/uv/getting-started/installation/"
+    exit 1
 fi
+uv sync --frozen --all-extras --python 3.11
+source .venv/bin/activate
 
 # ── 4. Environment file ───────────────────────────────────────────────────────
 if [ ! -f .env ]; then
