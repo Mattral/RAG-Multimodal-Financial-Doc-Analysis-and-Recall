@@ -350,12 +350,16 @@ async def test_pow_rejections(code, fragment):
 async def test_builtin_argument_probes_fail_fast(code, fragment):
     import time
 
-    start = time.perf_counter()
-    result = await PoTExecutor(timeout_seconds=5).execute_code(code)
-    elapsed = time.perf_counter() - start
-    assert not result.success
-    assert fragment in result.error
-    assert elapsed < 0.010, f"took {elapsed * 1000:.1f} ms"
+    # Best of five: a real stall takes seconds to minutes on every run, while a shared CI
+    # runner can delay any single run by tens of milliseconds.
+    timings = []
+    for _ in range(5):
+        start = time.perf_counter()
+        result = await PoTExecutor(timeout_seconds=5).execute_code(code)
+        timings.append(time.perf_counter() - start)
+        assert not result.success
+        assert fragment in result.error
+    assert min(timings) < 0.010, f"fastest of 5 took {min(timings) * 1000:.1f} ms"
 
 
 @pytest.mark.asyncio
