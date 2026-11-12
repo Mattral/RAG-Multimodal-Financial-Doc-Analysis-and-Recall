@@ -41,9 +41,13 @@ def event_loop_policy():
 
 # ── Config reset between tests ─────────────────────────────────────────────────
 @pytest.fixture(autouse=True)
-def reset_config():
+def reset_config(tmp_path, monkeypatch):
     from filing_qa.config import reset_config as _reset
 
+    # Files the pipeline writes go to this test's tmp dir, never the repo: a document
+    # registry shared across runs made ingest skip "unchanged" documents in later tests.
+    monkeypatch.setenv("DOC_REGISTRY_PATH", str(tmp_path / "doc_versions.json"))
+    monkeypatch.setenv("SECURITY_CONFIG__AUDIT_LOG_PATH", str(tmp_path / "audit_logs"))
     _reset()
     yield
     _reset()

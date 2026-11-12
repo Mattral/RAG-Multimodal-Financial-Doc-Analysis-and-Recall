@@ -15,6 +15,7 @@
 | `VECTOR_STORE_CONFIG__QDRANT_API_KEY` | — | Qdrant API key, if the server requires one |
 | `PDF_PARSING_CONFIG__UNSTRUCTURED_STRATEGY` | `hi_res` | `hi_res` (layout model + OCR, needed for tables) \| `fast` (text layer only) \| `auto` |
 | `PDF_PARSING_CONFIG__FALLBACK_PARSER` | `pypdf` | Parser used when the primary parser fails on a document: `pypdf` (text layer, one element per page) or `none` (the document fails). Each fallback logs `pdf_parser_fallback` (warning, with the exception) and is recorded in the ingest result's `parsers` map and in `rag_documents_parsed_total{parser,fallback_from}` |
+| `DOC_REGISTRY_PATH` | `./data/doc_versions.json` | Document version registry used to skip unchanged documents on re-ingest |
 | `RETRIEVER_CONFIG__STRATEGY` | `hybrid` | `dense\|hybrid\|graph_augmented` (`graph_augmented` needs `ENABLE_KNOWLEDGE_GRAPH=true`) |
 | `ENABLE_KNOWLEDGE_GRAPH` | `false` | LLM entity extraction at ingest + graph-augmented retrieval (in-memory graph) |
 | `RETRIEVER_CONFIG__GRAPH_MAX_HOPS` | `1` | Graph traversal depth from query entities (0–3) |

@@ -242,6 +242,8 @@ class Config(BaseSettings):
     batch_size: int = Field(10, ge=1)
     num_workers: int = Field(4, ge=1)
     query_mode: Literal["simple", "hybrid", "agentic"] = "hybrid"
+    # Document version registry (delta re-ingest). In the image this is /app/data/...
+    doc_registry_path: str = "./data/doc_versions.json"
 
     # Environment
     environment: Literal["development", "testing", "staging", "production"] = "development"
