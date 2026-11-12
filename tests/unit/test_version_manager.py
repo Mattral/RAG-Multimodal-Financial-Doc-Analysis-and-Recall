@@ -146,3 +146,15 @@ class TestDocumentVersionManager:
         assert restored.version == dv.version
         assert restored.content_hash == dv.content_hash
         assert restored.page_count == 10
+
+
+def test_default_registry_path_comes_from_config(tmp_path, monkeypatch):
+    from filing_qa.config import reset_config
+
+    path = tmp_path / "reg" / "versions.json"
+    monkeypatch.setenv("DOC_REGISTRY_PATH", str(path))
+    reset_config()
+    manager = DocumentVersionManager()
+    manager.register("/docs/a.pdf", "content-1", "default")
+    assert path.exists()
+    reset_config()

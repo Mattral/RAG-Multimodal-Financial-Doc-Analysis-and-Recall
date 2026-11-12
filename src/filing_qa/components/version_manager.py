@@ -102,7 +102,11 @@ class DocumentVersionManager:
     The interface is identical — only the storage backend changes.
     """
 
-    def __init__(self, registry_path: str = "./data/doc_versions.json") -> None:
+    def __init__(self, registry_path: Optional[str] = None) -> None:
+        if registry_path is None:
+            from filing_qa.config import get_config
+
+            registry_path = get_config().doc_registry_path
         self._path = Path(registry_path)
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._registry: Dict[str, List[Dict]] = self._load()
